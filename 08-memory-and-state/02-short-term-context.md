@@ -1,82 +1,83 @@
-# Short-Term Context Management
+# 短期上下文管理
 
-Short-term context (L1 Memory) is the high-speed interface where reasoning happens. Managing it well is no longer about "message lists" but about **KV Cache Optimization** and **Dynamic Context Allocation**.
+短期上下文（L1 記憶）是發生推理的高速介面。良好管理它已不再僅關於「訊息列表」，而是關於**KV Cache 優化**與**動態上下文分配**。
 
-## Table of Contents
+## 目錄
 
-- [The Context Lifecycle](#lifecycle)
-- [KV Cache Tiling and PagedAttention](#paged-attention)
-- [Prefix Caching (System Prompt Preservation)](#prefix-caching)
-- [Sliding Windows vs. Summarization](#sliding-vs-summary)
-- [Contextual Compression (Selective Dropping)](#compression)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Context Lifecycle
-
-Context goes through three stages:
-1. **Intake**: User query + recent history + system instructions.
-2. **Processing**: The GPU computes the KV cache for the new tokens.
-3. **Eviction**: Removing old tokens to make room for new ones once the limit is reached.
+- [上下文生命週期](#lifecycle)
+- [KV Cache 分塊與 PagedAttention](#paged-attention)
+- [前綴快取（系統提示保留）](#prefix-caching)
+- [滑動視窗 vs. 摘要](#sliding-vs-summary)
+- [上下文壓縮（選擇性丟棄）](#compression)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## KV Cache Tiling
+## 上下文生命週期
 
-Modern inference engines (vLLM, TensorRT-LLM) use **PagedAttention**.
-- **Idea**: Instead of allocating a contiguous block of GPU memory for the context, memory is broken into **Blocks** (pages).
-- **Efficiency**: Reduces memory fragmentation by **60-80%**, allowing for significantly larger batch sizes and longer context windows on the same hardware.
-
----
-
-## Prefix Caching
-
-This is the **Holy Grail of Latency** for any production LLM stack.
-- **The Problem**: Every time an agent calls an LLM, it sends the same 2,000-token System Prompt + 50 Tool Schemas. This wastes compute.
-- **The Solution**: **Persistent Prefix Caching**. The server keeps the KV cache for the "Static" part of the prompt (the prefix) in memory.
-- **Result**: You only pay for (and wait for) the compute on the *new* part of the message.
+上下文經歷三個階段：
+1. **攝入**：使用者查詢 + 近期歷史 + 系統指令。
+2. **處理**：GPU 為新 tokens 計算 KV cache。
+3. **驅逐**：一旦達到限制，移除舊 tokens 為新的騰出空間。
 
 ---
 
-## Sliding Windows vs. Summarization
+## KV Cache 分塊
 
-| Method | Mechanics | Pro | Con |
-|--------|-----------|-----|-----|
-| **Sliding Window** | Keep last N tokens exactly. | High fidelity for recent. | "Dory" effect (forgets start). |
-| **Summarization** | Compress old turns into text. | Preserves "Key Facts". | Loses nuance/formatting. |
-| **Hybrid** | Keep last 10 turns + 1 summary. | Best of both worlds. | Slightly higher complexity. |
+現代推理引擎（vLLM、TensorRT-LLM）使用**PagedAttention**。
+- **想法**：不再為上下文分配連續的 GPU 記憶體區塊，記憶被分成**區塊**（頁面）。
+- **效率**：將記憶碎片減少 **60-80%**，在相同硬體上實現顯著更大的批量大小與更長的上下文視窗。
 
 ---
 
-## Contextual Compression
+## 前綴快取
 
-Current frontier models support **Prompt Hardening**.
-- **Selective Dropping**: Automatically stripping out irrelevant "Thought" blocks from previous turns to save space.
-- **Token Pruning**: Using a smaller model to rewrite a long user message into a 50% shorter, equivalent prompt before sending it to the "Reasoning" model.
-
----
-
-## Interview Questions
-
-### Q: What is the difference between "Model Context Window" and "Application Context Window"?
-
-**Strong answer:**
-The **Model Context Window** is the hard limit defined by the architecture (e.g., 128K for GPT-4o). The **Application Context Window** is a configuration set by the engineer (e.g., 16K limit) to manage **Latency and Cost**. In production, we rarely use the full model window for every turn because attention overhead increases with context size, leading to slower generation. We use a **Buffer Zone** to leave space for the model's new response.
-
-### Q: How does "Prefix Caching" change how you design System Prompts?
-
-**Strong answer:**
-It forces me to move **Static content to the front** and **Dynamic content to the back**. Early-LLM patterns often put the user's name or date at the very top. That breaks the prefix cache. I put "Immutable Rules" and "Tool Schemas" at the beginning and the "User Context" (which changes every turn) at the end. This ensures the first 5,000 tokens are identical across all users, maximizing cache hits on the inference server.
+這是任何生產 LLM 堆疊的**延遲聖杯**。
+- **問題**：每次代理呼叫 LLM 時，都會發送相同的 2,000-token 系統提示 + 50 個工具結構描述。這浪費了計算。
+- **解決方案**：**持久前綴快取**。伺服器將「靜態」部分（首碼）的 KV cache 保留在記憶體中。
+- **結果**：你只需為訊息中*新的*部分支付（並等待）計算。
 
 ---
 
-## References
-- vLLM Team. "PagedAttention: Software-Defined Memory for LLM Serving" (2024/2025)
-- NVIDIA. "Optimizing Inference with TensorRT-LLM" (2025)
-- Anthropic. "Prompt Caching: Scale while reducing costs" (2024/2025)
+## 滑動視窗 vs. 摘要
+
+| 方法 | 機制 | 優點 | 缺點 |
+|------|------|------|------|
+| **滑動視窗** | 完全保留最後 N 個 tokens。 | 最近的高保真度。 | 「多莉」效應（忘記開頭）。 |
+| **摘要** | 將舊回合壓縮成文字。 | 保留「關鍵事實」。 | 失去細微差別/格式。 |
+| **混合** | 保留最後 10 回合 + 1 個摘要。 | 兩全其美。 | 稍微更高的複雜度。 |
 
 ---
 
-*Next: [Long-Term Memory](03-long-term-memory.md)*
+## 上下文壓縮
+
+目前前沿模型支援**提示強化**。
+- **選擇性丟棄**：自動剝離不相關的「思考」區塊以節省空間。
+- **Token 修剪**：使用較小的模型將長使用者訊息重寫為縮短 50% 的等效提示，然後再發送給「推理」模型。
+
+---
+
+## 面試問題
+
+### Q：「模型上下文視窗」與「應用程式上下文視窗」的區別是什麼？
+
+**理想回答：**
+**模型上下文視窗**是由架構定義的硬限制（例如 GPT-4o 為 128K）。**應用程式上下文視窗**是由工程師設定的配置（例如 16K 限制），以管理**延遲與成本**。在生產中，我們很少為每個回合使用完整模型視窗，因為上下文大小會增加注意力開銷，導致生成速度變慢。我們使用**緩衝區**為模型的新回覆留出空間。
+
+### Q：「前綴快取」如何改變你設計系統提示的方式？
+
+**理想回答：**
+它迫使我將**靜態內容放在前面**、**動態內容放在後面**。早期 LLM 模式常把使用者的名字或日期放在最頂部。這會破壞前綴快取。我將「不可變規則」與「工具結構描述」放在開頭，將「使用者上下文」（每回合都會變化）放在末尾。這確保了所有使用者的前 5,000 個 tokens 是相同的，最大化了推理伺服器上的快取命中。
+
+---
+
+## 參考文獻
+
+- vLLM 團隊。《PagedAttention：LLM 服務的軟體定義記憶》（2024/2025）
+- NVIDIA。《使用 TensorRT-LLM 優化推理》（2025）
+- Anthropic。《提示快取：規模化同時降低成本》（2024/2025）
+
+---
+
+*下一篇：[長期記憶](03-long-term-memory.md)*
