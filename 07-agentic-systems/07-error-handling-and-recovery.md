@@ -1,4 +1,4 @@
-# 錯誤處理與恢復
+# 錯誤處理與恢復（Error Handling and Recovery）
 
 代理以非確定性方式失敗。錯誤處理已從「Try-Catch 區塊」演進至**代理自我修正（Agent Self-Correction）**與**有狀態回滾（Stateful Rollback）**，LangGraph 與 Microsoft Agent Framework 等框架提供原生檢查點/恢復原語。
 
