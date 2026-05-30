@@ -1,294 +1,293 @@
-# Model Taxonomy
+# 模型分類學（Model Taxonomy）
 
-This chapter provides a comprehensive guide to the model landscape as of **May 2026**, covering model families, capabilities, and selection criteria for production systems.
+本章提供截至 **2026 年 5 月** 的模型全景指南，涵蓋模型家族、能力與生產系統選型標準。
 
-> **Last verified: May 29, 2026.** The model landscape evolves rapidly. Always cross-check with provider pricing pages and release notes.
+> **最後驗證日期：2026 年 5 月 29 日。** 模型全景變化迅速，請務必交叉查核供應商定價頁面與版本說明。
 >
-> **May 2026 - what's new since the April refresh:** Anthropic Claude Opus 4.8 (May 28, same $5/$25 price as Opus 4.7; Dynamic Workflows research preview with hundreds of parallel subagents; fast mode at $10/$50 is 3x cheaper than the Opus 4.7 fast mode); OpenAI GPT-5.5 (April 23) and GPT-5.5 Instant (May 5, default in ChatGPT); Claude Opus 4.7 (April 16, GA on Bedrock/Vertex/Foundry); Claude Mythos Preview (restricted; Project Glasswing partners only); Google Gemma 4 (April 2, Apache 2.0) and Gemini 3.2 Flash (quiet rollout May 5); DeepSeek V4 Pro and V4 Flash (April 24; 75% V4 Pro discount made **permanent** May 22, new list price $0.435/$0.87 per 1M from June 1); Moonshot Kimi K2.6 (April 20, 1T MoE / 32B active); Alibaba Qwen 3.6 Plus / 3.6-35B-A3B / 3.6 Max-Preview; Mistral Medium 3.5 (April 29, unified chat/reasoning/coding/vision); Meta Muse Spark (April 8, first closed-weight Meta model); Llama 4 Behemoth release paused through fall 2026 amid capability concerns. SWE-bench Verified leaders: Claude Mythos Preview 93.9%, GPT-5.5 88.7%, Claude Opus 4.8 88.6%, Claude Opus 4.7 87.6%; ARC-AGI-2 leader: GPT-5.5 at 85.0%.
+> **2026 年 5 月——自四月更新以來的新動態：** Anthropic Claude Opus 4.8（5 月 28 日，與 Opus 4.7 定價相同 $5/$25；Dynamic Workflows 研究預覽，支援數百個平行子代理；fast mode $10/$50，比 Opus 4.7 fast mode 便宜 3 倍）；OpenAI GPT-5.5（4 月 23 日）與 GPT-5.5 Instant（5 月 5 日，ChatGPT 預設）；Claude Opus 4.7（4 月 16 日，GA 版本於 Bedrock/Vertex/Foundry）；Claude Mythos Preview（受限，僅限 Project Glasswing 合作夥伴）；Google Gemma 4（4 月 2 日，Apache 2.0）與 Gemini 3.2 Flash（5 月 5 日低調推出）；DeepSeek V4 Pro 與 V4 Flash（4 月 24 日；75% V4 Pro 折扣於 5 月 22 日永久化，新定價 $0.435/$0.87/百萬 token，6 月 1 日起生效）；Moonshot Kimi K2.6（4 月 20 日，1T MoE / 32B 活躍參數）；Alibaba Qwen 3.6 Plus / 3.6-35B-A3B / 3.6 Max-Preview；Mistral Medium 3.5（4 月 29 日，統一 chat/reasoning/coding/vision）；Meta Muse Spark（4 月 8 日，首個封閉權重的 Meta 模型）；Llama 4 Behemoth 因能力疑慮暂停發布至 2026 年秋季。SWE-bench Verified 排行榜：Claude Mythos Preview 93.9%、GPT-5.5 88.7%、Claude Opus 4.8 88.6%、Claude Opus 4.7 87.6%；ARC-AGI-2 榜首：GPT-5.5 達 85.0%。
 
-## Table of Contents
+## 目錄
 
-- [Model Categories](#model-categories)
-- [Frontier Models (May 2026)](#frontier-models)
-- [Reasoning Models](#reasoning-models)
-- [Open Source Models](#open-source-models)
-- [Specialized Models](#specialized-models)
-- [Embedding Models](#embedding-models)
-- [Model Selection Framework & Semantic Routing](#model-selection-framework)
-- [Sovereign AI & Data Residency](#sovereign-ai-and-data-residency)
-- [Capability Comparison](#capability-comparison)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## Model Categories
-
-### By Capability Level (April 2026 Reality)
-
-| Tier | Characteristics | Examples | Use Case |
-|------|-----------------|----------|----------|
-| **Frontier** | State-of-the-art reasoning, agentic mastery | Claude Opus 4.8, GPT-5.5, Gemini 3.1 Pro, Grok 4.3 | Complex reasoning, coding, production agents |
-| **Fast/Efficient** | Sub-200ms, cost-optimized | Gemini 3.1 Flash, GPT-5.5-mini, Claude Haiku 4.5, DeepSeek V4 Flash | High-volume streaming, UI, real-time |
-| **Battle-Tested** | Mature, widely-deployed, stable | Claude Sonnet 4.6, GPT-5.5 Instant, Gemini 3.1 Pro | Enterprise production workloads |
-| **Small/Edge** | Private, edge, specialized | Llama 4 Scout, Mistral Small 4, Phi-4 | Local privacy, on-device, MoE-efficient |
-| **Reasoning-Heavy** | Extended internal CoT | Claude Opus 4.8 (thinking), GPT-5.5 reasoning, Gemini 3.1 Pro Deep Think, DeepSeek-R1 | Math, code debug, multi-step logic |
-
-### By Reasoning Mode (2025–2026)
-
-| Mode | Capability | Models | Use Case |
-|------|------------|--------|----------|
-| **Standard** | Fast, intuitive response | GPT-5.5-mini, Claude Sonnet 4.6 | Chat, simple extraction |
-| **Extended Thinking** | Internal scratchpad CoT before output | Claude Opus 4.8, GPT-5.5 reasoning, DeepSeek-R1 | Math, code debugging, planning |
-| **Hybrid** | User-controllable reasoning depth | Claude Opus 4.8, GPT-5.5 | Variable complexity tasks |
+- [模型分類](#模型分類)
+- [前沿模型（2026 年 5 月）](#前沿模型)
+- [推理模型](#推理模型)
+- [開源模型](#開源模型)
+- [專業模型](#專業模型)
+- [嵌入模型](#嵌入模型)
+- [模型選擇框架與語義路由](#模型選擇框架)
+- [主權 AI 與資料留存](#主權ai與資料留存)
+- [能力比較](#能力比較)
+- [面試問題](#面試問題)
+- [參考資料](#參考資料)
 
 ---
 
-## Frontier Models (May 2026)
+## 模型分類
 
-### Claude Opus 4.8 (Anthropic) - May 2026 NEW
+### 按能力等級（2026 年 4 月實況）
 
-| Attribute | Value |
+| 等級 | 特徵 | 範例 | 使用場景 |
+|------|------|------|----------|
+| **前沿（Frontier）** | 最先進推理、代理能力 | Claude Opus 4.8, GPT-5.5, Gemini 3.1 Pro, Grok 4.3 | 複雜推理、編碼、生產代理 |
+| **快速/高效（Fast/Efficient）** | 低於 200ms、成本優化 | Gemini 3.1 Flash, GPT-5.5-mini, Claude Haiku 4.5, DeepSeek V4 Flash | 高流量串流、UI、即時 |
+| **經驗驗證（Battle-Tested）** | 成熟、廣泛部署、穩定 | Claude Sonnet 4.6, GPT-5.5 Instant, Gemini 3.1 Pro | 企業生產工作負載 |
+| **小型/邊緣（Small/Edge）** | 私有、邊緣、專業化 | Llama 4 Scout, Mistral Small 4, Phi-4 | 本地隱私、設備端、MoE 高效 |
+| **推理密集（Reasoning-Heavy）** | 擴展內部思維鏈 | Claude Opus 4.8 (thinking), GPT-5.5 reasoning, Gemini 3.1 Pro Deep Think, DeepSeek-R1 | 數學、代碼偵錯、多步邏輯 |
+
+### 按推理模式（2025–2026）
+
+| 模式 | 能力 | 模型 | 使用場景 |
+|------|------|------|----------|
+| **標準（Standard）** | 快速、直覺回應 | GPT-5.5-mini, Claude Sonnet 4.6 | 聊天、簡單擷取 |
+| **擴展思維（Extended Thinking）** | 輸出前先進行內部草稿紙思維鏈 | Claude Opus 4.8, GPT-5.5 reasoning, DeepSeek-R1 | 數學、代碼偵錯、規劃 |
+| **混合（Hybrid）** | 使用者可控推理深度 | Claude Opus 4.8, GPT-5.5 | 可變複雜度任務 |
+
+---
+
+## 前沿模型（2026 年 5 月）
+
+### Claude Opus 4.8（Anthropic）— 2026 年 5 月新品
+
+| 屬性 | 數值 |
 |-----------|-------|
-| Context Window | 1M tokens (standard pricing across the full window) |
-| Input Cost | $5.00 / 1M tokens (same as 4.7) |
-| Output Cost | $25.00 / 1M tokens (same as 4.7) |
-| Cache: 5m write | $6.25 / 1M tokens |
-| Cache: 1h write | $10.00 / 1M tokens |
-| Cache: hit / refresh | $0.50 / 1M tokens |
-| Batch API | $2.50 / $12.50 per 1M (50% discount) |
-| Fast mode (research preview) | $10 / $50 per 1M (about 2.5x faster; 3x cheaper than the Opus 4.7 fast mode which was $30 / $150) |
-| Extended Thinking | Native, adaptive mode |
-| Multimodal | Text + Higher-resolution Vision |
+| 上下文窗口 | 1M token（全窗口統一計價） |
+| 輸入費用 | $5.00 / 百萬 token（與 4.7 相同） |
+| 輸出費用 | $25.00 / 百萬 token（與 4.7 相同） |
+| 快取：5 分鐘寫入 | $6.25 / 百萬 token |
+| 快取：1 小時寫入 | $10.00 / 百萬 token |
+| 快取：命中 / 刷新 | $0.50 / 百萬 token |
+| Batch API | $2.50 / $12.50 每百萬（五折） |
+| Fast mode（研究預覽） | $10 / $50 每百萬（約快 2.5 倍；比 Opus 4.7 fast mode 的 $30 / $150 便宜 3 倍） |
+| 擴展思維 | 原生、自適應模式 |
+| 多模態 | 文字 + 高解析度視覺 |
 | SWE-bench Verified | 88.6% |
-| SWE-Bench Pro | 69.2% (up from 64.3% on Opus 4.7) |
-| Terminal-Bench 2.1 | 74.6% (GPT-5.5 still leads at 78.2%) |
-| GDPval-AA | 1890 Elo (up from 1753 on Opus 4.7) |
+| SWE-Bench Pro | 69.2%（相較 Opus 4.7 的 64.3% 提升） |
+| Terminal-Bench 2.1 | 74.6%（GPT-5.5 以 78.2% 仍領先） |
+| GDPval-AA | 1890 Elo（相較 Opus 4.7 的 1753 提升） |
 | OSWorld-Verified | 82.3% |
 | Online-Mind2Web | 84% |
-| Released | May 28, 2026 (GA on Claude API, AWS Bedrock, Vertex AI) |
+| 發布日期 | 2026 年 5 月 28 日（GA，Claude API、AWS Bedrock、Vertex AI） |
 
-**Best for:** Long-running autonomous coding work in Claude Code, codebase-scale migrations, agentic workflows that need parallel subagents, and workloads where the alignment and honesty gains matter.
+**最佳用途：** 需要 Claude Code 長時間自主編碼工作、程式碼庫規模遷移、需要平行子代理的代理工作流程，以及對齊與誠實能力至關重要的工作負載。
 
-**Key features over Opus 4.7:**
-- **Dynamic Workflows** (research preview): Claude plans the work and runs hundreds of parallel subagents in a single Claude Code session, verifies their outputs, and reports back. Suited for codebase-scale migrations across hundreds of thousands of lines.
-- **Mid-task system messages**: The Messages API now accepts system messages mid-conversation, useful for steering long agent runs without ending the session.
-- **Optional fast mode** at roughly 2.5x speed for $10 / $50 per 1M, priced 3x lower than the Opus 4.7 fast mode.
-- **Effort-control toggle** in `claude.ai` and Cowork lets users tune reasoning depth per turn.
-- **Expanded Claude Code rate limits**.
+**相較 Opus 4.7 的主要功能：**
+- **Dynamic Workflows**（研究預覽）：Claude 規劃工作並在單一 Claude Code 對話中執行數百個平行子代理，驗證其輸出並回報。適合跨越數十萬行程式碼的程式碼庫規模遷移。
+- **任務中系統訊息**：Messages API 現在支援對話中途接受系統訊息，不用結束工作階段即可引導長時間代理執行。
+- **可選 fast mode**：約 2.5 倍速度，$10 / $50 每百萬 token，定價比 Opus 4.7 fast mode 低 3 倍。
+- **Claude Code 速率限制擴展。**
 
-**Considerations:** Tokenizer is the same one introduced in Opus 4.7 (up to 35% more tokens than the pre-4.7 tokenizer for the same fixed text). GPT-5.5 still holds the SWE-Bench Verified leaderboard at 88.7% and leads Terminal-Bench 2.1 at 78.2%. GPQA Diamond slipped 0.6 pts versus Opus 4.7. Anthropic's tokenizer change means token counts and bills for the same text are not directly comparable to pre-4.7 models. There is **no Claude Sonnet 4.8 release** as of May 29, 2026; Sonnet 4.6 remains the production workhorse.
+**注意事項：** Tokenizer 與 Opus 4.7 相同（相同固定文字的 token 數量比 4.7 前的 tokenizer 多 35%）。GPT-5.5 仍以 88.7% 守住 SWE-Bench Verified 排行榜榜首，Terminal-Bench 2.1 亦以 78.2% 領先。GPQA Diamond 較 Opus 4.7 下滑 0.6 分。Anthropic 的 tokenizer 變更代表相同文字的 token 數量與帳單與 4.7 前模型不可直接比較。截至 2026 年 5 月 29 日，**沒有 Claude Sonnet 4.8 發布**；Sonnet 4.6 仍是生產主力。
 
-### Claude Opus 4.7 (Anthropic)
+### Claude Opus 4.7（Anthropic）
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Context Window | 1M tokens |
-| Max Output | 128K tokens |
-| Input Cost | $5.00 / 1M tokens (same as 4.6) |
-| Output Cost | $25.00 / 1M tokens (same as 4.6) |
-| Extended Thinking | Native, Adaptive mode |
-| Multimodal | Text + Higher-resolution Vision |
-| SWE-bench Verified (Adaptive) | 87.6% (May 13, 2026) |
-| Released | April 16, 2026 (GA on API, Bedrock, Vertex, Microsoft Foundry) |
+| 上下文窗口 | 1M token |
+| 最大輸出 | 128K token |
+| 輸入費用 | $5.00 / 百萬 token（與 4.6 相同） |
+| 輸出費用 | $25.00 / 百萬 token（與 4.6 相同） |
+| 擴展思維 | 原生、自適應模式 |
+| 多模態 | 文字 + 高解析度視覺 |
+| SWE-bench Verified（自適應） | 87.6%（2026 年 5 月 13 日） |
+| 發布日期 | 2026 年 4 月 16 日（API、Bedrock、Vertex、Microsoft Foundry GA） |
 
-**Best for:** Autonomous coding agents (powers Claude Code), multi-file refactors, complex reasoning. Same pricing as 4.6 - straight upgrade for most workloads.
-**Considerations:** Use Sonnet 4.6 for cost-sensitive workloads; Opus 4.7 mainly for tasks requiring peak coding/agentic quality.
+**最佳用途：** 自主編碼代理（為 Claude Code 提供動力）、多檔案重構、複雜推理。定價與 4.6 完全相同——對多數工作負載而言是直接升級。
+**注意事項：** 對成本敏感的工作負載使用 Sonnet 4.6；Opus 4.7 主要用於需要頂尖編碼/代理品質的任務。
 
-### Claude Mythos Preview (Anthropic) - RESTRICTED ACCESS
+### Claude Mythos Preview（Anthropic）— 受限取用
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Status | Unreleased - Project Glasswing partners only (~11 orgs: AWS, Apple, Cisco, Google, Microsoft, NVIDIA, Palo Alto, etc.) |
-| Reason for restriction | Dual-use cybersecurity capabilities |
-| SWE-bench Verified | 93.9% (May 13, 2026 - current SOTA) |
-| Released | April 7, 2026 (restricted partner preview) |
+| 狀態 | 未發布——僅限 Project Glasswing 合作夥伴（約 11 個組織：AWS、Apple、Cisco、Google、Microsoft、NVIDIA、Palo Alto 等） |
+| 受限原因 | 雙用途網路安全能力 |
+| SWE-bench Verified | 93.9%（2026 年 5 月 13 日——目前 SOTA） |
+| 發布日期 | 2026 年 4 月 7 日（受限合作夥伴預覽） |
 
-**Best for:** N/A in production. Tracked here because it sets the public SOTA on SWE-bench Verified and signals where the frontier sits internally.
+**最佳用途：** 生產環境中無此用途。納入追蹤是因為其在 SWE-bench Verified 上設定了公開 SOTA，並標示前沿模型內部位置。
 
-### Claude Opus 4.6 (Anthropic)
+### Claude Opus 4.6（Anthropic）
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Context Window | 1M tokens |
-| Max Output | 128K tokens |
-| Input Cost | $5.00 / 1M tokens |
-| Output Cost | $25.00 / 1M tokens |
-| Extended Thinking | Native adaptive thinking (configurable budget_tokens) |
-| Multimodal | Text + Vision |
-| Highlights | Most capable Anthropic model; exceptional coding and reasoning |
-| Released | February 2026 |
+| 上下文窗口 | 1M token |
+| 最大輸出 | 128K token |
+| 輸入費用 | $5.00 / 百萬 token |
+| 輸出費用 | $25.00 / 百萬 token |
+| 擴展思維 | 原生自適應思維（可設定 budget_tokens） |
+| 多模態 | 文字 + 視覺 |
+| 特點 | 最強大的 Anthropic 模型；頂尖編碼與推理能力 |
+| 發布日期 | 2026 年 2 月 |
 
-**Best for:** Most complex reasoning, autonomous software engineering, agentic workflows.
-**Considerations:** Premium pricing; use Sonnet 4.6 for tasks that don't need peak capability.
+**最佳用途：** 最複雜推理、自主軟體工程、代理工作流程。
+**注意事項：** 高級定價；不需要頂尖能力的任務使用 Sonnet 4.6。
 
-### Claude Sonnet 4.6 (Anthropic)
+### Claude Sonnet 4.6（Anthropic）
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Context Window | 1M tokens |
-| Input Cost | $3.00 / 1M tokens |
-| Output Cost | $15.00 / 1M tokens |
-| Extended Thinking | Supported |
-| Multimodal | Text + Vision |
-| Highlights | Handles tasks previously requiring Opus tier; best cost/quality balance |
-| Released | February 2026 |
+| 上下文窗口 | 1M token |
+| 輸入費用 | $3.00 / 百萬 token |
+| 輸出費用 | $15.00 / 百萬 token |
+| 擴展思維 | 支援 |
+| 多模態 | 文字 + 視覺 |
+| 特點 | 處理過去需要 Opus 等級的任務；最高性價比 |
+| 發布日期 | 2026 年 2 月 |
 
-**Best for:** Production coding agents (powers Claude Code), complex reasoning at scale.
-**Considerations:** Now covers most Opus-level tasks at lower cost. Strong default for most workloads.
+**最佳用途：** 生產編碼代理（為 Claude Code 提供動力）、大規模複雜推理。
+**注意事項：** 現在能以較低成本處理多數 Opus 等級任務。多數工作負載的預設選擇。
 
-### GPT-5.4 (OpenAI)
+### GPT-5.4（OpenAI）
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Context Window | 272K tokens (standard); extended available |
-| Input Cost | $2.50 / 1M tokens |
-| Output Cost | $15.00 / 1M tokens |
-| Multimodal | Text, Vision, native computer use |
-| Highlights | Built-in computer-use capabilities; 33% fewer factual errors vs GPT-5.2; combines coding + agentic strengths |
-| Released | March 2026 |
+| 上下文窗口 | 272K token（標準）；可擴展 |
+| 輸入費用 | $2.50 / 百萬 token |
+| 輸出費用 | $15.00 / 百萬 token |
+| 多模態 | 文字、視覺、原生電腦使用 |
+| 特點 | 內建電腦使用能力；相較 GPT-5.2 事實錯誤減少 33%；結合編碼 + 代理優勢 |
+| 發布日期 | 2026 年 3 月 |
 
-**Best for:** Agentic workflows with computer use, coding, professional tasks.
-**Considerations:** Long-context pricing doubles at 272K+ tokens.
+**最佳用途：** 具電腦使用的代理工作流程、編碼、專業任務。
+**注意事項：** 長上下文定價在 272K+ token 翻倍。
 
-### GPT-5.4-mini (OpenAI)
+### GPT-5.4-mini（OpenAI）
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Context Window | 272K tokens |
-| Input Cost | $0.75 / 1M tokens |
-| Output Cost | $4.50 / 1M tokens |
-| Highlights | Best cost/performance for high-volume GPT-5 tier workloads |
-| Released | March 2026 |
+| 上下文窗口 | 272K token |
+| 輸入費用 | $0.75 / 百萬 token |
+| 輸出費用 | $4.50 / 百萬 token |
+| 特點 | 高流量 GPT-5 等級工作負載的最佳性價比 |
+| 發布日期 | 2026 年 3 月 |
 
-**Best for:** High-volume API calls, cost-optimized reasoning, production chatbots.
+**最佳用途：** 高流量 API 呼叫、成本優化推理、生產聊天機器人。
 
-### GPT-5.4 Pro (OpenAI)
+### GPT-5.4 Pro（OpenAI）
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Context Window | 272K tokens |
-| Input Cost | $30.00 / 1M tokens |
-| Output Cost | $180.00 / 1M tokens |
-| Highlights | Maximum reasoning power; premium tier for hardest tasks |
-| Released | March 2026 |
+| 上下文窗口 | 272K token |
+| 輸入費用 | $30.00 / 百萬 token |
+| 輸出費用 | $180.00 / 百萬 token |
+| 特點 | 最大推理能力；最艱難任務的高級層級 |
+| 發布日期 | 2026 年 3 月 |
 
-**Best for:** Competition-level math, complex multi-step reasoning.
-**Considerations:** Very expensive; use standard GPT-5.4 or mini for volume.
+**最佳用途：** 競賽級數學、複雜多步推理。
+**注意事項：** 非常昂貴；大量使用場景用標準 GPT-5.4 或 mini。
 
-### GPT-5.5 (OpenAI) - May 2026 NEW
+### GPT-5.5（OpenAI）— 2026 年 5 月新品
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Context Window | 1M tokens |
-| Input Cost | $5.00 / 1M tokens |
-| Output Cost | $30.00 / 1M tokens |
-| Multimodal | Text, Image, Audio, Video |
-| ARC-AGI-2 | 85.0% (May 13, 2026 - leader) |
-| Released | April 23, 2026 |
+| 上下文窗口 | 1M token |
+| 輸入費用 | $5.00 / 百萬 token |
+| 輸出費用 | $30.00 / 百萬 token |
+| 多模態 | 文字、圖像、音訊、影片 |
+| ARC-AGI-2 | 85.0%（2026 年 5 月 13 日——榜首） |
+| 發布日期 | 2026 年 4 月 23 日 |
 
-**Best for:** Highest-quality multimodal workloads; current ARC-AGI-2 leader. Pitched as "new class of intelligence for real work" - replaces GPT-5.4 for top-tier reasoning + multimodal.
-**Considerations:** ~2× the input cost of GPT-5.4 ($2.50 → $5.00) and ~2× output ($15 → $30). Use GPT-5.5 Instant for chat workloads where the price isn't justified.
+**最佳用途：** 最高品質多模態工作負載；目前 ARC-AGI-2 榜首。定位為「為實際工作打造的新型智慧」——取代頂尖推理 + 多模態的 GPT-5.4。
+**注意事項：** 約 2 倍 GPT-5.4 的輸入成本（$2.50 → $5.00）與輸出成本（$15 → $30）。在價格不合理的聊天工作負載使用 GPT-5.5 Instant。
 
-### GPT-5.5 Instant (OpenAI) - May 2026 NEW
+### GPT-5.5 Instant（OpenAI）— 2026 年 5 月新品
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Status | Default in ChatGPT and `chat-latest` in API since May 5, 2026 |
-| Hallucination Reduction | 52.5% fewer on high-stakes prompts (medicine/law/finance) vs GPT-5.3 Instant |
-| AIME 2025 | 81.2% (up from 65.4% on GPT-5.3 Instant) |
-| Response Length | ~30% fewer words/lines than predecessor |
-| Released | May 5, 2026 |
+| 狀態 | 自 2026 年 5 月 5 日起為 ChatGPT 預設及 API 中 `chat-latest` |
+| 幻覺減少 | 高風險提示（醫學/法律/金融）較 GPT-5.3 Instant 減少 52.5% |
+| AIME 2025 | 81.2%（相較 GPT-5.3 Instant 的 65.4% 提升） |
+| 回應長度 | 約較前代少 30% 的字詞/行數 |
+| 發布日期 | 2026 年 5 月 5 日 |
 
-**Best for:** Default ChatGPT-equivalent workloads, instant chat, high-stakes domains where hallucination reduction matters.
-**Considerations:** Replaces GPT-5.3 Instant as the chat default. GPT-5.2-chat-latest and GPT-5.3-chat-latest deprecated May 8, 2026.
+**最佳用途：** 預設 ChatGPT 等效工作負載、即時聊天、幻覺減少很重要的領域。
+**注意事項：** 取代 GPT-5.3 Instant 作為聊天預設。GPT-5.2-chat-latest 與 GPT-5.3-chat-latest 於 2026 年 5 月 8 日停用。
 
-### GPT-Realtime-2, Translate, Whisper (OpenAI) - May 2026 NEW
+### GPT-Realtime-2、Translate、Whisper（OpenAI）— 2026 年 5 月新品
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Capability | Realtime voice with GPT-5-class reasoning |
-| Translate Coverage | 70+ input → 13 output languages |
-| Pricing | $32 / $64 per 1M audio tokens (input/output) |
-| Released | May 7, 2026 |
+| 能力 | 具 GPT-5 等級推理的即時語音 |
+| 翻譯覆蓋 | 70+ 輸入語言 → 13 輸出語言 |
+| 定價 | $32 / $64 每百萬 audio token（輸入/輸出） |
+| 發布日期 | 2026 年 5 月 7 日 |
 
-**Best for:** Real-time voice agents, multilingual translation, voice-first products. Realtime API Beta was removed May 12, 2026 - Realtime-2 is the supported path.
+**最佳用途：** 即時語音代理、多語言翻譯、語音優先產品。Realtime API Beta 於 2026 年 5 月 12 日移除——Realtime-2 是支援路徑。
 
-### Gemini 3.1 Pro (Google)
+### Gemini 3.1 Pro（Google）
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Context Window | 1M tokens |
-| Input Cost | $2.00 / 1M tokens (standard); $4.00 (200K+) |
-| Output Cost | $12.00 / 1M tokens (standard); $18.00 (200K+) |
-| Multimodal | Native: Text, Vision, Audio, Video |
-| Highlights | State-of-the-art Google reasoning; powerful agentic and coding capabilities |
-| Released | February 2026 |
+| 上下文窗口 | 1M token |
+| 輸入費用 | $2.00 / 百萬 token（標準）；$4.00（200K+） |
+| 輸出費用 | $12.00 / 百萬 token（標準）；$18.00（200K+） |
+| 多模態 | 原生：文字、視覺、音訊、影片 |
+| 特點 | 最先進的 Google 推理；強大代理與編碼能力 |
+| 發布日期 | 2026 年 2 月 |
 
-**Best for:** Complex reasoning, multimodal analysis, long-context workloads.
-**Considerations:** Replaced Gemini 3 Pro Preview. Gemini 2.5 Pro/Flash deprecated June 2026.
+**最佳用途：** 複雜推理、多模態分析、長上下文工作負載。
+**注意事項：** 取代 Gemini 3 Pro Preview。Gemini 2.5 Pro/Flash 於 2026 年 6 月停用。
 
-### Gemini 3.1 Flash (Google)
+### Gemini 3.1 Flash（Google）
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Context Window | 1M tokens |
-| Input Cost | $0.10 / 1M tokens |
-| Output Cost | $3.00 / 1M tokens |
-| Multimodal | Native: Text, Vision, Audio, Video |
-| Highlights | Fastest Google model; best price/performance for high-volume |
-| Released | March 2026 |
+| 上下文窗口 | 1M token |
+| 輸入費用 | $0.10 / 百萬 token |
+| 輸出費用 | $3.00 / 百萬 token |
+| 多模態 | 原生：文字、視覺、音訊、影片 |
+| 特點 | 最快的 Google 模型；最高性價比 |
+| 發布日期 | 2026 年 3 月 |
 
-**Best for:** Real-time multimodal apps, high-volume pipelines, long-context RAG.
+**最佳用途：** 即時多模態應用、高流量管線、長上下文 RAG。
 
-### Gemini 3.2 Flash (Google) - May 2026 NEW
+### Gemini 3.2 Flash（Google）— 2026 年 5 月新品
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Status | Quiet rollout in iOS Gemini app and Google AI Studio May 5, 2026 (no formal announcement yet) |
-| Released | May 5, 2026 |
+| 狀態 | 2026 年 5 月 5 日在 iOS Gemini 應用程式與 Google AI Studio 低調推出（尚無正式公告） |
+| 發布日期 | 2026 年 5 月 5 日 |
 
-**Best for:** Likely successor to 3.1 Flash for high-volume workloads. Treat as preview - pricing and full capability disclosure pending official launch.
+**最佳用途：** 可能是 3.1 Flash 的後續版本，適用於高流量工作負載。視為預覽——正式發布前定價與完整能力揭露待定。
 
-### Gemini Deep Research / Deep Research Max (Google) - May 2026 NEW
+### Gemini Deep Research / Deep Research Max（Google）— 2026 年 5 月新品
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Built on | Gemini 3.1 Pro |
-| Capabilities | MCP support; native chart/infographic generation; extended test-time compute; async background workflows |
-| Released | April 21, 2026 |
+| 基於 | Gemini 3.1 Pro |
+| 能力 | MCP 支援；原生圖表/資訊圖生成；擴展測試時間計算；非同步背景工作流程 |
+| 發布日期 | 2026 年 4 月 21 日 |
 
-**Best for:** Research agents, document synthesis, long-running async workflows. The MCP support makes it the first Google research-agent product with first-class tool integration.
+**最佳用途：** 研究代理、文件合成、長期非同步工作流程。MCP 支援使其成為首個具有一流工具整合的 Google 研究代理產品。
 
-### Gemini Robotics-ER 1.6 (Google DeepMind) - May 2026 NEW
+### Gemini Robotics-ER 1.6（Google DeepMind）— 2026 年 5 月新品
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Domain | Physical robotics, embodied reasoning |
-| New capability | Reading gauges/sight glasses |
-| Deployment | Boston Dynamics Spot |
-| Released | April 14, 2026 |
+| 領域 | 物理機器人、具身推理 |
+| 新能力 | 讀取儀表/視覺玻璃 |
+| 部署 | Boston Dynamics Spot |
+| 發布日期 | 2026 年 4 月 14 日 |
 
-**Best for:** Robotics applications requiring vision-language grounding for physical actions. Available via Gemini API and AI Studio.
+**最佳用途：** 需要視覺語言接地以進行實體動作的機器人應用。透過 Gemini API 與 AI Studio 提供。
 
-### Grok 4 (xAI)
+### Grok 4（xAI）
 
-| Attribute | Value |
+| 屬性 | 數值 |
 |-----------|-------|
-| Context Window | 256K tokens |
-| Input Cost | $3.00 / 1M tokens |
-| Output Cost | $15.00 / 1M tokens |
-| Highlights | Native tool use and real-time search; competitive reasoning |
-| Released | July 2025 (Grok 4.20 beta: February 2026) |
+| 上下文窗口 | 256K token |
+| 輸入費用 | $3.00 / 百萬 token |
+| 輸出費用 | $15.00 / 百萬 token |
+| 特點 | 原生工具使用與即時搜尋；具競爭力的推理 |
+| 發布日期 | 2025 年 7 月（Grok 4.20 beta：2026 年 2 月） |
 
-**Best for:** Live web research, reasoning-heavy tasks, real-time X/web integration.
-**Considerations:** Grok 4.1 Fast available at $0.20/$0.50 for high-volume.
+**最佳用途：** 即時網路研究、推理密集任務、即时 X/網路整合。
+**注意事項：** Grok 4.1 Fast 以 $0.20/$0.50 供高流量使用。
 
-### Model Comparison: Frontier Tier (May 2026)
+### 前沿層級模型比較（2026 年 5 月）
 
-| Model | Reasoning | Coding | Context | Agentic | Cost |
-|-------|-----------|--------|---------|---------|------|
-| Claude Mythos Preview (restricted) | ★★★★★ | ★★★★★ | ★★★★★ | ★★★★★ | n/a |
+| 模型 | 推理 | 編碼 | 上下文 | 代理 | 成本 |
+|-------|--------|--------|---------|---------|------|
+| Claude Mythos Preview（受限） | ★★★★★ | ★★★★★ | ★★★★★ | ★★★★★ | 不適用 |
 | Claude Opus 4.8 | ★★★★★ | ★★★★★ | ★★★★★ | ★★★★★ | $$$$ |
 | Claude Opus 4.7 | ★★★★★ | ★★★★★ | ★★★★★ | ★★★★★ | $$$$ |
 | GPT-5.5 | ★★★★★ | ★★★★★ | ★★★★★ | ★★★★★ | $$$$ |
@@ -301,355 +300,352 @@ This chapter provides a comprehensive guide to the model landscape as of **May 2
 | Gemini 3.1 Flash | ★★★ | ★★★ | ★★★★★ | ★★★ | $ |
 | GPT-5.5 Instant | ★★★★ | ★★★★ | ★★★★ | ★★★★ | $$ |
 
-### Production Heritage & Maturity
+### 生產沿襲與成熟度
 
-While frontier models lead on benchmarks, many enterprise systems rely on **battle-tested** models:
+前沿模型在基準測試領先，但許多企業系統依賴**經驗驗證**模型：
 
-| Model Family | Production Since | Maturity Note |
+| 模型家族 | 生產起始 | 成熟度備註 |
 |--------------|------------------|---------------|
-| **GPT-4o** | May 2024 | Most mature ecosystem; lowest latency variance; highest rate limits. |
-| **Claude 3.5 Sonnet / 3.7 Sonnet** | June 2024 | Gold standard for tool-use reliability and structured output. |
-| **Gemini 2.5 Pro** | March 2025 | Proven at scale; stable long-context. Being deprecated June 2026 in favor of 3.x. |
-| **o1 / o3** | Sept 2024 | Well-understood reasoning model failure modes; o3 superseded o1. |
+| **GPT-4o** | 2024 年 5 月 | 最成熟生態系統；最低延遲變異；最高速率限制。 |
+| **Claude 3.5 Sonnet / 3.7 Sonnet** | 2024 年 6 月 | 工具使用可靠性與結構化輸出黃金標準。 |
+| **Gemini 2.5 Pro** | 2025 年 3 月 | 規模驗證；穩定長上下文。2026 年 6 月以 3.x 取代而停用。 |
+| **o1 / o3** | 2024 年 9 月 | 推理模型失敗模式已充分理解；o3 已取代 o1。 |
 
-**Why stay on "older" frontier models?**
-1. **Consistency**: New models have "release-window" latency spikes and behavior shifts.
-2. **Cost Efficiency**: Previous generation is often 50-80% cheaper after a new release.
-3. **Guardrail Tuning**: Security and moderation layers are more refined.
+**為何留守「較舊」前沿模型？**
+1. **一致性**：新模型有「發布窗口」延遲峰值與行為偏移。
+2. **成本效率**：新版本發布後，前代通常降價 50-80%。
+3. **防護機制調校**：安全與審核層更精細。
 
 ---
 
-## Open Source Models
+## 開源模型
 
-### Llama 4 Family (Meta) -- NEW April 2026
+### Llama 4 家族（Meta）—— 2026 年 4 月新品
 
-| Model | Parameters | Context | Architecture | Notes |
+| 模型 | 參數 | 上下文 | 架構 | 備註 |
 |-------|------------|---------|--------------|-------|
-| Llama 4 Scout | 17B active / 16 experts (MoE) | 10M | Sparse MoE | Industry-leading 10M context; fits single H100; beats Gemma 3, Gemini 2.0 Flash-Lite |
-| Llama 4 Maverick | 17B active / 128 experts (MoE) | 1M | Sparse MoE | Beats GPT-4o and Gemini 2.0 Flash; comparable to DeepSeek V3 at half active params |
-| Llama 4 Behemoth | ~288B active (est.) | - | Dense MoE | Still training; outperforms GPT-4.5, Gemini 2.0 Pro on STEM benchmarks |
+| Llama 4 Scout | 17B 活躍 / 16 experts（MoE） | 10M | 稀疏 MoE | 業界領先 10M 上下文；單張 H100 可容納；在 Gemma 3、Gemini 2.0 Flash-Lite 上勝出 |
+| Llama 4 Maverick | 17B 活躍 / 128 experts（MoE） | 1M | 稀疏 MoE | 擊敗 GPT-4o 與 Gemini 2.0 Flash；與 DeepSeek V3 相當，活躍參數僅一半 |
+| Llama 4 Behemoth | 約 288B 活躍（估計） | - | 密集 MoE | 仍在訓練；在 STEM 基準擊敗 GPT-4.5、Gemini 2.0 Pro |
 
-**Strengths:**
-- First Llama generation with Mixture-of-Experts architecture
-- Natively multimodal from the ground up (text, image, video input)
-- Open weights on Hugging Face; available via Meta AI on WhatsApp, Messenger, Instagram
-- Scout's 10M token context window is industry-leading for open models
+**優勢：**
+- 首個配備專家混合架構的 Llama 世代
+- 從底層原生死文字、圖像、影片輸入
+- Hugging Face 上的開放權重；透過 Meta AI 在 WhatsApp、Messenger、Instagram 提供
+- Scout 的 10M token 上下文窗口是開源模型業界領先
 
-### Llama 3.x Family (Meta) -- Previous Generation
+### Llama 3.x 家族（Meta）—— 前代
 
-| Model | Parameters | Context | License | Notes |
-|-------|------------|---------|---------|-------|
-| Llama 3.3 70B | 70B | 128K | Llama 3.3 | Still widely deployed; strong general model |
-| Llama 3.1 405B | 405B | 128K | Llama 3.1 | Largest dense Meta model; being superseded by Llama 4 |
-
-**Note:** Llama 3.x remains widely used in production, but Llama 4 Scout/Maverick offer superior performance with lower active parameter counts thanks to MoE.
-
-### DeepSeek Family
-
-| Model | Parameters | Context | Status | Notes |
+| 模型 | 參數 | 上下文 | 授權 | 備註 |
 |-------|------------|---------|--------|-------|
-| **DeepSeek V4 Pro** | 1.6T total / 49B active (MoE) | 1M | GA | Previewed April 24, 2026. Uses ~27% compute / 10% memory of V3.2 at 1M tokens. SWE-bench Verified 80.6%. NIST CAISI evaluation (May 2026) places it ~8 months behind US frontier (Elo ~800). Open weights on Hugging Face. **API: $0.435 / $0.87 per 1M input/output (75% discount made permanent May 22, 2026, effective June 1).** Cache-hit input $0.003625/M. |
-| **DeepSeek V4 Flash** | 284B total / 13B active (MoE) | 1M | GA | Smaller-active variant for high-throughput workloads. **API: $0.14 / $0.28 per 1M (cache-hit $0.0028/M).** Cheapest frontier-class 1M-context API as of May 2026. |
-| DeepSeek-V3.2 | 671B (MoE) | 128K | Frontier | General-purpose; 98% cache-hit discount ($0.28/$0.42 per 1M base). Largely superseded by V4 Flash for new builds. |
-| DeepSeek-V3 | 671B (MoE, 37B active) | 128K | Frontier | GPT-4o level at a fraction of training cost; open weights. |
-| DeepSeek-R1 | 671B (MoE) | 128K | Reasoning | Matches o1 on math/code; first open-source reasoning model. |
-| DeepSeek-R1-Distill | 7B–70B | - | Reasoning | Distilled to smaller models; cost-efficient reasoning. |
+| Llama 3.3 70B | 70B | 128K | Llama 3.3 | 仍廣泛部署；強大通用模型 |
+| Llama 3.1 405B | 405B | 128K | Llama 3.1 | 最大密集 Meta 模型；正被 Llama 4 取代 |
 
-**Key May 2026 context**: DeepSeek V4 Pro (released April 24, with the 75% promotional discount made permanent on May 22) closed the gap with US frontier models on multiple benchmarks at a fraction of the cost. At $0.435 / $0.87 per 1M, V4 Pro is roughly 10x cheaper than Claude Opus 4.7 ($5 / $25) and 5-10x cheaper than GPT-5.5 ($5 / $30) for comparable tasks. V4 Flash drops the floor further to $0.14 / $0.28 per 1M with the same 1M context window. The 98% cache-hit discount on both makes V4 the dominant choice for high-volume RAG and classification workloads where prompts are cache-friendly. DeepSeek R2 (reasoning successor to R1) remains delayed per reports about Huawei Ascend training challenges.
+**備註：** Llama 3.x 在生產中仍廣泛使用，但 Llama 4 Scout/Maverick 以較低活躍參數提供更優異效能。
 
-### Moonshot Kimi Family - May 2026 NEW
+### DeepSeek 家族
 
-| Model | Parameters | Context | Notes |
+| 模型 | 參數 | 上下文 | 狀態 | 備註 |
+|-------|------------|---------|--------|-------|
+| **DeepSeek V4 Pro** | 1.6T 總計 / 49B 活躍（MoE） | 1M | GA | 2026 年 4 月 24 日預覽。在 1M token 時使用約 27% 計算資源 / 10% 記憶體。SWE-bench Verified 80.6%。NIST CAISI 評估（2026 年 5 月）將其置於美國前沿約 8 個月後（Elo 約 800）。Hugging Face 開放權重。**API：$0.435 / $0.87 每百萬（75% 折扣於 2026 年 5 月 22 日永久化，6 月 1 日起生效）。** 快取命中輸入 $0.003625/M。 |
+| **DeepSeek V4 Flash** | 284B 總計 / 13B 活躍（MoE） | 1M | GA | 高吞吐量工作負載的小活躍變體。**API：$0.14 / $0.28 每百萬（快取命中 $0.0028/M）。** 截至 2026 年 5 月最便宜的前沿級 1M 上下文 API。 |
+| DeepSeek-V3.2 | 671B（MoE） | 128K | 前沿 | 通用；98% 快取命中折扣（$0.28/$0.42 每百萬）。新專案以 V4 Flash 取代。 |
+| DeepSeek-V3 | 671B（MoE，37B 活躍） | 128K | 前沿 | 以訓練成本一小部分達到 GPT-4o 水準；開放權重。 |
+| DeepSeek-R1 | 671B（MoE） | 128K | 推理 | 在數學/代碼上與 o1 相當；首個開源推理模型。 |
+| DeepSeek-R1-Distill | 7B–70B | - | 推理 | 蒸餾至較小模型；具成本效益的推理。 |
+
+**2026 年 5 月關鍵背景：** DeepSeek V4 Pro（4 月 24 日發布，75% 促銷折扣於 5 月 22 日永久化）在多項基準上以一小部分成本縮小了與美國前沿模型的差距。以 $0.435 / $0.87 每百萬，V4 Pro 比 Claude Opus 4.7（$5 / $25）便宜約 10 倍，比 GPT-5.5（$5 / $30）便宜 5-10 倍。V4 Flash 以 $0.14 / $0.28 每百萬將底價進一步降低，擁有相同的 1M 上下文窗口。兩者的 98% 快取命中折扣使 V4 成為提示具快取友好性的高流量 RAG 與分類工作負載的主導選擇。DeepSeek R2（R1 的推理後續）據報因華為 Ascend 訓練挑戰而繼續延遲。
+
+### Moonshot Kimi 家族—— 2026 年 5 月新品
+
+| 模型 | 參數 | 上下文 | 備註 |
+|-------|------------|--------|-------|
+| **Kimi K2.6** | 1T 總計 / 32B 活躍（MoE） | - | 2026 年 4 月 20 日發布。修改版 MIT 授權。原生活動輸入；Agent Swarm 擴展至 300 子代理與 4,000 協調步驟。SWE-Bench Pro 與 GPT-5.5 並列（58.6%）；SWE-bench Verified 約 80.2%。 |
+| Kimi K2-Thinking-0905 | - | - | 首個在 AIME 2025 達到 100% 的模型（推理變體）。 |
+
+**最佳用途：** 長時間視野研究、多代理協調。
+
+### Mistral 家族
+
+| 模型 | 參數 | 上下文 | 狀態 | 備註 |
+|-------|------------|---------|--------|-------|
+| **Mistral Medium 3.5** | - | 256K | GA（2026 年 4 月 29 日） | 統一 chat/reasoning/coding/vision；SWE-bench Verified 77.6%。 |
+| Mistral Large 3 | - | 256K | GA | 企業旗艦；支援 Agent 工具。 |
+| Mistral Small 4 | 22B | 256K | GA | 成本/品質平衡出眾；Agent 能力。 |
+
+**最佳用途：** 歐洲主權 AI 工作負載、代理、高效率推理。
+
+### Google Gemma 4（2026 年 4 月）—— 新品
+
+| 模型 | 參數 | 上下文 | 備註 |
 |-------|------------|---------|-------|
-| **Kimi K2.6** | 1T total / 32B active (MoE) | - | Released April 20, 2026. Modified MIT license. Native video input; Agent Swarm scaling to 300 sub-agents and 4,000 coordinated steps. Ties GPT-5.5 on SWE-Bench Pro (58.6%); SWE-bench Verified ~80.2%. |
-| Kimi K2-Thinking-0905 | - | - | First model to hit 100% on AIME 2025 (reasoning variant). |
+| **Gemma 4 31B** | 31B | 256K | Apache 2.0。140+ 語言；原生活動/音訊；工具呼叫。 |
+| **Gemma 4 26B-A4B MoE** | 26B 活躍（MoE） | 256K | 更高效的專家混合變體。 |
+| **Gemma 4 E4B / E2B** | 4B / 2B | 256K | 設備端、微型模型。 |
 
-**Best for:** Long-horizon agent workloads, video understanding, open-weight agent stack alternative to closed frontier.
+**最佳用途：** 自託管、Google 生態系整合、設備端。
 
-### Alibaba Qwen 3.x Family - May 2026 NEW
+### Alibaba Qwen 家族
 
-| Model | Parameters | License | Notes |
+| 模型 | 參數 | 上下文 | 備註 |
 |-------|------------|---------|-------|
-| **Qwen 3.6 Max-Preview** | ~1T MoE | Commercial preview | Released ~April 20–27, 2026. 262K context. Tops six coding benchmarks per Alibaba. |
-| **Qwen 3.6-Plus** | - | - | Released April 2, 2026. Enhanced coding. |
-| **Qwen 3.6-35B-A3B** | 35B / 3B active MoE | Apache 2.0 | Released April 16, 2026. Open-weight workhorse. |
-| Qwen2.5-Coder-32B | 32B | Apache 2.0 | Previous-generation open coding leader. |
-| Qwen2.5-72B | 72B | Apache 2.0 | Previous-generation multilingual leader. |
-| Qwen2.5-7B | 7B | Apache 2.0 | Efficient self-hosted option. |
+| **Qwen 3.6 Plus** | - | - | 2026 年 5 月旗艦；聊天/推理旗艦。 |
+| **Qwen 3.6-35B-A3B** | 35B 活躍（MoE） | - | Apache 2.0 權重；可自託管或透過 API 提供者。 |
+| Qwen 3.6 Max-Preview | - | - | 頂尖推理。 |
+| Qwen 2.5-Coder-32B | 32B | 32K | 強大編碼能力；Hugging Face 開放權重。 |
 
-### Mistral Family
+**最佳用途：** 中文工作負載、自託管、編碼。
 
-| Model | Parameters | Context | Notes |
-|-------|------------|---------|-------|
-| **Mistral Medium 3.5** | 128B dense | 256K | May 2026 NEW. Released April 29, 2026. Merges Magistral (reasoning) + Pixtral (vision) + Devstral 2 (coding) into one model. 77.6% on SWE-Bench Verified. $1.50/M input tokens. |
-| **Voxtral TTS** | 4B open-weights | streaming | May 2026 NEW (March 23 release, CC BY-NC 4.0). 70ms latency, 9 languages, 3-second voice cloning. |
-| Mistral Large 3 | 675B (MoE, 41B active) | 256K | Sparse MoE; parity with best open-weight models; #2 OSS non-reasoning on LMArena. |
-| Mistral Small 4 | - | 256K | Hybrid instruct/reasoning/coding; released March 2026. |
-| Mistral 3 (14B/8B/3B) | 3B–14B | - | Unified family: multilingual, multimodal, Apache 2.0. |
-| Mixtral 8x22B | 141B (MoE) | - | Previous gen; still viable for throughput. |
+### 開源模型總結（2026 年 5 月）
 
-### Google Gemma Family - May 2026 NEW
-
-| Model | Parameters | Context | License | Notes |
-|-------|------------|---------|---------|-------|
-| **Gemma 4 (31B dense)** | 31B | 256K | Apache 2.0 | Released April 2, 2026. 140+ languages; native vision/audio; function calling. |
-| **Gemma 4 (26B-A4B MoE)** | 26B / 4B active | 256K | Apache 2.0 | Sparse MoE variant. |
-| **Gemma 4 E4B** | 8B | 256K | Apache 2.0 | Edge-suitable. |
-| **Gemma 4 E2B** | 5.1B / 2.3B active | 256K | Apache 2.0 | Smallest variant; mobile/embedded. |
-
-### Meta Muse Spark (Closed Weights) - May 2026 STRATEGIC SHIFT
-
-| Attribute | Value |
-|-----------|-------|
-| License | **Closed weights** - first proprietary model from Meta Superintelligence Labs |
-| Capabilities | Multimodal reasoning with Instant / Thinking / Contemplating modes |
-| Released | April 8, 2026 |
-
-**Strategic significance:** Meta's first non-open model since the original Llama era. Signals that frontier-quality work may require a closed-development feedback loop. Llama 4 Behemoth release was simultaneously paused through fall 2026 amid capability concerns. The open-vs-closed equilibrium is now two-tier: frontier closed lags 6–12 months ahead; open weights catch up via distillation, RL, and ecosystem iteration.
+| 等級 | 模型 | 開放權重 | 自託管 | API |
+|------|------|----------|--------|-----|
+| 前沿 | Llama 4 Behemoth（訓練中） | ✅ | ✅ | - |
+| 高效 | Llama 4 Maverick | ✅ | ✅（2x H100） | Together AI、Groq、Fireworks |
+| 高效 | DeepSeek V4 Pro | ✅ | ✅ | DeepSeek API |
+| 主流 | Mistral Large 3 | ✅ | ✅ | Mistral API |
+| 主流 | Qwen 3.6 Plus | 部分 | ✅ | 各大 API 提供者 |
+| 小型 | Llama 4 Scout | ✅ | ✅（1x H100） | Together AI、Groq |
+| 微型 | Gemma 4 E4B / E2B | ✅ | ✅ | Google |
 
 ---
 
-## Specialized Models
+## 推理模型
 
-### Coding Mastery (May 2026)
+### 什麼是推理模型？
 
-| Model | Specialization | Why it wins |
-|-------|----------------|-------------|
-| **GPT-5.5** | Single-shot coding leader | SWE-bench Verified 88.7% (#1); Terminal-Bench 2.1 78.2% (#1) |
-| **Claude Opus 4.8** | Long-running agentic coding | SWE-bench Verified 88.6%; SWE-Bench Pro 69.2%; Dynamic Workflows with parallel subagents in Claude Code |
-| **Claude Opus 4.7** | Predecessor flagship coding | SWE-bench Verified 87.6%; SWE-Bench Pro 64.3% |
-| **Claude Sonnet 4.6** | Workhorse coding | Powers Claude Code at lower cost; 1M context |
-| **Llama 4 Maverick** | Open-source coding | Open weights; competitive on coding benchmarks |
-| **Qwen 3.6 Coder / Qwen2.5-Coder-32B** | Self-hosted coding | Best price-to-performance for self-hosted IDEs |
-| **DeepSeek V4 Pro / R1-Distill-70B** | Open reasoning + code | Best open reasoning at 70B; V4 Pro is open-weight 1.6T/49B-active MoE |
+推理模型在輸出前進行**內部思維鏈（Chain of Thought，CoT）**——模型在「看不見的草稿紙」上思考，然後僅呈現最終答案。
 
-### Reasoning & Math
+| 類型 | 思維可見性 | 成本 | 速度 |
+|------|------------|------|------|
+| **標準** | ❌（隱藏） | 較低 | 快速 |
+| **推理（o1/GPT-5.5 reasoning）** | ✅（可選） | 較高（2-5x） | 較慢 |
 
-| Model | Approach | Best For |
-|-------|----------|----------|
-| **Claude Opus 4.8 (thinking)** | Adaptive thinking with parallel subagents | Software planning, codebase-scale work, agentic reasoning |
-| **GPT-5.5 reasoning** | Maximum-compute reasoning | Competition math (AIME 2025 81.2% on Instant), ARC-AGI-2 85.0% leader |
-| **Gemini 3.1 Pro Deep Think** | Sustained chain-of-thought | Scientific reasoning, GPQA Diamond leader |
-| **DeepSeek-R1** | RL-based thinking | Open-source logical inference, competitive math |
-| **Grok 4.3 (DeepSearch)** | Web-grounded reasoning | Research tasks needing live information |
+### 2026 年 5 月推理模型全景
 
-### Long Context (1M+)
+| 模型 | 特色 | API 成本（每百萬） | 發布 |
+|-------|------|---------------------|------|
+| **GPT-5.5** | SWE-bench 榜首；推理模式 | $5 / $30 | 2026 年 4 月 |
+| **Claude Opus 4.8** | 擴展思維；動態工作流 | $5 / $25 | 2026 年 5 月 |
+| **DeepSeek-R1** | 開源推理；多階段 | $0.55 / $2.19 | 2025 年 1 月 |
+| **Kimi K2-Thinking-0905** | AIME 2025 達 100% | 待查 | 2026 年 4 月 |
+| **Gemini 3.1 Pro** | Deep Think 模式 | $2 / $12 | 2026 年 2 月 |
 
-| Model | Window | Recall Performance |
-|-------|--------|-------------------|
-| **Llama 4 Scout** | 10M | Industry-leading open-weight context window |
-| **Gemini 3.1 Pro / Flash** | 1M | Best quality at 1M context; proven at scale |
-| **Claude Opus 4.8 / 4.7 / Sonnet 4.6** | 1M | Full 1M at standard pricing; reliable recall |
-| **Llama 4 Maverick** | 1M | Open-weight 1M context with MoE efficiency |
+**推理模型的正確使用方式：**
+- 用於**數學證明、複雜程式偵錯、邏輯謎題、多步規劃**——而非簡單聊天。
+- 設定 `budget_tokens` 上限以控制成本。
+- 對簡單任務使用標準模式以節省成本。
 
 ---
 
-## Embedding Models
+## 專業模型
 
-### API Embedding Models (May 2026)
+### 程式碼模型
 
-| Model | Dimensions | Max Tokens | MTEB Score | Cost/1M |
-|-------|------------|------------|------------|---------|
-| OpenAI text-embedding-3-large | 3072 | 8191 | 64.6 | $0.13 |
-| OpenAI text-embedding-3-small | 1536 | 8191 | 62.3 | $0.02 |
-| Voyage-3 | 1024 | 32000 | 67.8 | $0.06 |
-| Cohere embed-v3 | 1024 | 512 | 66.4 | $0.10 |
-| Google text-embedding-004 | 768 | 2048 | 66.1 | $0.025 |
+| 模型 | SWE-bench | 上下文 | 亮點 |
+|------|-----------|--------|------|
+| **Claude Opus 4.8** | 88.6% | 1M | 頂尖編碼代理；動態工作流 |
+| **GPT-5.5** | 88.7% | 1M | SWE-bench Verified 榜首 |
+| **Claude Sonnet 4.6** | ~87% | 1M | 生產性價比最佳 |
+| **DeepSeek V4 Pro** | 80.6% | 1M | 開源；便宜 |
 
-### Open Source Embedding Models
+### 視覺模型
 
-| Model | Dimensions | Max Tokens | MTEB | Notes |
-|-------|------------|------------|------|-------|
-| BGE-large-en-v1.5 | 1024 | 512 | 63.9 | Instruction-tuned |
-| E5-mistral-7b-instruct | 4096 | 32768 | 66.6 | Strong with instructions |
-| Nomic-embed-text-v1.5 | 768 | 8192 | 62.3 | Long context, open |
-| GTE-Qwen2-7B | 3584 | 32K | 72.1 | State-of-the-art open embedding |
+| 模型 | 視覺理解 | 多模態 | 備註 |
+|------|---------|--------|------|
+| **GPT-5.5** | 最先進 | 文字/圖像/音訊/影片 | 全方位多模態 |
+| **Claude Opus 4.8** | 最先進 | 文字 + 高解析度視覺 | 編碼 + 視覺 |
+| **Gemini 3.1 Pro** | 最先進 | 原生文字/視覺/音訊/影片 | Google 生態整合 |
+| **Llama 4 Maverick/Scout** | 強大 | 文字/圖像/影片 | 開源 MoE |
 
-### Embedding Selection Guide
+### 語音模型
 
-| Requirement | Recommended | Why |
-|-------------|-------------|-----|
-| Best quality | Voyage-3 or text-embedding-3-large | Highest MTEB |
-| Cost-efficient | text-embedding-3-small | $0.02/1M |
-| Self-hosted | GTE-Qwen2-7B | Best open MTEB |
-| Long documents | Nomic or Voyage-3 | 8K+ context |
-| Multilingual | Cohere embed-v3 | Built for multilingual |
+| 模型 | 能力 | 發布 |
+|-------|------|------|
+| **GPT-Realtime-2** | 即時語音 + GPT-5 等級推理 | 2026 年 5 月 |
+| **GPT-Translate** | 70+ → 13 語言翻譯 | 2026 年 5 月 |
+| **Whisper** | 語音轉文字 | 已上市 |
+
+### 設備端模型
+
+| 模型 | 參數 | 記憶體需求 | 授權 |
+|------|------|-----------|------|
+| **Gemma 4 E2B** | 2B | < 1GB | Apache 2.0 |
+| **Phi-4** | 14B | ~8GB | MIT |
+| **Llama 4 Scout** | 17B 活躍 | ~40GB | Llama 4 |
 
 ---
 
-## Model Selection Framework
+## 嵌入模型
 
-### Decision Tree
+### 2026 年 5 月嵌入模型
 
-```
-What is your primary constraint?
+| 模型 | 每百萬 token 成本 | 維度 | 備註 |
+|-------|------------------|--------|------|
+| **Cohere Embed 4** | $0.10 | 256 / 512 / 1024 / 1536（Matryoshka） | 2026 年新品 |
+| **text-embedding-3-large** | $0.13 | 3072 | OpenAI |
+| **text-embedding-3-small** | $0.02 | 1536 | OpenAI |
+| **Voyage-3** | $0.06 | 1024 | 高效 |
+| **Cohere embed-v3** | $0.10 | 1024 | 成熟 |
 
-├── Cost → Use smaller model, consider open source
-│   ├── Very cost sensitive → DeepSeek V4 Flash, GPT-5.5-mini, Claude Haiku 4.5, Gemini 3.1 Flash
-│   └── Moderate budget → Claude Sonnet 4.6, GPT-5.5 Instant, DeepSeek V4 Pro
-│
-├── Quality + Reasoning → Use frontier models
-│   ├── Highest reasoning → Claude Opus 4.8 (thinking), GPT-5.5 reasoning, Gemini 3.1 Pro Deep Think
-│   └── Coding + reasoning → Claude Opus 4.8 with Dynamic Workflows, Claude Sonnet 4.6 (Extended Thinking), GPT-5.5
-│
-├── Latency → Use fast models
-│   ├── <100ms response → Gemini 3.1 Flash, GPT-5.5-mini
-│   └── <500ms response → Claude Haiku 4.5, Claude Opus 4.8 fast mode, Grok 4.1 Fast
-│
-├── Self-hosting → Use open models
-│   ├── Maximum capability → Llama 4 Maverick, DeepSeek-V3
-│   ├── Good balance → Llama 4 Scout, Llama 3.3 70B, Qwen2.5-72B
-│   └── Edge/mobile → Mistral 3 3B, Phi-4
-│
-└── Privacy → Self-host or use on-prem
-    └── Choose open models with appropriate license
+**Matryoshka 表示法：** 同一模型支援多種維度（如 1536 → 768 → 256），依精度需求選擇。
+
+---
+
+## 模型選擇框架與語義路由
+
+### 語義路由
+
+語義路由使用**小型模型**（如分類器或小型嵌入模型）在將請求發送至昂貴的前沿模型之前，先判斷其複雜度。
+
+```python
+class SemanticRouter:
+    def __init__(self):
+        self.embedder = load_embedder("voyage-3")
+        self.classifier = load_classifier("llama-4-scout")
+    
+    def route(self, query: str) -> str:
+        # 步驟 1：快速分類複雜度
+        complexity = self.classifier.predict(query)
+        
+        # 步驟 2：路由
+        if complexity < 0.3:
+            return "gemini-3.1-flash"  # 簡單任務
+        elif complexity < 0.7:
+            return "claude-sonnet-4.6"  # 中等任務
+        else:
+            return "claude-opus-4.8"  # 複雜任務
 ```
 
-### Semantic Routing
+**節省潛力：** 複雜度分類器只需一個小型模型（如 Llama 4 Scout）的單次前向傳遞，約 $0.0001，但可節省 60-80% 的計算成本。
 
-Static decision trees are being replaced by **Semantic Routers**:
-- **How it works**: A small, fast embedding model vectorises the query. If it matches a "known easy" cluster, route to a cheap model (Gemini 3.1 Flash, DeepSeek V4 Flash, Claude Haiku 4.5). If it hits an "agentic/logic" cluster, route to Claude Opus 4.8 or GPT-5.5 with reasoning.
-- **Benefit**: Automates cost-optimization without hardcoded rules.
-- **Implementation**: Tools like `semantic-router` (Python) or custom Weaviate/Pinecone classifiers.
+### 路由決策框架
 
----
-
-## Sovereign AI and Data Residency
-
-**The 2026 Regulatory Reality:**
-Enterprises must comply with GDPR (EU), DPDPA (India), Saudi Arabia PDPL, and sectoral rules. "Sovereign AI" is now a product category.
-
-| Solution | Provider | Use Case |
-|----------|----------|----------|
-| **Azure Government/Sovereign** | Microsoft | Dedicated infra in 40+ regions; approved for US Gov/EU NIS2 |
-| **AWS Sovereign Cloud** | Amazon | Physically isolated VPCs; GDPR-safe EU regions |
-| **Google Distributed Cloud** | Google | Air-gapped on-prem Gemini deployment |
-| **Private Llama 4 / 3.3** | Meta (self-host) | Maximum data sovereignty; open weights (Llama 4 MoE or 3.3 dense) |
-| **DeepSeek (self-host)** | DeepSeek (open) | Open weights; no data leaves your infra |
-| **Mistral Large 3 (self-host)** | Mistral (Apache 2.0) | 675B MoE; open weights; strong multilingual |
-
-**Tradeoff**: Sovereign clouds carry a **20-30% premium** over standard global regions but are mandatory for finance and government.
-
-### Cost Comparison at Scale (May 2026)
-
-Assume 1M requests/day, 1K input + 500 output tokens:
-
-| Model | Input Cost/Day | Output Cost/Day | Total/Month |
-|-------|----------------|-----------------|-------------|
-| Claude Sonnet 4.6 | $3,000 | $7,500 | $315,000 |
-| GPT-5.4 | $2,500 | $7,500 | $300,000 |
-| Gemini 3.1 Pro | $2,000 | $6,000 | $240,000 |
-| GPT-5.4-mini | $750 | $2,250 | $90,000 |
-| Gemini 3.1 Flash | $100 | $1,500 | $48,000 |
-| Self-hosted Llama 4 Scout* | - | - | ~$15,000 |
-| Self-hosted Llama 3.3 70B* | - | - | ~$50,000 |
-
-*Self-hosted Llama 4 Scout fits on a single H100; Llama 3.3 70B assumes 4x H100 GPUs
-
----
-
-## Capability Comparison
-
-### Benchmark Performance (May 2026)
-
-| Model | MMLU | HumanEval | SWE-bench Verified | Notes |
-|-------|------|-----------|--------------------|-------|
-| **Claude Opus 4.6** | - | - | - | Top-tier across reasoning and coding; specific scores check latest |
-| **GPT-5.4** | - | - | - | 33% fewer factual errors vs GPT-5.2; strong coding + agentic |
-| **Claude Sonnet 4.6** | - | - | - | Approaches Opus-level on many tasks |
-| **Gemini 3.1 Pro** | - | - | - | State-of-the-art Google reasoning |
-| **Grok 4** | - | - | - | Competitive reasoning; real-time web integration |
-| **Llama 4 Maverick** | - | - | - | Beats GPT-4o, Gemini 2.0 Flash on reported benchmarks |
-| **DeepSeek-R1** | 90.8 | 92.6 | 49.2% | First open-source reasoning model; math/code strong |
-
-*Source: Respective technical reports and LMSYS Chatbot Arena / LMArena, April 2026. Benchmark scores for newest models (Opus 4.6, GPT-5.4, Gemini 3.1) are evolving rapidly -- always verify with current leaderboards.*
-
-### Task-Specific Recommendations (May 2026)
-
-| Task | Recommended Models | Why |
-|------|--------------------|-----|
-| **Autonomous Coding Agent** | Claude Sonnet 4.6 / Opus 4.6 | Powers Claude Code; 1M context; top tool reliability |
-| **Complex Reasoning** | GPT-5.4 Pro, Claude Opus 4.6 (thinking), DeepSeek-R1 | Maximum reasoning power |
-| **Agentic Computer Use** | GPT-5.4 | First general-purpose model with native computer-use capabilities |
-| **High-Volume API** | Gemini 3.1 Flash, GPT-5.4-mini | Lowest cost per token in class |
-| **Long Context RAG** | Gemini 3.1 Pro/Flash (1M), Claude Sonnet 4.6 (1M) | Verified long-range recall |
-| **Ultra-Long Context** | Llama 4 Scout (10M) | Industry-leading 10M context; open weights |
-| **Multimodal Real-time** | Gemini 3.1 Flash | Real-time audio/video/text native |
-| **Private Production** | Llama 4 Maverick, Llama 3.3 70B, Qwen2.5-72B | High capability with local control |
-| **Open-source Coding** | Llama 4 Maverick, Qwen2.5-Coder-32B | Open weights, strong coding benchmarks |
-| **Creative/Chat** | GPT-5.4 | Strong conversation quality and instruction following |
-
----
-
-## Interview Questions
-
-### Q: How would you select a model for a production RAG system?
-
-**Strong answer:**
-I evaluate across these dimensions:
-
-**1. Quality requirements:**
-- Test on representative queries from the actual domain
-- Measure answer correctness, hallucination rate, citation accuracy
-
-**2. Cost analysis:**
 ```
-Monthly cost = requests/day × 30 × avg_tokens × rate
+任務複雜度
+    │
+    ├── 簡單查詢（翻譯、格式修正、瑣事問答）
+    │   └── Gemini 3.1 Flash / GPT-5.5-mini / Claude Haiku 4.5
+    │
+    ├── 中等複雜度（摘要、編寫、重點擷取）
+    │   └── Claude Sonnet 4.6 / GPT-5.4 / Gemini 3.1 Pro
+    │
+    └── 高複雜度（多步推理、程式碼重構、代理工作流程）
+        └── Claude Opus 4.8 / GPT-5.5 / Gemini 3.1 Pro Deep Think
 ```
-Always calculate for top 2-3 candidates.
-
-**3. Latency requirements:**
-- If <200ms TTFT needed: Gemini 3.1 Flash, Claude Haiku 4.5, GPT-5.4-mini
-- If quality is paramount: Accept 2-3s with Claude Opus 4.6 or GPT-5.4
-
-**4. Operational requirements:**
-- Self-hosting: Llama 4 Scout/Maverick, DeepSeek-V3
-- Compliance / data residency: Azure Sovereign or self-hosted
-
-**5. Practical selection:**
-- Start with Claude Sonnet 4.6 or GPT-5.4 for prototyping
-- A/B test Gemini 3.1 Flash for 80% of queries (cost)
-- Keep frontier on hard queries via semantic routing
-
-### Q: Explain the tradeoffs between proprietary and open source models.
-
-**Strong answer:**
-| Factor | Proprietary (OpenAI, Anthropic) | Open Source (Llama, DeepSeek) |
-|--------|--------------------------------|-----------------------------|
-| Quality | Generally higher (slightly) | Catching up rapidly |
-| Cost | Per-token pricing | Compute + ops |
-| Control | Limited | Full |
-| Privacy | Data goes to provider | Stays on-prem |
-| Updates | Automatic | Manual |
-| Customization | Limited fine-tuning | Full fine-tuning |
-| Ops overhead | None | Significant |
-
-**Key insight (2026)**: DeepSeek-V3/R1 and now Llama 4 have changed this conversation -- open models match or beat GPT-4o on many benchmarks. With Llama 4 Maverick matching DeepSeek V3 on reasoning at half the active parameters, the gap is narrower than ever.
-
-### Q: What is the difference between GPT-5.4 Pro and Claude Opus 4.6's Extended Thinking?
-
-**Strong answer:**
-Both use internal chain-of-thought, but the mechanics differ:
-
-- **GPT-5.4 Pro**: OpenAI's maximum-compute reasoning tier ($30/$180 per 1M tokens). Allocates high compute to reasoning. Internal thoughts are not exposed. Successor to the o3 line.
-- **Claude Opus 4.6 Adaptive Thinking**: Returns thinking tokens in a separate `<thinking>` block. Configurable `budget_tokens`. You can inspect the reasoning chain for debugging. Full 1M context with 128K max output.
-
-**Production choice**: For debugging and trust-building, Claude's visible thinking is more transparent. For maximum raw reasoning power on math/competition tasks, GPT-5.4 Pro leads. For cost-effective reasoning, Claude Sonnet 4.6 or GPT-5.4-mini are strong choices.
 
 ---
 
-## References
+## 主權 AI 與資料留存
 
-- Anthropic: https://platform.claude.com/docs/en/about-claude/models/overview
-- OpenAI Platform: https://developers.openai.com/api/docs/models
-- Google AI: https://ai.google.dev/gemini-api/docs/models
-- Meta Llama: https://www.llama.com/
-- DeepSeek: https://api-docs.deepseek.com/
-- xAI Grok: https://docs.x.ai/developers/models
-- Mistral AI: https://docs.mistral.ai/models/
-- LMArena Leaderboard: https://lmarena.ai/
-- Hugging Face Open LLM Leaderboard: https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
+### 主要考量
+
+| 法域 | 資料落地要求 | 合格提供者 |
+|------|------------|------------|
+| **歐盟（GDPR）** | 境內處理 | Anthropic（德國）、Mistral（法國）、Google（歐洲） |
+| **美國（FedRAMP / HIPAA）** | 認證雲端 | OpenAI（已認證）、Anthropic（已認證）、Google（已認證） |
+| **亞太（PDPA / 網路安全法）** | 境內儲存 | Google（新加坡/台灣）、騰訊、阿里雲 |
+
+### 開源自託管
+
+使用**開源模型（如 Llama 4、DeepSeek V4 Pro）**可完全控制資料，且無 API 費用（僅 GPU 成本）。
+
+**何時自託管有意義：**
+- 資料敏感性極高（金融、醫療、國防）
+- 請求量大（> 500K/月），可在 40%+ 利用率下實現成本節省
+- 需要自訂微調
 
 ---
 
-*Next: [Capability Assessment](02-capability-assessment.md)*
+## 能力比較
+
+### 基準測試地圖
+
+| 基準 | 測試內容 | 榜首（2026 年 5 月） |
+|------|---------|-------------------|
+| **SWE-bench Verified** | 實際軟體工程任務 | Claude Mythos Preview 93.9%（受限）；GPT-5.5 88.7% |
+| **ARC-AGI-2** | 視覺推理 | GPT-5.5 85.0% |
+| **GPQA Diamond** | 博士級科學推理 | Gemini 3.1 Pro 94.3% |
+| **AIME 2025** | 數學競賽 | Kimi K2-Thinking-0905 100% |
+| **MMLU** | 通用知識 | 各模型均 > 88% |
+| **HumanEval** | Python 程式碼補全 | Claude Opus 4.8 / GPT-5.5 > 95% |
+
+### 上下文窗口比較
+
+| 模型 | 最大上下文 | 有效上下文 |
+|------|-----------|-----------|
+| Llama 4 Scout | 10M | > 1M（業界領先） |
+| Claude Opus 4.8 / 4.7 / 4.6 | 1M | 1M |
+| GPT-5.5 | 1M | 1M |
+| Claude Sonnet 4.6 | 1M | 1M |
+| Gemini 3.1 Pro / Flash | 1M | ~800K（品質在遠端下降） |
+| DeepSeek V4 Pro / V4 Flash | 1M | 1M |
+
+---
+
+## 面試問題
+
+### Q：如何評估一個模型是否適合我們的生產系統？
+
+**最佳答案：**
+我會在多個維度上評估：
+
+**1. 能力匹配：** 使用與我們任務類似的基準（如 SWE-bench 用於編碼、GPQA 用於科學推理）。但基準只是起點——必須在**我們自己的資料**上測試。
+
+**2. 延遲剖面：** 對生產而言，P50 延遲比平均延遲更重要。需要知道：
+- 簡單請求的 P50（目標 < 500ms）
+- 複雜請求的 P99（目標 < 3s）
+
+**3. 成本特性：**
+```python
+# 估算月費
+requests_per_day = 100_000
+avg_input_tokens = 2000
+avg_output_tokens = 400
+model = "claude-sonnet-4.6"  # $3 / $15 per 1M
+
+monthly = (avg_input_tokens * 30 * 3 + avg_output_tokens * 30 * 15) / 1_000_000
+# = $270,000/月
+```
+
+**4. 速率限制：** 我們能否在峰值時段獲得所需的吞吐量？
+
+**5. 生態系統：** SDK 品質、API 穩定性、錯誤處理好不好？
+
+**6. 上游風險：** 模型是否被供應商認可為主力，還是即將停用？**
+
+我的方法：先在 shadow mode 下運行（新舊模型並排，追蹤雙方的輸出差異），再逐步切換流量。
+
+### Q：何時應該選用開源模型而非 API？
+
+**最佳答案：**
+
+「這取決於你的具體約束：
+
+**選用開源（自託管）的時機：**
+- **隱私**：資料不能出基礎設施（金融、醫療、國防）
+- **規模**：每月 > 500K 請求，且利用率可達 40%+
+- **自訂**：需要對模型權重進行微調或持續預訓練
+- **延遲控制**：需要對 P99 延遲有完整控制
+
+**選用 API 的時機：**
+- 團隊沒有 ML 基礎設施經驗
+- 需要前沿模型（目前開源仍落後 6-12 個月）
+- 上市時間是首要考量
+
+**實務建議：** 建立一個**抽象層**（如 LiteLLM），讓你在不重寫程式碼的情況下切換模型。先用 API 快速驗證想法，成功後再評估自託管是否有成本效益。」
+
+---
+
+## 參考資料
+
+- OpenAI 定價：https://developers.openai.com/api/docs/pricing
+- Anthropic 定價：https://platform.claude.com/docs/en/about-claude/pricing
+- Google AI 定價：https://ai.google.dev/gemini-api/docs/pricing
+- xAI 定價：https://docs.x.ai/developers/models
+- Mistral 定價：https://docs.mistral.ai/getting-started/changelog
+- LMSys 排行榜：https://chat.lmsys.org/
+
+---
+
+*前一篇：[能力評估](02-capability-assessment.md) | 下一篇：[模型選擇指南](04-model-selection-guide.md)*
