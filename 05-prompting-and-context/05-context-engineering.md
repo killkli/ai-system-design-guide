@@ -1,6 +1,6 @@
 # 上下文工程
 
-上下文工程是以最有的 Token 填補 LLM 有限「工作記憶體」的科學。隨著上下文視窗現在達到 100 萬+ Token（Claude Sonnet 4.6、Gemini 3.1 Pro、GPT-5.5），加上模型獲得延伸思考能力，重點已從「容納資料」轉向「排名相關性」和「管理計算預算」。
+上下文工程是以最有效的 Token 填補 LLM 有限「工作記憶體」的科學。隨著上下文視窗現在達到 100 萬+ Token（Claude Sonnet 4.6、Gemini 3.1 Pro、GPT-5.5），加上模型獲得延伸思考能力，重點已從「容納資料」轉向「排名相關性」和「管理計算預算」。
 
 ## 目錄
 
@@ -17,7 +17,7 @@
 
 ## 長上下文範式（100 萬+ Token）
 
-Gemini 3.1 Pro（100 萬）、Claude Sonnet 4.6（100 萬）、Claude Opus 4.7（100 萬）和 GPT-5.5（100 萬）等模型有著大規模上下文視窗。
+Gemini 3.1 Pro（100 萬）、Claude Sonnet（100 萬）、Claude Opus（100 萬）和 GPT-5.5（100 萬）等模型有著大規模上下文視窗。
 
 **洞察**：「上下文是新 RAG。」
 對於少於 100,000 份文件的資料集，將整個資料集放入上下文視窗通常比使用外部向量資料庫更準確、更快速。這稱為**「上下文內 RAG」**。
@@ -28,7 +28,7 @@ Gemini 3.1 Pro（100 萬）、Claude Sonnet 4.6（100 萬）、Claude Opus 4.7�
 
 多個前沿模型現在提供可控的內部推理，然後才生成回應：
 
-### Claude（Sonnet 4.6、Opus 4.7）：延伸思考
+### Claude（Sonnet、Opus）：延伸思考
 
 ```python
 response = client.messages.create(
@@ -104,7 +104,7 @@ def smart_generate(query: str) -> str:
 ## 中間迷失
 
 2023 年，模型對提示詞中間資訊的準確率下降。
-**現狀**：前沿模型（Claude Sonnet 4.6、Claude Opus 4.7、Gemini 3.1 Pro、GPT-5.5）表現顯著更好，但**注意力梯度**仍然存在。
+**現狀**：前沿模型（Claude Sonnet、Claude Opus、Gemini 3.1 Pro、GPT-5.5）表現顯著更好，但**注意力梯度**仍然存在。
 - **最佳實踐**：將關鍵指令和黃金標準範例放在提示詞的**最開頭**和**最結尾**。中間 = 原始資料/知識區塊。
 - **使用區塊排序**：重新排序檢索文件，使最相關的在開頭和結尾。
 

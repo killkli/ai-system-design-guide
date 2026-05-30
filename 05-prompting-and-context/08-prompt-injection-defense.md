@@ -34,7 +34,7 @@
 
 ## 輸入隔離（XML 與標記）
 
-前沿模型（Claude Sonnet 4.6、Claude Opus 4.7、GPT-5.5、Gemini 3.1 Pro）專門訓練來尊重 XML 標籤以進行資料隔離。
+前沿模型（Claude Sonnet、Claude Opus、GPT-5.5、Gemini 3.1 Pro）專門訓練來尊重 XML 標籤以進行資料隔離。
 
 ```markdown
 <system_instructions>

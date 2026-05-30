@@ -16,7 +16,7 @@
 
 ## DSPy 哲學：程式設計對比提示詞工程
 
-在傳統提示詞工程中，更改模型（例如從 GPT-5.5 改為 Claude Sonnet 4.6 或 Llama 4）需要重寫所有提示詞。
+在傳統提示詞工程中，更改模型（例如從 GPT-5.5 改為 Claude Sonnet 或 Llama 4）需要重寫所有提示詞。
 **DSPy 將邏輯與格式分離。**
 
 - **邏輯**：由**模組**定義（例如 ChainOfThought、ReAct）。
@@ -63,7 +63,7 @@ qa_system = dspy.ChainOfThought(MultiHopQA)
 
 優化需要一個**指標**（返回分數的函式）。
 - **完全匹配**：`prediction.answer == target.answer`
-- **LLM 即裁判**：使用較大模型（Claude Opus 4.7、GPT-5.5 推理）為較小模型（Llama 4 8B、Claude Haiku 4.5）的輸出評分。
+- **LLM 即裁判**：使用較大模型（Claude Opus、GPT-5.5 推理）為較小模型（Llama 4 8B、Claude Haiku）的輸出評分。
 
 ---
 

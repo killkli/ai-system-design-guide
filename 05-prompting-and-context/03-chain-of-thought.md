@@ -1,6 +1,6 @@
 # 思維鏈（CoT）
 
-思維鏈（Chain-of-Thought，CoT）是鼓勵 LLM 在提供最終答案之前生成中間推理步驟的技術。它已從簡單的提示詞短語演進為推理模型的核心架構特徵（o1、DeepSeek-R2、具延伸思考的 Claude Opus 4.7、具延伸思考的 GPT-5.5）。
+思維鏈（Chain-of-Thought，CoT）是鼓勵 LLM 在提供最終答案之前生成中間推理步驟的技術。它已從簡單的提示詞短語演進為推理模型的核心架構特徵（o1、DeepSeek-R2、具延伸思考的 Claude Opus、具延伸思考的 GPT-5.5）。
 
 ## 目錄
 
