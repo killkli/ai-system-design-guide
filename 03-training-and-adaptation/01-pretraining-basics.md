@@ -33,7 +33,7 @@ Loss = -sum(log P(token_i | token_1, ..., token_{i-1}))
 
 ### 100T Token 地平線
 
-前沿模型（Llama 4、GPT-5.5、Claude Opus 4.7、Gemini 3.1 Pro）的訓練資料規模達到 15T 至 100T token。在此規模下，**去重**與**品質過濾**是主要差異化因素。
+前沿模型（Llama 4、GPT-4o、Claude 4、DeepSeek-R1、Gemini 3.1 Pro）的訓練資料規模達到 15T 至 100T token。在此規模下，**去重**與**品質過濾**是主要差異化因素。
 
 ### 資料混合標準
 

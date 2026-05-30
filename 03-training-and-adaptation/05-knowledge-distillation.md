@@ -16,7 +16,7 @@
 
 ## 師生範式
 
-小型模型（如 Llama 4 8B、Gemini 3.1 Flash、Claude Haiku 4.5）並非僅從原始網頁資料訓練。它們由大得多的模型（如 GPT-5.5、Claude Opus 4.7、Llama 4 405B）生成或策劃的**合成資料**訓練。
+小型模型（如 Llama 4 8B、Gemini 3.1 Flash、Claude Haiku 4）並非僅從原始網頁資料訓練。它們由大得多的模型（如 GPT-4o、Claude 4、Llama 4 405B）生成或策劃的**合成資料**訓練。
 
 | 模型 | 角色 | 智慧來源 |
 |-------|------|---------------------|
@@ -64,7 +64,7 @@ Loss = KL_Div(Teacher_Logits / T, Student_Logits / T)
 
 **推理突破。**
 
-o1、DeepSeek-R1 與 Claude Opus 4.7 等模型使用 SDP 在沒有新人類資料的情況下改進。
+o1、DeepSeek-R1 與 Claude 4 等模型使用 SDP 在沒有新人類資料的情況下改進。
 
 1. **生成**：模型為難題/代碼問題生成 100 種可能解法。
 2. **驗證**：基於規則的系統（編譯器/計算器）識別 1 個正確解法。
