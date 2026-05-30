@@ -1,74 +1,74 @@
-# Contextual Retrieval
+# 上下文檢索
 
-Contextual Retrieval is an ingestion-time technique that solves the #1 cause of RAG failure: **chunks that lose meaning when separated from their source document**. Pioneered by Anthropic in late 2024, it is now a production standard for high-precision retrieval. Anthropic's own measurements show a 49% reduction in retrieval failures with hybrid search alone, and 67% reduction when combined with reranking.
+上下文檢索是一種攝取時間（ingestion-time）技術，用於解決 RAG 失敗的首要原因：**文本區塊在脫離原始文件後失去意義**。此技術由 Anthropic 在 2024 年末首創，現已成為高精度檢索的生產標準。Anthropic 自身的測量顯示，僅使用混合搜索即可減少 49% 的檢索失敗，搭配重新排序（reranking）更可減少 67%。
 
-## Table of Contents
+## 目錄
 
-- [The Problem: Context Dilution](#context-dilution)
-- [How Contextual Retrieval Works](#how-it-works)
-- [Contextual Embeddings](#contextual-embeddings)
-- [Contextual BM25](#contextual-bm25)
-- [The Full Pipeline: Hybrid + Reranking](#full-pipeline)
-- [Implementation Patterns](#implementation)
-- [Cost Considerations](#cost)
-- [Contextual Retrieval vs. Other Approaches](#comparison)
-- [Production Architecture](#production)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Problem: Context Dilution
-
-When we chunk documents for RAG, individual chunks lose the surrounding context that gives them meaning.
-
-**Example of Context Dilution:**
-
-```
-Original Document: "Acme Corp Q3 2025 Financial Report"
-  Section 4: Product Pricing
-
-  "The Standard plan costs $200/month. The Enterprise
-   plan includes SSO and audit logs for $800/month."
-
--------- After Chunking --------
-
-Chunk 17: "It costs $200/month."
-Chunk 18: "The Enterprise plan includes SSO and audit
-           logs for $800/month."
-```
-
-**The problem with Chunk 17**: A user searching "How much does Acme Standard plan cost?" will likely miss this chunk because it contains no mention of "Acme," "Standard," or "plan." The embedding of "It costs $200/month" is semantically distant from the query.
-
-**Insight**: Anthropic's research showed that traditional chunking causes a **5.7% retrieval failure rate** on the top-20 retrieved chunks. That means roughly 1 in 18 queries fails to retrieve the relevant information, even when it exists in the knowledge base.
+- [問題所在：上下文稀釋](#context-dilution)
+- [上下文檢索如何運作](#how-it-works)
+- [上下文嵌入](#contextual-embeddings)
+- [上下文 BM25](#contextual-bm25)
+- [完整流程：混合搜索 + 重新排序](#full-pipeline)
+- [實作模式](#implementation)
+- [成本考量](#cost)
+- [上下文檢索與其他方法的比較](#comparison)
+- [生產架構](#production)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## How Contextual Retrieval Works
+## 問題所在：上下文稀釋
 
-The core idea is simple: **before embedding a chunk, prepend a short context string that explains what the chunk is about within the full document**.
+當我們對文件進行 RAG 區塊化時，個別區塊會失去周圍的上下文，而這些上下文正是赋予它們意義的元素。
+
+**上下文稀釋範例：**
+
+```
+原始文件："Acme Corp Q3 2025 財務報告"
+  第 4 節：產品定價
+
+  「Standard 方案每月費用 $200。Enterprise
+   方案包含 SSO 與稽核日誌，每月 $800。」
+
+-------- 區塊化後 --------
+
+區塊 17：「每月費用 $200。」
+區塊 18：「Enterprise 方案包含 SSO 與稽核日誌，
+           每月 $800。」
+```
+
+**區塊 17 的問題**：當使用者搜尋「Acme Standard 方案多少錢？」時，很可能會錯過這個區塊，因為它沒有提及「Acme」、「Standard」或「方案」。「每月費用 $200」的嵌入向量在語義上與查詢相去甚遠。
+
+**洞見**：Anthropic 的研究顯示，傳統區塊化在前 20 名檢索區塊中造成 **5.7% 的檢索失敗率**。這意味著大約每 18 次查詢就有 1 次無法檢索到存在的相關資訊。
+
+---
+
+## 上下文檢索如何運作
+
+核心概念很簡單：**在嵌入區塊之前，先附加一個簡短的上下文字串，說明該區塊在完整文件中的角色**。
 
 ```
 ┌──────────────────────────────────────────────────┐
-│              TRADITIONAL CHUNKING                │
+│              傳統區塊化                           │
 │                                                  │
-│  Document ──► Split ──► Chunks ──► Embed ──► DB  │
+│  文件 ──► 切割 ──► 區塊 ──► 嵌入 ──► 資料庫        │
 │                                                  │
 └──────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────┐
-│              CONTEXTUAL RETRIEVAL                            │
+│              上下文檢索                                      │
 │                                                              │
-│  Document ──► Split ──► Chunks ──┐                           │
-│                                  ├──► Contextualize ──►      │
-│  Document (full) ───────────────┘    (LLM call per chunk)    │
+│  文件 ──► 切割 ──► 區塊 ──┐                                   │
+│                           ├──► 上下文化 ──►                   │
+│  文件（完整） ────────────┘     （每區塊一次 LLM 呼叫）        │
 │                                                              │
-│  ──► Contextual Chunks ──► Embed ──► DB                      │
-│                            + BM25 Index                      │
+│  ──► 上下文區塊 ──► 嵌入 ──► 資料庫                           │
+│                            + BM25 索引                        │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**The contextualization step** sends the full document + individual chunk to an LLM with this prompt:
+**上下文化步驟**會將完整文件 + 個別區塊傳送給 LLM，並使用以下提示：
 
 ```
 <document>
@@ -86,131 +86,130 @@ search retrieval of the chunk. Answer only with the succinct
 context and nothing else.
 ```
 
-**Result for Chunk 17**:
+**區塊 17 的結果**：
 
 ```
-Before: "It costs $200/month."
+前置：「每月費用 $200。」
 
-After:  "This chunk is from the Acme Corp Q3 2025 Financial
-         Report, Section 4 on Product Pricing. It describes
-         the cost of the Standard plan.
-         It costs $200/month."
+後置：「此區塊來自 Acme Corp Q3 2025 財務報告，
+         第 4 節產品定價。描述 Standard 方案的費用。
+         每月費用 $200。」
 ```
 
-Now the embedding of this chunk contains "Acme," "Standard plan," and "Product Pricing" -- all the terms a user would naturally search for.
+現在此區塊的嵌入向量包含「Acme」、「Standard 方案」和「產品定價」——全部是使用者自然會搜尋的詞彙。
 
 ---
 
-## Contextual Embeddings
+## 上下文嵌入
 
-Contextual Embeddings is the first sub-technique: embedding the contextualized chunk instead of the raw chunk.
+上下文嵌入是第一個子技術：嵌入經過上下文化的區塊，而非原始區塊。
 
-### How It Improves Retrieval
+### 如何改善檢索
 
-| Scenario | Raw Chunk Embedding | Contextual Embedding |
-|----------|--------------------|-----------------------|
-| User asks about "Acme pricing" | Misses "It costs $200" | Matches "Acme...Standard plan...costs $200" |
-| User asks about "SSO features" | Matches "SSO and audit logs" | Matches with added context of "Enterprise plan" |
-| User asks about "Q3 financials" | No match (no mention of Q3) | Matches via prepended "Q3 2025 Financial Report" |
+| 情境 | 原始區塊嵌入 | 上下文嵌入 |
+|------|-------------|-------------|
+| 使用者詢問「Acme 定價」 | 錯過「每月費用 $200」 | 匹配「Acme...Standard 方案...費用 $200」 |
+| 使用者詢問「SSO 功能」 | 匹配「SSO 與稽核日誌」 | 透過附加的「Enterprise 方案」上下文匹配 |
+| 使用者詢問「Q3 財務」 | 無匹配（未提及 Q3） | 透過附加的「Q3 2025 財務報告」匹配 |
 
-**Performance**: Contextual Embeddings alone reduce top-20 retrieval failure from **5.7% to 3.7%** -- a **35% reduction** in retrieval failures.
+**效能**：僅使用上下文嵌入即可將前 20 名檢索失敗率從 **5.7% 降至 3.7%**——減少 **35%** 的檢索失敗。
 
-### The Vector Space Shift
+### 向量空間的轉變
 
 ```
-                    ▲ Dimension 2
+                    ▲ 維度 2
                     │
-                    │    ● "Acme pricing" (query)
+                    │    ● 「Acme 定價」（查詢）
                     │         \
-                    │          \  close (contextual)
+                    │          \  接近（上下文化）
                     │           \
-                    │            ● Contextualized chunk
+                    │            ● 上下文化區塊
                     │
-                    │                          ● Raw chunk "It costs $200"
-                    │                            (far from query)
+                    │                          ● 原始區塊「每月費用 $200」
+                    │                            （離查詢很遠）
                     │
-                    └─────────────────────────────► Dimension 1
+                    └─────────────────────────────► 維度 1
 ```
 
 ---
 
-## Contextual BM25
+## 上下文 BM25
 
-The second sub-technique applies the same contextualization to create a **BM25 keyword index** over the enriched chunks.
+第二個子技術將相同的上下文化應用於建立**經過豐富化的區塊上的 BM25 關鍵字索引**。
 
-### Why BM25 Still Matters
+### 為何 BM25 仍然重要
 
-Dense embeddings excel at semantic similarity but fail on:
-- **Exact terms**: Product IDs, version numbers, acronyms
-- **Rare tokens**: Domain-specific jargon that embedding models under-represent
-- **Proper nouns**: Company names, people, places
+密集嵌入在語義相似性方面表現優異，但在以下情況表現不佳：
+- **精確詞彙**：產品 ID、版本號碼、縮寫
+- **罕見詞彙**：嵌入模型代表性不足的領域特定術語
+- **專有名詞**：公司名稱、人名、地點
 
-**Example**: A user searching "Widget-X pricing" would get zero BM25 matches on the raw chunk "It costs $200/month" because "Widget-X" never appears. With contextual BM25, the prepended context includes "Widget-X" as a keyword, enabling the BM25 match.
+**範例**：使用者搜尋「Widget-X 定價」時，在原始區塊「每月費用 $200」上會得到零 BM25 匹配，因為「Widget-X」從未出現。使用上下文 BM25 時，附加的上下文會將「Widget-X」作為關鍵字包含，使 BM25 匹配成為可能。
 
-### Performance Gains (Cumulative)
+### 效能提升（累積）
 
-| Configuration | Failure Rate | Reduction vs. Baseline |
-|---------------|-------------|----------------------|
-| Traditional embeddings (baseline) | 5.7% | -- |
-| Contextual Embeddings only | 3.7% | 35% |
-| Contextual Embeddings + Contextual BM25 | 2.9% | **49%** |
-| Contextual Embeddings + Contextual BM25 + Reranking | 1.9% | **67%** |
+| 設定 | 失敗率 | 與基準相比的減少幅度 |
+|------|--------|---------------------|
+| 傳統嵌入（基準） | 5.7% | -- |
+| 僅使用上下文嵌入 | 3.7% | 35% |
+| 上下文嵌入 + 上下文 BM25 | 2.9% | **49%** |
+| 上下文嵌入 + 上下文 BM25 + 重新排序 | 1.9% | **67%** |
 
-**Takeaway**: The combination of contextual embeddings + contextual BM25 is the highest-leverage single change you can make to a RAG pipeline. Adding a reranker on top gets you to 67% fewer failures.
+**要點**：上下文嵌入 + 上下文 BM25 的組合是對 RAG 流程最高槓桿的單一改變。在此基礎上加入重新排序器可達到減少 67% 的失敗率。
 
 ---
 
-## The Full Pipeline: Hybrid + Reranking
+## 完整流程：混合搜索 + 重新排序
 
-The production-grade Contextual Retrieval pipeline has four stages:
+生產級上下文檢索流程有四個階段：
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     INGESTION PIPELINE                          │
+│                     攝取流程                                      │
 │                                                                 │
-│  1. Chunk documents (recursive, 300-500 tokens)                 │
-│  2. For each chunk:                                             │
-│     a. Send (full_doc + chunk) to LLM                           │
-│     b. Get context string (50-100 tokens)                       │
-│     c. Prepend context to chunk                                 │
-│  3. Embed contextualized chunks ──► Vector DB                   │
-│  4. Index contextualized chunks ──► BM25 Index                  │
+│  1. 區塊化文件（遞歸式，300-500 tokens）                          │
+│  2. 對每個區塊：                                                  │
+│     a. 傳送（full_doc + chunk）至 LLM                             │
+│     b. 取得上下文字串（50-100 tokens）                            │
+│     c. 將上下文附加至區塊前方                                      │
+│  3. 嵌入上下文化區塊 ──► 向量資料庫                                │
+│  4. 索引上下文化區塊 ──► BM25 索引                                 │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                     QUERY PIPELINE                              │
+│                     查詢流程                                      │
 │                                                                 │
-│  User Query                                                     │
+│  使用者查詢                                                       │
 │      │                                                          │
-│      ├──► Vector Search (Top 50) ──┐                            │
-│      │                             ├──► RRF Fusion (Top 25)     │
-│      └──► BM25 Search (Top 50)  ──┘         │                   │
-│                                             ▼                   │
-│                                      Reranker (Top 5)           │
-│                                             │                   │
-│                                             ▼                   │
-│                                     LLM Generation              │
+│      ├──► 向量搜索（前 50 名） ──┐                               │
+│      │                            ├──► RRF 融合（前 25 名）       │
+│      └──► BM25 搜索（前 50 名） ──┘         │                    │
+│                                             ▼                    │
+│                                      重新排序器（前 5 名）        │
+│                                             │                    │
+│                                             ▼                    │
+│                                     LLM 生成                      │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Reciprocal Rank Fusion (RRF) for Combining Results
+### 用於結合結果的倒數排名融合（RRF）
 
-The same RRF technique used in standard hybrid search applies here:
+與標準混合搜索相同的 RRF 技術同樣適用於此：
 
 ```
 RRF_Score(doc) = sum( 1 / (k + rank_in_list) )
                  for each list where doc appears
 
-k = 60 (standard smoothing constant)
+k = 60（標準平滑常數）
 ```
 
 ---
 
-## Implementation Patterns
+## 實作模式
 
-### Pattern 1: Basic Contextual Retrieval (Python)
+### 模式 1：基本上下文檢索（Python）
 
 ```python
 import anthropic
@@ -263,9 +262,9 @@ def process_document(document: str, chunks: List[str]) -> List[str]:
     return contextualized
 ```
 
-### Pattern 2: Cost-Optimized with Prompt Caching
+### 模式 2：使用提示快取優化成本
 
-The biggest cost driver is sending the full document with every chunk. **Prompt Caching** solves this:
+最大的成本驅動因素是每次處理區塊時都傳送完整文件。**提示快取**解決了這個問題：
 
 ```python
 def contextualize_with_caching(
@@ -312,11 +311,11 @@ def contextualize_with_caching(
     return results
 ```
 
-**Cost Impact of Prompt Caching**: For a 10,000-token document split into 30 chunks, prompt caching reduces the contextualization cost by up to **90%** because the document prefix is cached after the first call.
+**提示快取的成本影響**：對於一個分割成 30 個區塊的 10,000 token 文件，提示快取可將上下文化成本降低最高 **90%**，因為文件前置內容在第一次呼叫後就會被快取。
 
-### Pattern 3: Contextual Chunk Headers (Lightweight Alternative)
+### 模式 3：上下文區塊標題（輕量級替代方案）
 
-If LLM-based contextualization is too expensive, use **Contextual Chunk Headers (CCH)** as a deterministic alternative:
+如果基於 LLM 的上下文化太昂貴，可以使用**上下文區塊標題（CCH）**作為確定性的替代方案：
 
 ```python
 def add_chunk_headers(
@@ -354,161 +353,162 @@ contextualized = add_chunk_headers(
 # It costs $200/month.
 ```
 
-**When to use CCH vs. LLM Contextualization:**
+**何時使用 CCH 與 LLM 上下文化：**
 
-| Factor | Chunk Headers (CCH) | LLM Contextualization |
-|--------|--------------------|-----------------------|
-| **Cost** | Free (no LLM calls) | $1-5 per 1M tokens |
-| **Quality** | Good for structured docs | Excellent for all docs |
-| **Speed** | Instant | 50-200ms per chunk |
-| **Best for** | Markdown, HTML, PDFs with clear headers | Unstructured text, legal, medical |
-
----
-
-## Cost Considerations
-
-### Contextualization Costs
-
-For a knowledge base of 10,000 chunks (avg 400 tokens each):
-
-| Model | Cost per Chunk | Total Cost | Quality |
-|-------|---------------|------------|---------|
-| Claude Haiku (fast, cheap) | ~$0.0003 | ~$3 | Good |
-| Claude Sonnet (balanced) | ~$0.002 | ~$20 | Very Good |
-| Claude Opus (highest quality) | ~$0.01 | ~$100 | Excellent |
-
-**Best practice**: Use Haiku (or another fast, cheap model) for contextualization. The context strings are short and factual, so you do not need a frontier model. Combine with prompt caching for ~90% cost reduction on the document body that gets passed in repeatedly.
-
-### When to Use Contextual Retrieval
-
-**Use it when:**
-- Your corpus has fragmented documents where chunks lose meaning in isolation
-- You have domain-specific jargon that embedding models struggle with
-- Your retrieval failure rate exceeds 3-5%
-- You can afford the one-time ingestion cost
-
-**Skip it when:**
-- Your chunks are already self-contained (e.g., FAQ pairs, product descriptions)
-- Your corpus is tiny (< 100 chunks) -- just use long-context instead
-- You need real-time ingestion (< 1s per document) and cannot batch
+| 因素 | 區塊標題（CCH） | LLM 上下文化 |
+|------|---------------|-------------|
+| **成本** | 免費（無 LLM 呼叫） | 每百萬 tokens $1-5 |
+| **品質** | 結構化文件佳 | 所有文件皆優秀 |
+| **速度** | 瞬間 | 每區塊 50-200ms |
+| **最適合** | 標題清晰的 Markdown、HTML、PDF | 非結構化文字、法律、醫療 |
 
 ---
 
-## Contextual Retrieval vs. Other Approaches
+## 成本考量
 
-| Approach | How It Works | Retrieval Improvement | Cost | Complexity |
-|----------|-------------|----------------------|------|------------|
-| **Naive Chunking** | Fixed-size splits, embed raw | Baseline | None | Low |
-| **Chunk Headers (CCH)** | Prepend doc/section titles | 10-20% | None | Low |
-| **Contextual Retrieval** | LLM-generated context per chunk | 35-49% | $3-20 per 10k chunks | Medium |
-| **Contextual + Reranking** | Above + cross-encoder rerank | 67% | $5-30 per 10k chunks | Medium-High |
-| **HyDE** | Hypothetical doc generation at query time | 20-40% | Per-query LLM cost | Medium |
-| **Parent-Child Chunking** | Embed children, retrieve parents | 15-30% | None | Medium |
+### 上下文化成本
 
-**Key Distinction**: Contextual Retrieval is an **ingestion-time** technique (pay once), while HyDE is a **query-time** technique (pay per query). For high-volume systems, Contextual Retrieval amortizes much better.
+對於 10,000 個區塊（每個平均 400 tokens）的知識庫：
 
-### Contextual Retrieval vs. Late Chunking
+| 模型 | 每區塊成本 | 總成本 | 品質 |
+|------|-----------|--------|------|
+| Claude Haiku（快速、便宜） | ~$0.0003 | ~$3 | 良好 |
+| Claude Sonnet（平衡） | ~$0.002 | ~$20 | 非常好 |
+| Claude Opus（最高品質） | ~$0.01 | ~$100 | 極佳 |
 
-**Late Chunking** (Jina, 2024) is a related but distinct approach:
+**最佳實踐**：使用 Haiku（或其他快速、便宜的模型）進行上下文化。上下文字串很短且是事實性的，不需要前沿模型。搭配提示快取可節省約 90% 的文件主體成本，該主體會在每次呼叫中重複傳送。
+
+### 何時使用上下文檢索
+
+**使用的情況：**
+- 您的語料庫有碎片化文件，區塊在獨立存在時會失去意義
+- 您有嵌入模型難以處理的領域特定術語
+- 您的檢索失敗率超過 3-5%
+- 您可以負擔一次性攝取成本
+
+**跳過的情況：**
+- 您的區塊已經是自包含的（例如：FAQ 配對、產品描述）
+- 您的語料庫很小（< 100 個區塊）——直接使用長上下文即可
+- 您需要即時攝取（每份文件 < 1 秒）且無法批次處理
+
+---
+
+## 上下文檢索與其他方法的比較
+
+| 方法 | 運作方式 | 檢索改善 | 成本 | 複雜度 |
+|------|---------|---------|------|--------|
+| **朴素區塊化** | 固定大小切割，嵌入原始內容 | 基準 | 無 | 低 |
+| **區塊標題（CCH）** | 附加文件/章節標題 | 10-20% | 無 | 低 |
+| **上下文檢索** | 每區塊 LLM 生成上下文 | 35-49% | 每 10k 區塊 $3-20 | 中 |
+| **上下文 + 重新排序** | 上述 + 交叉編碼器重新排序 | 67% | 每 10k 區塊 $5-30 | 中高 |
+| **HyDE** | 查詢時生成假設文件 | 20-40% | 每查詢 LLM 成本 | 中 |
+| **父子區塊化** | 嵌入子區塊，檢索父區塊 | 15-30% | 無 | 中 |
+
+**關鍵區別**：上下文檢索是一種**攝取時間**技術（付費一次），而 HyDE 是一種**查詢時間**技術（每次查詢付費）。對於高流量系統，上下文檢索的分攤效果要好得多。
+
+### 上下文檢索與晚期區塊化（Late Chunking）的比較
+
+**晚期區塊化**（Jina，2024）是一種相關但不同的方法：
 
 ```
-Contextual Retrieval:
-  Chunk ──► LLM adds context ──► Embed enriched chunk
+上下文檢索：
+  區塊 ──► LLM 新增上下文 ──► 嵌入豐富化的區塊
 
-Late Chunking:
-  Full doc ──► Long-context embed model ──► Token embeddings
-  ──► THEN chunk the token embeddings (preserving context)
+晚期區塊化：
+  完整文件 ──► 長上下文嵌入模型 ──► Token 嵌入
+  ──► 然後對 token 嵌入進行區塊化（保留上下文）
 ```
 
-Late Chunking requires a long-context embedding model (e.g., Jina v3) and avoids LLM calls entirely. It preserves context through the embedding model's attention mechanism rather than explicit text prepending. The tradeoff is that Late Chunking does not help BM25 search, only dense retrieval.
+晚期區塊化需要長上下文嵌入模型（例如 Jina v3），完全不需要 LLM 呼叫。它透過嵌入模型的注意力機制而非明確的文字附加來保留上下文。權衡是晚期區塊化對 BM25 搜索沒有幫助，僅對密集檢索有幫助。
 
 ---
 
-## Production Architecture
+## 生產架構
 
-### Reference Architecture: Contextual RAG at Scale
+### 參考架構：規模化上下文 RAG
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                     INGESTION SERVICE                               │
+│                     攝取服務                                         │
 │                                                                     │
-│  Document Store ──► Chunker ──► Contextualization Queue             │
-│                       │              │                              │
-│                       │         ┌────┴────┐                         │
-│                       │         │ Workers  │ (N parallel LLM calls) │
-│                       │         │ + Cache  │                        │
-│                       │         └────┬────┘                         │
-│                       │              │                              │
-│                       ▼              ▼                              │
-│                  Raw Chunks    Contextualized Chunks                 │
-│                       │              │                              │
-│                       │         ┌────┴────┐                         │
-│                       │         │ Embed + │                         │
-│                       │         │ BM25    │                         │
-│                       │         └────┬────┘                         │
-│                       │              │                              │
-│                       ▼              ▼                              │
-│                  Metadata DB    Vector DB + BM25 Index               │
+│  文件儲存 ──► 區塊化器 ──► 上下文化佇列                               │
+│                       │              │                               │
+│                       │         ┌────┴────┐                          │
+│                       │         │ 工作者   │ （N 個平行 LLM 呼叫）     │
+│                       │         │ + 快取   │                          │
+│                       │         └────┬────┘                          │
+│                       │              │                               │
+│                       ▼              ▼                               │
+│                  原始區塊         上下文化區塊                          │
+│                       │              │                               │
+│                       │         ┌────┴────┐                          │
+│                       │         │ 嵌入 +  │                          │
+│                       │         │ BM25    │                          │
+│                       │         └────┬────┘                          │
+│                       │              │                               │
+│                       ▼              ▼                               │
+│                  中繼資料資料庫      向量資料庫 + BM25 索引             │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
-│                     QUERY SERVICE                                   │
+│                     查詢服務                                         │
 │                                                                     │
-│  Query ──► [Vector Search] + [BM25 Search]                          │
-│                    │               │                                │
-│                    └───── RRF ─────┘                                │
-│                           │                                         │
-│                      Top 25 chunks                                  │
-│                           │                                         │
-│                      Reranker (Cohere, Cross-Encoder)               │
-│                           │                                         │
-│                      Top 5 chunks                                   │
-│                           │                                         │
-│                      LLM Generation                                 │
+│  查詢 ──► [向量搜索] + [BM25 搜索]                                   │
+│                    │               │                                 │
+│                    └───── RRF ─────┘                                 │
+│                           │                                          │
+│                      前 25 名區塊                                    │
+│                           │                                          │
+│                      重新排序器（Cohere、交叉編碼器）                  │
+│                           │                                          │
+│                      前 5 名區塊                                      │
+│                           │                                          │
+│                      LLM 生成                                        │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Scaling Considerations
+### 擴展考量
 
-| Concern | Solution |
-|---------|----------|
-| **Ingestion throughput** | Parallelize LLM calls (50-100 concurrent) with async workers |
-| **Document updates** | Re-contextualize only changed chunks; store raw + context separately |
-| **Cost at scale** | Use Haiku + prompt caching; batch documents by size |
-| **Quality monitoring** | Sample 1% of chunks and human-evaluate context quality |
-| **Index consistency** | Update vector DB + BM25 index atomically per document |
-
----
-
-## Interview Questions
-
-### Q: Explain Anthropic's Contextual Retrieval. When would you use it and when would you skip it?
-
-**Strong answer:**
-Contextual Retrieval solves the "context dilution" problem in RAG. When documents are chunked, individual chunks lose the surrounding context that gives them meaning -- a chunk saying "It costs $200" is useless without knowing *what* costs $200. The technique uses an LLM at ingestion time to generate a short context string (50-100 tokens) per chunk, explaining what that chunk is about within the document. This context is prepended to the chunk before embedding and BM25 indexing.
-
-The key results: Contextual Embeddings alone reduce retrieval failures by 35%. Adding Contextual BM25 achieves 49% reduction. Adding a reranker reaches 67% reduction.
-
-I would use it when chunks regularly lose meaning in isolation -- legal contracts, financial reports, technical manuals. I would skip it when chunks are already self-contained (FAQs, product cards) or when the corpus is small enough for long-context RAG.
-
-### Q: A knowledge base of 50,000 documents needs Contextual Retrieval. How do you manage the ingestion cost?
-
-**Strong answer:**
-Three strategies:
-1. **Model selection**: Use a small, fast model (Claude Haiku-class) for contextualization. The output is short factual text, not creative writing -- a frontier model adds cost without quality gain.
-2. **Prompt caching**: Cache the full document text across all chunk contextualization calls. For a 10,000-token document with 30 chunks, this reduces input token costs by approximately 90%.
-3. **Tiered approach**: Not every document needs LLM contextualization. For well-structured documents (Markdown, HTML with headers), use deterministic Contextual Chunk Headers (prepending doc title + section hierarchy) which is free. Reserve LLM contextualization for unstructured or ambiguous documents.
-
-### Q: How does Contextual Retrieval compare to HyDE for improving retrieval quality?
-
-**Strong answer:**
-They solve different sides of the same problem. Contextual Retrieval enriches **documents** at ingestion time (pay once), while HyDE enriches **queries** at search time (pay per query). For a system handling 10,000 queries/day against a 50,000-chunk corpus, Contextual Retrieval is dramatically cheaper because the ingestion cost is amortized. HyDE also has a hallucination risk -- the hypothetical document might pull in wrong data. In practice, the strongest systems use both: Contextual Retrieval for ingestion enrichment and HyDE (or multi-query expansion) for complex queries that need query-side help.
+| 考量 | 解決方案 |
+|------|---------|
+| **攝取吞吐量** | 平行化 LLM 呼叫（50-100 個並行）搭配非同步工作者 |
+| **文件更新** | 僅重新上下文化已變更的區塊；單獨儲存原始內容與上下文 |
+| **規模化成本** | 使用 Haiku + 提示快取；按大小批次處理文件 |
+| **品質監控** | 抽樣 1% 的區塊進行人工評估上下文品質 |
+| **索引一致性** | 每份文件原子性更新向量資料庫 + BM25 索引 |
 
 ---
 
-## References
+## 面試問題
+
+### Q：解釋 Anthropic 的上下文檢索。何時使用，何時跳過？
+
+**強而有力的回答：**
+上下文檢索解決了 RAG 中的「上下文稀釋」問題。當文件被區塊化時，個別區塊會失去周圍的上下文，而這些上下文正是赋予它們意義的元素——一個說「費用 $200」的區塊，如果不知道*什麼*費用 $200，就毫無用處。該技術在攝取時使用 LLM 為每個區塊生成一個簡短的上下文字串（50-100 tokens），說明該區塊在文件中的角色。此上下文在嵌入和 BM25 索引之前附加到區塊前方。
+
+關鍵結果：僅使用上下文嵌入即可減少 35% 的檢索失敗。加入上下文 BM25 可達到 49% 的減少。加上重新排序器可達到 67% 的減少。
+
+我會在區塊經常在獨立存在時失去意義的情況下使用它——法律合約、財務報告、技術手冊。我會在區塊已經是自包含的（FAQ、產品卡）或語料庫小到足以使用長上下文 RAG 時跳過它。
+
+### Q：一個包含 50,000 份文件的知識庫需要上下文檢索。您如何管理攝取成本？
+
+**強而有力的回答：**
+三種策略：
+1. **模型選擇**：使用小型、快速模型（Claude Haiku 等）進行上下文化。輸出是短的事實性文字，不是創意寫作——前沿模型增加成本而不增加品質。
+2. **提示快取**：在所有區塊上下文化呼叫之間快取完整文件文字。對於一個包含 30 個區塊的 10,000 token 文件，這可將輸入 token 成本降低約 90%。
+3. **分層方法**：並非每份文件都需要 LLM 上下文化。對於結構良好的文件（帶有標題的 Markdown、HTML），使用確定性的上下文區塊標題（附加文件標題 + 章節層級結構），這是免費的。將 LLM 上下文化保留給非結構化或模糊的文件。
+
+### Q：上下文檢索與 HyDE 在改善檢索品質方面如何比較？
+
+**強而有力的回答：**
+它們解決同一問題的不同面向。上下文檢索在**文件**的攝取時間進行豐富化（付費一次），而 HyDE 在**查詢**的搜尋時間進行豐富化（每次查詢付費）。對於每天處理 10,000 次查詢、語料庫有 50,000 個區塊的系統，上下文檢索要便宜得多，因為攝取成本被分攤了。HyDE 也有幻覺風險——假設的文件可能會引入錯誤的資料。在實踐中，最強大的系統兩者都用：攝取時使用上下文檢索豐富化文件，複雜查詢需要查詢端協助時使用 HyDE（或多重查詢擴展）。
+
+---
+
+## 參考文獻
+
 - Anthropic. "Contextual Retrieval" (September 2024)
 - Jina AI. "Late Chunking: Contextual Chunk Embeddings Using Long-Context Embedding Models" (2024)
 - Voyage AI. "voyage-context-3: Contextualized Chunk Embeddings" (2025)
@@ -516,4 +516,4 @@ They solve different sides of the same problem. Contextual Retrieval enriches **
 
 ---
 
-*Previous: [Advanced Retrieval Patterns](09-advanced-retrieval-patterns.md) | Next: [Late Interaction & ColBERT](11-late-interaction-colbert.md)*
+*前一篇：[進階檢索模式](09-advanced-retrieval-patterns.md) | 下一篇：[晚期互動與 ColBERT](11-late-interaction-colbert.md)*

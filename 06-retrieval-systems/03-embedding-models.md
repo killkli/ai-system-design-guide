@@ -1,97 +1,98 @@
-# Embedding Models
+# 嵌入模型
 
-Embedding models convert text into high-dimensional vectors. The frontier has moved past static single-vector representations to **multi-resolution, late-interaction, and multimodal** embeddings.
+嵌入模型將文字轉換為高維度向量。前沿技術已從靜態單一向量表示法演進到**多解析度、晚期互動與多模態**嵌入。
 
-## Table of Contents
+## 目錄
 
-- [The Embedding Frontier (Matryoshka)]( #matryoshka)
-- [Late Interaction (ColBERT v2)]( #late-interaction)
-- [Binary and Int8 Quantization]( #quantization)
-- [Model Selection Criteria]( #selection)
-- [Multimodal Embeddings (Vision + Text)]( #multimodal)
-- [Interview Questions]( #interview-questions)
-- [References]( #references)
-
----
-
-## The Embedding Frontier: Matryoshka Embeddings
-
-Traditionally, if you embedded text into 1,536 dimensions, you were stuck using all 1,536 dimensions for search. 
-
-**Matryoshka Representation Learning (MRL)**
-- Models are trained to "store" the most important info in the first few dimensions.
-- **The Win**: You can embed at 1,536 dims, but index only the first **64 dims** for a "fast search" pass, then refine the top results with the full 1,536 dims.
-- **Efficiency**: 20x reduction in memory/index size with <2% drop in accuracy.
+- [嵌入前沿：俄羅斯娃娃嵌入（Matryoshka）](#matryoshka)
+- [晚期互動（ColBERT v2）](#late-interaction)
+- [二元與 Int8 量化](#quantization)
+- [模型選擇標準](#selection)
+- [多模態嵌入（視覺 + 文字）](#multimodal)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Late Interaction: ColBERT v2
+## 嵌入前沿：俄羅斯娃娃嵌入
 
-Standard embeddings are "Bi-Encoders" (one vector per chunk). **ColBERT** (Contextualized Late Interaction over BERT) uses a "token-level" approach.
+傳統上，如果您將文字嵌入 1,536 維，您就只能使用全部 1,536 維進行搜尋。
 
-- **How**: Instead of 1 vector per chunk, ColBERT stores 1 vector **per token**.
-- **Interaction**: At query time, the model compares every token in your query to every token in the documents (the "MaxSim" operation).
-- **Status**: ColBERT v2 (and successors like ColPali, ColQwen2.5, ColNomic for documents and pages-as-images) is drastically compressed via PLAID indexing, making it feasible for production. It achieves much higher precision for "needle in a haystack" technical queries.
-
----
-
-## Binary and Int8 Quantization
-
-Storing `float32` vectors is expensive. Production indexes lean heavily on **in-model quantization**.
-
-- **Binary Embeddings**: Convert vectors to 1s and 0s. 
-  - **Memory**: 32x reduction.
-  - **Speed**: Hamming distance (XOR operations) is 10x faster than Cosine similarity on modern CPUs.
-- **Int8/Int4**: Supported natively by models like `text-embedding-3-small`.
+**俄羅斯娃娃表示學習（Matryoshka Representation Learning, MRL）**
+- 模型訓練時會將最重要的資訊「儲存」在前幾個維度中。
+- **優勢**：您可以嵌入 1,536 維，但僅索引前 **64 維**進行「快速搜尋」pass，再以完整的 1,536 維對頂部結果進行精煉。
+- **效率**：記憶體/索引大小減少 20 倍，準確率下降不到 2%。
 
 ---
 
-## Model Selection Criteria
+## 晚期互動：ColBERT v2
 
-| Model | Provider | Features | Context |
+標準嵌入是「雙編碼器」（每個區塊一個向量）。**ColBERT**（Contextualized Late Interaction over BERT）採用「詞元級」方法。
+
+- **原理**：ColBERT 不是每個區塊儲存 1 個向量，而是每個**詞元**儲存 1 個向量。
+- **互動**：在查詢時，模型會將您的查詢中的每個詞元與文件中的每個詞元進行比較（「MaxSim」運算）。
+- **狀態**：ColBERT v2（以及後續如 ColPali、ColQwen2.5、ColNomic，適用於文件和以頁面作為影像）透過 PLAID 索引大幅壓縮，使其適合用於生產環境。它在「大海撈針」技術查詢上達到更高的精確度。
+
+---
+
+## 二元與 Int8 量化
+
+儲存 `float32` 向量成本高昂。生產環境索引大量依賴**模型內量化**。
+
+- **二元嵌入**：將向量轉換為 1 和 0。
+  - **記憶體**：減少 32 倍。
+  - **速度**：漢明距離（XOR 運算）在現代 CPU 上比餘弦相似度快 10 倍。
+- **Int8/Int4**：由 `text-embedding-3-small` 等模型原生支援。
+
+---
+
+## 模型選擇標準
+
+| 模型 | 提供者 | 特點 | 上下文 |
 |-------|----------|----------|---------|
-| **Gemini Embedding 001** | Google | Multimodal (text, image, video, audio, PDF), shared 3072-dim space, MTEB-English leader | 8k |
-| **Qwen3-Embedding-8B** | Open Source | MTEB-Multilingual leader, instruction-tuned, long-doc strength | 32k |
-| **Llama-Embed-Nemotron-8B** | NVIDIA | Top multilingual scores, open weights | 8k |
-| **Cohere Embed v4** | Cohere | Multimodal (text + image), Matryoshka, binary quantization | 128k |
-| **Voyage-Multimodal-3.5** | Voyage AI | Unified text/image, retrieval-tuned | 32k |
-| **OpenAI text-embedding-3-large** | OpenAI | Matryoshka, Native Int8, broad support | 8k |
-| **BGE-M3** | Open Source | Multilingual, multi-granularity (dense + sparse + late-interaction) | 8k |
-| **Jina-Embeddings-v3** | Jina AI | Late-interaction support, long context | 128k |
+| **Gemini Embedding 001** | Google | 多模態（文字、圖像、影片、音訊、PDF），共用 3072 維空間，MTEB-English 榜首 | 8k |
+| **Qwen3-Embedding-8B** | 開源 | MTEB-多語言榜首、指令調優、長文件優勢 | 32k |
+| **Llama-Embed-Nemotron-8B** | NVIDIA | 頂級多語言分數、开源權重 | 8k |
+| **Cohere Embed v4** | Cohere | 多模態（文字 + 圖像）、俄羅斯娃娃、二元量化 | 128k |
+| **Voyage-Multimodal-3.5** | Voyage AI | 統一文字/圖像、檢索調優 | 32k |
+| **OpenAI text-embedding-3-large** | OpenAI | 俄羅斯娃娃、原生 Int8、廣泛支援 | 8k |
+| **BGE-M3** | 開源 | 多語言、多粒度（密集 + 稀疏 + 晚期互動） | 8k |
+| **Jina-Embeddings-v3** | Jina AI | 晚期互動支援、長上下文 | 128k |
 
-Open-weight models (Qwen3, Llama-Embed-Nemotron, BGE) now match or beat the commercial APIs on pure MTEB scores. Pick commercial when you want managed infra and SLAs; pick open weights when cost-per-query at high volume matters more than latency floor.
-
----
-
-## Multimodal Embeddings
-
-Text-only RAG silently throws away the charts, tables, diagrams, and layout signal that often hold the answer. Modern stacks treat pages, screenshots, and figures as first-class retrieval objects:
-
-- **Unified vision-text embeddings**: Cohere Embed v4, Voyage-Multimodal-3.5, Gemini Embedding 001 all share a single vector space, so you can query "where is the emergency shutoff valve?" against schematics.
-- **Page-as-image with late interaction**: ColPali, ColQwen2.5, and ColNomic embed each page render directly, skipping fragile OCR and preserving visual hierarchy.
-- **CLIP-family models**: Still useful for image-heavy catalogs (e-commerce, media) where text-image alignment is the core signal.
+开源權重模型（Qwen3、Llama-Embed-Nemotron、BGE）在純 MTEB 分數上已可與商業 API 匹敵甚至超越。當您需要托管基礎設施和 SLA 時選擇商業方案；當成本-per-query在高容量時比延遲底線更重要時選擇开源權重。
 
 ---
 
-## Interview Questions
+## 多模態嵌入
 
-### Q: What is the "Vocabulary Mismatch" problem in embeddings?
+僅文字的 RAG 會默默丟棄通常藏有答案的圖表、表格、圖解和版面訊號。現代技術堆疊將頁面、螢幕截圖和圖像視為一等檢索物件：
 
-**Strong answer:**
-Embeddings rely on the semantic space learned during training. If a user query uses a newer term (e.g., a model name released after the embedding model's cutoff) that wasn't in the embedding model's training set, the model might assign it a generic "AI" vector, missing the specific nuances. The standard fix is **Hybrid Search** (using BM25 to catch the specific keyword) plus **Cross-Encoder Reranking**, which handles out-of-distribution vocabulary better by looking at query and document tokens simultaneously.
-
-### Q: Why would you choose a Matryoshka model for a 1-billion-vector index?
-
-**Strong answer:**
-Scaling to 1 billion vectors with standard `float32` 1536-dim embeddings requires ~6TB of high-speed RAM for an HNSW index, which is prohibitively expensive. With a Matryoshka model, I can use the first 128 dimensions (Binary quantized) for the initial retrieval. This reduces the memory footprint by over 90%, allowing the "Top 1,000" candidates to be found on significantly cheaper hardware. I can then fetch the full-resolution vectors for just those 1,000 candidates to perform the final reranking.
+- **統一視覺-文字嵌入**：Cohere Embed v4、Voyage-Multimodal-3.5、Gemini Embedding 001 都共用單一向量空間，因此您可以針對 Schematic 查詢「緊急關閉閥在哪裡？」
+- **頁面即影像與晚期互動**：ColPali、ColQwen2.5 和 ColNomic 直接嵌入每個頁面渲染，跳過脆弱的 OCR 並保留視覺層級。
+- **CLIP 系列模型**：對於圖像密集型目錄（電子商務、媒體）仍然有用，因為文字-圖像對齊是核心訊號。
 
 ---
 
-## References
-- Kusupati et al. "Matryoshka Representation Learning" (2022/2024 update)
-- Khattab et al. "ColBERT v1 & v2: Efficient Late Interaction" (2021/2023)
-- OpenAI. "Introducing New Embedding Models with Matryoshka Support" (2024)
+## 面試問題
+
+### Q：嵌入中的「詞彙錯配」問題是什麼？
+
+**強答：**
+嵌入依賴訓練期間學習到的語義空間。如果使用者查詢使用較新的術語（例如，在嵌入模型斷點後發布的模型名稱），而該術語不在嵌入模型的訓練集中，模型可能會为其分配一個通用的「AI」向量，遺漏特定細微差別。標準修復是**混合搜尋**（使用 BM25 捕捉特定關鍵字）加上**跨編碼器重新排序**，透過同時檢視查詢和文件詞元來更好地處理分佈外詞彙。
+
+### Q：為什麼您會為 10 億向量索引選擇俄羅斯娃娃模型？
+
+**強答：**
+使用標準 `float32` 1536 維嵌入擴展到 10 億向量需要約 6TB 的高速記憶體用於 HNSW 索引，這在成本上令人望而卻步。使用俄羅斯娃娃模型，我可以使用前 128 維（二元量化）進行初始檢索。這將記憶體佔用量減少超過 90%，使「前 1,000 名」候選者可以在便宜得多的硬體上找到。然後我可以獲取這 1,000 名候選者的完整解析度向量來執行最終重新排序。
 
 ---
 
-*Next: [Vector Databases](04-vector-databases.md)*
+## 參考文獻
+
+- Kusupati et al. 「俄羅斯娃娃表示學習」（2022/2024 更新）
+- Khattab et al. 「ColBERT v1 & v2：高效晚期互動」（2021/2023）
+- OpenAI. 「推出支援俄羅斯娃娃的新嵌入模型」（2024）
+
+---
+
+*下一篇：[向量資料庫](04-vector-databases.md)*

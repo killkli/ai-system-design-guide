@@ -1,94 +1,93 @@
-# Late Interaction & ColBERT
+# 晚期互動與 ColBERT
 
-Late Interaction is a retrieval paradigm that sits between fast-but-imprecise **bi-encoders** and accurate-but-slow **cross-encoders**. ColBERT (Contextualized Late Interaction over BERT) is the defining model in this space, delivering cross-encoder-level accuracy at bi-encoder-level speed. The late-interaction family has matured into a production-ready alternative for high-precision search, with multimodal extensions (ColPali, ColQwen2.5, ColNomic, and unified retrievers like Wholembed v3) now in the same toolkit.
+晚期互動（Late Interaction）是一種檢索範式，介於快速但精確度有限的**雙編碼器（bi-encoder）**與精確但緩慢的**交叉編碼器（cross-encoder）**之間。ColBERT（Contextualized Late Interaction over BERT）是這個領域中最具代表性的模型，以雙編碼器等級的速度提供了交叉編碼器等級的精確度。晚期互動家族已發展成為可用於生產環境的替代方案，適用於高精確度搜尋，多模態扩展（ColPali、ColQwen2.5、ColNomic 以及像 Wholembed v3 這類的統一檢索器）現在都已納入同一工具套件。
 
-## Table of Contents
+## 目錄
 
-- [The Retrieval Architecture Spectrum](#spectrum)
-- [ColBERT Architecture](#colbert-architecture)
-- [MaxSim: The Core Scoring Mechanism](#maxsim)
-- [ColBERTv2 and PLAID Indexing](#colbertv2)
-- [Late Interaction vs. Alternatives](#comparison)
-- [Implementation with RAGatouille](#ragatouille)
-- [Production Deployment Patterns](#production)
-- [When to Choose ColBERT](#when-to-choose)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [檢索架構光譜](#spectrum)
+- [ColBERT 架構](#colbert-architecture)
+- [MaxSim：核心評分機制](#maxsim)
+- [ColBERTv2 與 PLAID 索引](#colbertv2)
+- [晚期互動與替代方案比較](#comparison)
+- [使用 RAGatouille 實作](#ragatouille)
+- [生產部署模式](#production)
+- [何時選擇 ColBERT](#when-to-choose)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## The Retrieval Architecture Spectrum
+## 檢索架構光譜
 
-There are three fundamental architectures for neural retrieval. Understanding where late interaction fits is the key to the entire chapter.
+神經檢索有三種基本架構。理解晚期互動的定位是本章的關鍵。
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                                                                     │
-│   SPEED ◄──────────────────────────────────────────────► ACCURACY   │
+│   速度 ◄──────────────────────────────────────────────► 精確度     │
 │                                                                     │
-│   Bi-Encoder          Late Interaction          Cross-Encoder       │
-│   (Single Vector)     (Multi-Vector)            (Full Attention)    │
+│   雙編碼器           晚期互動            交叉編碼器                   │
+│   （單一向量）       （多向量）          （全注意力機制）              │
 │                                                                     │
-│   ● Fast (< 10ms)     ● Balanced (10-50ms)      ● Slow (100ms+)   │
-│   ● Low accuracy       ● High accuracy           ● Highest accuracy│
-│   ● Scales to 1B+     ● Scales to 100M+         ● Scales to 10K   │
+│   ● 快速（< 10ms）   ● 均衡（10-50ms）  ● 緩慢（100ms+）            │
+│   ● 精確度低         ● 精確度高          ● 精確度最高                │
+│   ● 可擴展至 10 億+  ● 可擴展至 1 億+    ● 可擴展至 1 萬             │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### How Each Architecture Processes a Query-Document Pair
+### 各架構如何處理查詢-文件配對
 
 ```
-BI-ENCODER (e.g., E5, BGE):
-  Query  ──► Encoder ──► [1 vector]  ─┐
-                                      ├──► dot product ──► score
-  Doc    ──► Encoder ──► [1 vector]  ─┘
+雙編碼器（例如 E5、BGE）：
+  查詢  ──► 編碼器 ──► [1 個向量]  ─┐
+                                      ├──► 點積 ──► 分數
+  文件  ──► 編碼器 ──► [1 個向量]  ─┘
 
-  Total interaction: 1 comparison
+  總互動：1 次比較
 
 ─────────────────────────────────────────────
 
-LATE INTERACTION (ColBERT):
-  Query  ──► Encoder ──► [N vectors] ─┐
-                (one per token)       ├──► MaxSim ──► score
-  Doc    ──► Encoder ──► [M vectors] ─┘
-                (one per token)
+晚期互動（ColBERT）：
+  查詢  ──► 編碼器 ──► [N 個向量] ─┐
+                （每個 token 一個）       ├──► MaxSim ──► 分數
+  文件  ──► 編碼器 ──► [M 個向量] ─┘
+                （每個 token 一個）
 
-  Total interaction: N x M comparisons (but decomposable)
+  總互動：N x M 次比較（但可分解）
 
 ─────────────────────────────────────────────
 
-CROSS-ENCODER (e.g., ms-marco-MiniLM):
-  [Query + Doc] ──► Encoder ──► score
+交叉編碼器（例如 ms-marco-MiniLM）：
+  [查詢 + 文件] ──► 編碼器 ──► 分數
 
-  Total interaction: Full self-attention across
-                     all query AND document tokens
+  總互動：所有查詢與文件 token 之間的完整自我注意力
 ```
 
-**Insight**: The critical difference is *when* the query and document interact. Bi-encoders never interact (independent encoding). Cross-encoders interact fully (joint encoding). Late interaction is the middle ground: encode independently, then interact cheaply at the token level.
+**洞察**：關鍵差異在於查詢和文件*何時*互動。雙編碼器從不互動（獨立編碼）。交叉編碼器完全互動（聯合編碼）。晚期互動是中間地帶：獨立編碼，然後在 token 層級進行低成本的互動。
 
 ---
 
-## ColBERT Architecture
+## ColBERT 架構
 
-ColBERT encodes queries and documents into **matrices of token-level embeddings** (not single vectors) and scores them using fine-grained token interactions.
+ColBERT 將查詢和文件編碼為**token 級別嵌入矩陣**（而非單一向量），並透過細粒度的 token 互動進行評分。
 
-### Encoding Phase
+### 編碼階段
 
 ```
-Query: "What is the price of Widget-X?"
+查詢：「Widget-X 的價格是多少？」
 
-Token Embeddings (each 128-dim):
+Token 嵌入（每個 128 維）：
   q1 = Embed("What")     = [0.12, -0.34, ..., 0.08]
   q2 = Embed("is")       = [0.05, -0.11, ..., 0.22]
   q3 = Embed("the")      = [0.01, -0.02, ..., 0.15]
-  q4 = Embed("price")    = [0.45,  0.67, ..., 0.91]  ◄── high signal
+  q4 = Embed("price")    = [0.45,  0.67, ..., 0.91]  ◄── 高信號
   q5 = Embed("of")       = [0.03, -0.05, ..., 0.11]
-  q6 = Embed("Widget-X") = [0.88,  0.21, ..., 0.73]  ◄── high signal
+  q6 = Embed("Widget-X") = [0.88,  0.21, ..., 0.73]  ◄── 高信號
 
-Document: "Widget-X costs $200 per month for the Standard plan"
+文件：「Widget-X 的 Standard 方案每月費用為 200 美元」
 
-Token Embeddings:
+Token 嵌入：
   d1 = Embed("Widget-X")  = [0.85,  0.19, ..., 0.71]
   d2 = Embed("costs")     = [0.42,  0.63, ..., 0.88]
   d3 = Embed("$200")      = [0.31,  0.55, ..., 0.79]
@@ -98,35 +97,35 @@ Token Embeddings:
   d7 = Embed("plan")      = [0.29,  0.37, ..., 0.51]
 ```
 
-**Key design choice**: ColBERT uses **128-dimensional** token embeddings (vs. 768-1024 for standard bi-encoders). This smaller dimensionality is critical for storage efficiency since we store N vectors per document instead of 1.
+**關鍵設計選擇**：ColBERT 使用**128 維**的 token 嵌入（相對於標準雙編碼器的 768-1024 維）。這個較小的維度對於儲存效率至關重要，因為我們每個文件儲存 N 個向量而非 1 個。
 
-### Offline vs. Online Computation
+### 離線與線上計算
 
-| Component | When | Cost |
-|-----------|------|------|
-| Document encoding | Offline (indexing) | One-time, parallelizable |
-| Query encoding | Online (per query) | Fast (~5-10ms on GPU) |
-| MaxSim scoring | Online (per query) | Token-level ops, optimized by PLAID |
+| 元件 | 時機 | 成本 |
+|------|------|------|
+| 文件編碼 | 離線（索引） | 一次性，可平行化 |
+| 查詢編碼 | 線上（每次查詢） | 快速（GPU 約 5-10ms） |
+| MaxSim 評分 | 線上（每次查詢） | Token 層級運算，PLAID 優化 |
 
-**This decomposition is what makes ColBERT fast**: documents are pre-encoded once. At query time, only the query needs encoding, and the scoring is simple arithmetic over pre-computed vectors.
+**這種分解是 ColBERT 快速的原因**：文件預先編碼一次。查詢時只需要對查詢進行編碼，評分是對預先計算的向量進行的簡單算術運算。
 
 ---
 
-## MaxSim: The Core Scoring Mechanism
+## MaxSim：核心評分機制
 
-MaxSim (Maximum Similarity) is the operator that makes late interaction work. It is conceptually simple but surprisingly powerful.
+MaxSim（最大相似度）是使晚期互動運作的運算子。它在概念上很簡單，但卻意外地強大。
 
-### How MaxSim Works
+### MaxSim 的運作方式
 
 ```
-For each query token qi:
-  1. Compute dot product with EVERY document token dj
-  2. Keep only the MAXIMUM score
+對於每個查詢 token qi：
+  1. 與每個文件 token dj 計算點積
+  2. 只保留最大值
 
-Score(Q, D) = SUM over all qi of MAX over all dj of (qi . dj)
+Score(Q, D) = 對所有 qi 求和 of 對所有 dj 求最大值 of (qi . dj)
 ```
 
-### Worked Example
+### 實際範例
 
 ```
             d1        d2       d3       d4       d5
@@ -136,178 +135,178 @@ Score(Q, D) = SUM over all qi of MAX over all dj of (qi . dj)
   q6       0.95*     0.38     0.27     0.01     0.03
   Widget-X
 
-  * = maximum for that query token
+  * = 該查詢 token 的最大值
 
-  MaxSim contribution from q4 ("price"): 0.89 (matched "costs")
-  MaxSim contribution from q6 ("Widget-X"): 0.95 (matched "Widget-X")
+  q4（「price」）的 MaxSim 貢獻：0.89（匹配「costs」）
+  q6（「Widget-X」）的 MaxSim 貢獻：0.95（匹配「Widget-X」）
 
-  Total Score = sum of all max values across all query tokens
+  總分 = 所有查詢 token 的最大值總和
 ```
 
-### Why MaxSim Outperforms Single-Vector Similarity
+### 為什麼 MaxSim 優於單向量相似度
 
-| Property | Single-Vector (Dot Product) | MaxSim (Late Interaction) |
-|----------|----------------------------|--------------------------|
-| **Granularity** | Document-level | Token-level |
-| **Partial matching** | All-or-nothing | Tokens match independently |
-| **Term importance** | Compressed into 1 vector | Each token contributes separately |
-| **Rare terms** | Diluted by averaging | Preserved as individual vectors |
+| 屬性 | 單一向量（點積） | MaxSim（晚期互動） |
+|------|-----------------|-------------------|
+| **粒度** | 文件層級 | Token 層級 |
+| **部分匹配** | 全有或全無 | Token 獨立匹配 |
+| **詞彙重要性** | 壓縮成 1 個向量 | 每個 token 獨立貢獻 |
+| **罕見詞彙** | 被平均稀釋 | 作為獨立向量保留 |
 
-**The intuition**: In a bi-encoder, the meaning of "Widget-X" gets averaged with "costs," "$200," and every other token into a single vector. If "Widget-X" is rare, its signal gets diluted. In ColBERT, "Widget-X" keeps its own dedicated vector, so the MaxSim operator can find a strong match for it independently.
+**直覺**：在雙編碼器中，「Widget-X」的意義會與「costs」、「$200」以及其他每個 token 平均混合成單一向量。如果「Widget-X」是罕見詞彙，其信號會被稀釋。在 ColBERT 中，「Widget-X」保留自己的專屬向量，因此 MaxSim 運算子可以獨立找到強匹配。
 
 ---
 
-## ColBERTv2 and PLAID Indexing
+## ColBERTv2 與 PLAID 索引
 
-The original ColBERT (2020) had a critical limitation: **storage**. Storing 128-dim vectors for every token in every document is expensive. A corpus of 10M documents with 200 tokens each would require ~256 GB of vector storage.
+原始 ColBERT（2020 年）有一個關鍵限制：**儲存**。為每個文件中的每個 token 儲存 128 維向量代價高昂。一個包含 1000 萬份文件、每份 200 個 token 的語料庫需要約 256 GB 的向量儲存空間。
 
-### ColBERTv2 Improvements (2021)
+### ColBERTv2 改進（2021 年）
 
-ColBERTv2 introduced two key innovations:
+ColBERTv2 引入了兩個關鍵創新：
 
-**1. Residual Compression**:
+**1. 殘差壓縮（Residual Compression）**：
 
 ```
-Original ColBERT:
-  Each token vector: 128 dims x 32-bit float = 512 bytes
+原始 ColBERT：
+  每個 token 向量：128 維 x 32 位元浮點數 = 512 位元組
 
-ColBERTv2 Residual Compression:
-  1. Cluster all token vectors into centroids (k-means)
-  2. Store only the centroid ID + residual (difference)
-  3. Quantize the residual to 1-2 bits per dimension
+ColBERTv2 殘差壓縮：
+  1. 將所有 token 向量分群到質心（k-means）
+  2. 只儲存質心 ID + 殘差（差異）
+  3. 將殘差量化為每維 1-2 位元
 
-  Each token vector: ~16-32 bytes (16-32x compression)
+  每個 token 向量：約 16-32 位元組（16-32 倍壓縮）
 ```
 
-**2. Denoised Supervision**:
-- Trains on hard negatives mined from a cross-encoder teacher
-- Cross-encoder labels "clean up" noisy training data
-- Result: better quality embeddings despite compression
+**2. 去噪監督（Denoised Supervision）**：
+- 從交叉編碼器教師模型挖掘困難負樣本進行訓練
+- 交叉編碼器標籤「清理」了雜訊訓練資料
+- 結果：尽管有壓縮，嵌入品質更好
 
-**ColBERTv2 Storage Comparison**:
+**ColBERTv2 儲存比較**：
 
-| System | Per-Token Storage | 10M Docs (200 tokens each) |
-|--------|------------------|---------------------------|
-| ColBERT v1 | 512 bytes | ~1 TB |
-| ColBERTv2 (compressed) | 32 bytes | ~64 GB |
-| Bi-encoder (1 vector/doc) | 3 KB | ~30 GB |
+| 系統 | 每 Token 儲存 | 1000 萬份文件（每份 200 個 token） |
+|------|-------------|-----------------------------------|
+| ColBERT v1 | 512 位元組 | 約 1 TB |
+| ColBERTv2（壓縮後） | 32 位元組 | 約 64 GB |
+| 雙編碼器（每份文件 1 個向量） | 3 KB | 約 30 GB |
 
-### PLAID: The Indexing Engine
+### PLAID：索引引擎
 
-PLAID (Performance-optimized Late Interaction Driver) is the indexing and retrieval engine that makes ColBERT practical at scale.
+PLAID（Performance-optimized Late Interaction Driver）是使 ColBERT 能夠規模化運作的索引和檢索引擎。
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    PLAID RETRIEVAL PIPELINE                     │
+│                    PLAID 檢索流程                                │
 │                                                                 │
-│  Stage 1: CENTROID PRUNING                                      │
+│  階段 1：質心剪枝                                                │
 │  ─────────────────────────                                      │
-│  For each query token, find nearest centroids                   │
-│  Collect candidate passages that contain those centroids        │
-│  Result: ~10,000 candidates from millions                       │
+│  對每個查詢 token，找到最近的質心                                 │
+│  收集包含這些質心的候選段落                                       │
+│  結果：從數百萬個候選中篩選至約 10,000 個                          │
 │                                                                 │
-│  Stage 2: CENTROID INTERACTION                                  │
+│  階段 2：質心互動                                                │
 │  ─────────────────────────────                                  │
-│  Approximate MaxSim using centroid-level scores only            │
-│  Filter candidates to top ~1,000                                │
+│  只用質心層級分數來近似 MaxSim                                    │
+│  將候選篩選至前約 1,000 個                                        │
 │                                                                 │
-│  Stage 3: CENTROID PRUNING (Fine)                               │
-│  ──────────────────────────────                                 │
-│  Decompress residuals for remaining candidates                  │
-│  Compute approximate MaxSim with residual vectors               │
-│  Filter to top ~100                                             │
+│  階段 3：精細質心剪枝                                             │
+│  ──────────────────────────────                                  │
+│  對剩餘候選解壓縮殘差                                             │
+│  用殘差向量計算近似 MaxSim                                        │
+│  篩選至前約 100 個                                               │
 │                                                                 │
-│  Stage 4: FULL DECOMPRESSION                                    │
+│  階段 4：完整解壓縮                                              │
 │  ────────────────────────────                                   │
-│  Fully decompress token vectors for top candidates              │
-│  Compute exact MaxSim                                           │
-│  Return final ranked results                                    │
+│  對最高候選完整解壓縮 token 向量                                  │
+│  計算準確 MaxSim                                                 │
+│  回傳最終排名結果                                                │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**The key insight**: PLAID avoids decompressing all vectors for all documents. Each stage cheaply filters the candidate set so that expensive exact scoring only happens on a tiny fraction of the corpus.
+**關鍵洞察**：PLAID 避免對所有文件的所有向量進行解壓縮。每個階段都低成本地過濾候選集，使昂貴的準確評分只發生在語料庫的一小部分上。
 
-**PLAID Performance**:
-- Retrieves from 10M+ documents in **50-100ms** on a single GPU
-- Maintains **exact MaxSim** accuracy (not approximate)
-- Uses centroid pruning to skip 99%+ of the corpus before full scoring
+**PLAID 效能**：
+- 在單一 GPU 上從 1000 萬+ 份文件檢索只需**50-100ms**
+- 保持**準確的 MaxSim**精度（非近似）
+- 使用質心剪枝在完整評分前跳過 99%+ 的語料庫
 
 ---
 
-## Late Interaction vs. Alternatives
+## 晚期互動與替代方案比較
 
-### Comprehensive Comparison
+### 全面比較
 
-| Dimension | BM25 | Bi-Encoder | ColBERT (Late) | Cross-Encoder |
-|-----------|------|-----------|----------------|---------------|
-| **Encoding** | Term frequency | 1 vector/doc | N vectors/doc | Joint (no pre-compute) |
-| **Query latency** | ~5ms | ~10ms | ~30-50ms | ~500ms+ per pair |
-| **Scalability** | Billions | Billions | 100M+ | ~10K (reranking only) |
-| **Storage (1M docs)** | ~2 GB | ~3 GB | ~6-12 GB | 0 (no index) |
-| **Accuracy (NDCG@10)** | 0.30-0.35 | 0.35-0.40 | 0.39-0.44 | 0.42-0.46 |
-| **Domain transfer** | Strong (lexical) | Weak (needs fine-tuning) | Strong (token-level) | Strongest |
-| **Setup complexity** | Low | Medium | High | Low (no index) |
+| 維度 | BM25 | 雙編碼器 | ColBERT（晚期） | 交叉編碼器 |
+|------|------|---------|-----------------|------------|
+| **編碼** | 詞彙頻率 | 每份文件 1 個向量 | 每份文件 N 個向量 | 聯合（無法預先計算） |
+| **查詢延遲** | 約 5ms | 約 10ms | 約 30-50ms | 每 pair 約 500ms+ |
+| **可擴展性** | 數十億 | 數十億 | 1 億+ | 約 1 萬（僅用於重新排序） |
+| **儲存（100 萬份文件）** | 約 2 GB | 約 3 GB | 約 6-12 GB | 0（無索引） |
+| **精確度（NDCG@10）** | 0.30-0.35 | 0.35-0.40 | 0.39-0.44 | 0.42-0.46 |
+| **領域轉移** | 強（詞彙） | 弱（需微調） | 強（token 層級） | 最強 |
+| **設定複雜度** | 低 | 中 | 高 | 低（無索引） |
 
-### When ColBERT Wins
+### ColBERT 獲勝的時機
 
 ```
-                  ▲ Accuracy
+                  ▲ 精確度
                   │
-             0.45 ┤                     ● Cross-Encoder
+             0.45 ┤                     ● 交叉編碼器
                   │                   ●
              0.40 ┤              ● ColBERT
                   │         ●
-             0.35 ┤    ● Bi-Encoder
+             0.35 ┤    ● 雙編碼器
                   │ ●
              0.30 ┤ BM25
                   │
-                  └────┬────┬────┬────┬────┬──► Throughput (QPS)
+                  └────┬────┬────┬────┬────┬──► 吞吐量（QPS）
                       10   100  1K   10K  100K
 ```
 
-**ColBERT occupies the sweet spot**: it is 3-5x more accurate than bi-encoders on domain-specific benchmarks (up to +13.8% mAP on specialized datasets) while being 10-50x faster than cross-encoders.
+**ColBERT 占據了最佳位置**：在領域特定基準測試中，它比雙編碼器精確 3-5 倍（專業資料集上 mAP 高達 +13.8%），而速度比交叉編碼器快 10-50 倍。
 
 ---
 
-## Implementation with RAGatouille
+## 使用 RAGatouille 實作
 
-RAGatouille (by Answer.AI) is the standard Python library for using ColBERT in RAG pipelines. It wraps the Stanford ColBERT codebase with a simple, high-level API.
+RAGatouille（由 Answer.AI 開發）是使用 ColBERT 進行 RAG 管道的標準 Python 函式庫。它用簡單的高層級 API 包裝了 Stanford ColBERT 程式碼庫。
 
-### Basic Usage
+### 基本用法
 
 ```python
 from ragatouille import RAGPretrainedModel
 
-# Load a pretrained ColBERT model
+# 載入預訓練的 ColBERT 模型
 RAG = RAGPretrainedModel.from_pretrained("colbert-ir/colbertv2.0")
 
-# Index documents (one-time, creates PLAID index on disk)
+# 索引文件（一次性，在磁碟上建立 PLAID 索引）
 documents = [
-    "Widget-X costs $200 per month for the Standard plan.",
-    "The Enterprise plan includes SSO and audit logs for $800/month.",
-    "All plans include 99.9% uptime SLA and 24/7 email support.",
-    "Widget-X was launched in 2023 and serves 10,000+ customers.",
+    "Widget-X 的 Standard 方案每月費用為 200 美元。",
+    "Enterprise 方案包含 SSO 和審計日誌，每月 800 美元。",
+    "所有方案都包含 99.9% 正常運作時間 SLA 和 24/7 電子郵件支援。",
+    "Widget-X 於 2023 年推出，服務 10,000+ 客戶。",
 ]
 
 index_path = RAG.index(
     index_name="products",
     collection=documents,
-    split_documents=True  # auto-chunk long docs
+    split_documents=True  # 自動分塊長文件
 )
 
-# Search the index
+# 搜尋索引
 results = RAG.search(
-    query="How much does Widget-X cost?",
+    query="Widget-X 的價格是多少？",
     k=3
 )
 
 for result in results:
-    print(f"Score: {result['score']:.4f}")
-    print(f"Text:  {result['content']}\n")
+    print(f"分數：{result['score']:.4f}")
+    print(f"文字：{result['content']}\n")
 ```
 
-### Integration with LangChain
+### 與 LangChain 整合
 
 ```python
 from ragatouille import RAGPretrainedModel
@@ -315,15 +314,15 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 
-# Create ColBERT retriever
+# 建立 ColBERT 檢索器
 RAG = RAGPretrainedModel.from_pretrained("colbert-ir/colbertv2.0")
 retriever = RAG.as_langchain_retriever(k=5)
 
-# Build RAG chain
-template = """Answer based on the following context:
+# 建立 RAG 鏈
+template = """根據以下上下文回答：
 {context}
 
-Question: {question}"""
+問題：{question}"""
 
 prompt = ChatPromptTemplate.from_template(template)
 llm = ChatOpenAI(model="gpt-4o")
@@ -334,164 +333,165 @@ chain = (
     | llm
 )
 
-response = chain.invoke("What features does the Enterprise plan include?")
+response = chain.invoke("Enterprise 方案包含哪些功能？")
 ```
 
-### Other ColBERT Libraries and Integrations
+### 其他 ColBERT 函式庫與整合
 
-| Library | Use Case | Notes |
-|---------|----------|-------|
-| **RAGatouille** | Python-first, simple API | Best for prototyping and small-medium scale |
-| **colbert-ai** (Stanford) | Research, full control | Lower-level, more configuration options |
-| **Vespa** | Production-scale deployment | Managed infrastructure with native ColBERT support |
-| **PyLate** | Flexible training/fine-tuning | Built on Sentence Transformers, good for custom models |
-| **Jina ColBERT v2** | Multilingual (89 languages) | Flexible output dimensions, production-ready |
+| 函式庫 | 使用案例 | 備註 |
+|--------|----------|------|
+| **RAGatouille** | Python 優先，簡單 API | 最適合原型設計和中小規模 |
+| **colbert-ai**（Stanford） | 研究，完全控制 | 低層級，更多配置選項 |
+| **Vespa** | 生產規模部署 | 受管理的基礎設施，原生支援 ColBERT |
+| **PyLate** | 靈活的訓練/微調 | 建構在 Sentence Transformers 上，適合自訂模型 |
+| **Jina ColBERT v2** | 多語言（89 種語言） | 靈活的輸出維度，可用於生產 |
 
 ---
 
-## Production Deployment Patterns
+## 生產部署模式
 
-### Pattern 1: ColBERT as Primary Retriever
-
-```
-Query ──► ColBERT (PLAID) ──► Top 20 ──► LLM
-```
-
-Best for: medium-scale corpora (1M-50M docs) where accuracy is paramount and you can afford the storage overhead.
-
-### Pattern 2: ColBERT as Reranker (Most Common)
+### 模式 1：ColBERT 作為主要檢索器
 
 ```
-Query ──► BM25 or Bi-Encoder ──► Top 1000 ──► ColBERT Rerank ──► Top 20 ──► LLM
+查詢 ──► ColBERT (PLAID) ──► 前 20 名 ──► LLM
 ```
 
-Best for: large-scale systems where first-stage retrieval must be cheap, but you need high-quality reranking without the cost of a cross-encoder.
+最佳用途：中等規模語料庫（100 萬-5000 萬份文件），精確度至上且可負擔儲存開銷。
+
+### 模式 2：ColBERT 作為重新排序器（最常見）
+
+```
+查詢 ──► BM25 或雙編碼器 ──► 前 1000 名 ──► ColBERT 重新排序 ──► 前 20 名 ──► LLM
+```
+
+最佳用途：大型系統，第一階段檢索必須便宜，但需要高品質重新排序且不需交叉編碼器的成本。
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│              COLBERT-AS-RERANKER ARCHITECTURE                   │
+│              COLBERT-作為-重新排序器架構                          │
 │                                                                 │
-│  User Query                                                     │
+│  使用者查詢                                                      │
 │      │                                                          │
 │      ▼                                                          │
-│  First Stage: BM25 / Bi-Encoder                                 │
-│  (cheap, high recall, Top 1000)                                 │
+│  第一階段：BM25 / 雙編碼器                                       │
+│  （便宜、高召回、前 1000 名）                                     │
 │      │                                                          │
 │      ▼                                                          │
-│  Second Stage: ColBERT MaxSim Reranking                         │
-│  (pre-computed doc tokens, score Top 1000)                      │
-│  Cost: only query encoding + MaxSim arithmetic                  │
+│  第二階段：ColBERT MaxSim 重新排序                                │
+│  （預先計算的文件 token，對前 1000 名評分）                        │
+│  成本：只有查詢編碼 + MaxSim 算術運算                             │
 │      │                                                          │
 │      ▼                                                          │
-│  Top 20 Passages ──► LLM Generation                             │
+│  前 20 名段落 ──► LLM 生成                                       │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Pattern 3: Hybrid (ColBERT + BM25 + Dense)
+### 模式 3：混合式（ColBERT + BM25 + 密集向量）
 
 ```
-Query ──┬──► BM25 (Top 50) ────────┐
-        ├──► Dense Bi-Encoder (50) ─┼──► RRF ──► ColBERT Rerank ──► Top 10
-        └──► ColBERT (Top 50) ─────┘
+查詢 ──┬──► BM25（前 50 名） ────────┐
+        ├──► 密集雙編碼器（50 名） ─┼──► RRF ──► ColBERT 重新排序 ──► 前 10 名
+        └──► ColBERT（前 50 名） ──┘
 ```
 
-Best for: maximum accuracy at medium scale. Expensive but covers all retrieval modalities.
+最佳用途：中等規模的最大精確度。昂貴但涵蓋所有檢索模式。
 
-### Storage and Infrastructure Considerations
+### 儲存與基礎設施考量
 
-| Corpus Size | Bi-Encoder Storage | ColBERT Storage | GPU Requirement |
-|------------|-------------------|-----------------|-----------------|
-| 100K docs | ~300 MB | ~600 MB - 1.2 GB | CPU-only OK |
-| 1M docs | ~3 GB | ~6-12 GB | 1 GPU recommended |
-| 10M docs | ~30 GB | ~60-120 GB | 1-2 GPUs required |
-| 100M docs | ~300 GB | ~600 GB - 1.2 TB | Multi-GPU / distributed |
+| 語料庫大小 | 雙編碼器儲存 | ColBERT 儲存 | GPU 需求 |
+|------------|-------------|--------------|----------|
+| 10 萬份文件 | 約 300 MB | 約 600 MB - 1.2 GB | 僅 CPU 即可 |
+| 100 萬份文件 | 約 3 GB | 約 6-12 GB | 建議 1 個 GPU |
+| 1000 萬份文件 | 約 30 GB | 約 60-120 GB | 需要 1-2 個 GPU |
+| 1 億份文件 | 約 300 GB | 約 600 GB - 1.2 TB | 需要多 GPU / 分散式 |
 
-**Reality check**: ColBERT's storage is 2-4x that of bi-encoders. For most RAG use cases (under 10M docs), this is manageable. For web-scale search (billions of pages), bi-encoders or learned sparse methods remain more practical for the first retrieval stage.
+**務實考量**：ColBERT 的儲存是雙編碼器的 2-4 倍。對於大多数 RAG 使用案例（少於 1000 萬份文件），這是可控的。對於網路規模的搜尋（數十億個頁面），雙編碼器或學習到的稀疏方法在第一階段檢索中仍然更實際。
 
 ---
 
-## When to Choose ColBERT
+## 何時選擇 ColBERT
 
-### Decision Framework
+### 決策框架
 
 ```
-Is your corpus < 100M documents?
-├── No  ──► Use Bi-Encoder for retrieval + ColBERT for reranking
-└── Yes
+語料庫是否 < 1 億份文件？
+├── 否  ──► 將雙編碼器用於檢索 + 將 ColBERT 用於重新排序
+└── 是
     │
-    Is accuracy more important than infrastructure simplicity?
-    ├── No  ──► Use Bi-Encoder (simpler, cheaper)
-    └── Yes
+    精確度是否比基礎設施簡單性更重要？
+    ├── 否  ──► 使用雙編碼器（更簡單、更便宜）
+    └── 是
         │
-        Can you afford 2-4x storage vs. bi-encoder?
-        ├── No  ──► Use Bi-Encoder + Cross-Encoder reranker
-        └── Yes ──► Use ColBERT (PLAID) as primary retriever
+        能夠負擔雙編碼器 2-4 倍的儲存嗎？
+        ├── 否  ──► 使用雙編碼器 + 交叉編碼器重新排序器
+        └── 是 ──► 使用 ColBERT (PLAID) 作為主要檢索器
 ```
 
-### ColBERT vs. Dense Retrieval vs. Hybrid Search
+### ColBERT 與密集檢索與混合搜尋比較
 
-| Scenario | Best Choice | Why |
-|----------|-------------|-----|
-| General-purpose RAG (< 1M docs) | Hybrid (Dense + BM25) | Simplest, good enough accuracy |
-| Domain-specific search (legal, medical) | ColBERT | Token-level matching preserves jargon |
-| Multilingual corpus | Jina ColBERT v2 | Native 89-language support |
-| Cost-sensitive, high-volume | Bi-Encoder + BM25 | Lowest storage and compute |
-| Maximum accuracy, medium scale | ColBERT + Reranker | Best quality without cross-encoder latency |
-| Web-scale (1B+ docs) | Bi-Encoder first stage + ColBERT rerank | ColBERT index too large for primary |
-
----
-
-## Interview Questions
-
-### Q: Explain the difference between bi-encoders, cross-encoders, and late interaction models. When would you choose each?
-
-**Strong answer:**
-The three architectures differ in *when* the query and document interact:
-
-**Bi-encoders** encode query and document independently into single vectors. Interaction happens only via a dot product at the end. This is fast (pre-compute all document vectors, search in milliseconds) but loses fine-grained matching -- the entire document meaning is compressed into one point in vector space.
-
-**Cross-encoders** process the concatenated query + document through a single transformer. Full self-attention means every query token attends to every document token. This gives the highest accuracy but cannot pre-compute anything -- every query-document pair requires a full forward pass, making it infeasible for first-stage retrieval. Cross-encoders are used as rerankers on the top 10-100 candidates.
-
-**Late interaction (ColBERT)** encodes query and document independently (like bi-encoders), but into *per-token* vector matrices instead of single vectors. Scoring uses MaxSim -- for each query token, find its best-matching document token. This preserves token-level granularity while still allowing document pre-computation. The result is near-cross-encoder accuracy at near-bi-encoder speed.
-
-I would choose bi-encoders for large-scale first-stage retrieval where simplicity matters, cross-encoders for high-stakes reranking of small candidate sets, and ColBERT when I need the accuracy of a cross-encoder but cannot afford its latency -- particularly for domain-specific search where term-level matching matters (legal, medical, technical docs).
-
-### Q: ColBERT stores one vector per token. How does it scale, and what are the storage tradeoffs?
-
-**Strong answer:**
-The naive storage cost of ColBERT is significant. A 200-token document requires 200 vectors of 128 dimensions each, versus 1 vector of 768-1024 dimensions for a bi-encoder. This means roughly 3-5x the storage per document.
-
-ColBERTv2 addresses this with **residual compression**: token vectors are clustered into centroids, and only the centroid ID plus a quantized residual is stored. This achieves 16-32x compression per token vector, bringing practical storage to about 2-4x that of a bi-encoder.
-
-The PLAID indexing engine further improves efficiency at query time by using a multi-stage pipeline. It starts with centroid pruning (fast, coarse) to eliminate 99% of candidates, then progressively decompresses residuals only for promising candidates. The final exact MaxSim is computed on fewer than 100 documents, keeping latency at 50-100ms even on 10M+ document corpora.
-
-For scale beyond 100M documents, I would use ColBERT as a reranker rather than a primary retriever -- let a bi-encoder or BM25 do the first-stage retrieval to narrow the candidate set to 1,000 documents, then apply ColBERT's MaxSim for high-quality reranking.
-
-### Q: You are designing a legal document search system with 5M documents. The team is debating between dense bi-encoder search with a cross-encoder reranker vs. ColBERT. What do you recommend?
-
-**Strong answer:**
-I would recommend ColBERT for this use case for three reasons:
-
-First, **legal text is term-sensitive**. Contract clauses reference specific section numbers, defined terms (e.g., "Force Majeure"), and exact phrases. ColBERT's token-level MaxSim matching preserves these rare-but-critical terms that get diluted in a single-vector bi-encoder embedding.
-
-Second, **5M documents is squarely in ColBERT's sweet spot**. With ColBERTv2 compression, the index would be roughly 30-60 GB -- easily fits on a single GPU. This is small enough for primary retrieval, avoiding the need for a separate first-stage retriever.
-
-Third, **cross-encoder reranking adds latency**. Each query-document pair requires a full transformer forward pass. Reranking 100 candidates with a cross-encoder might take 500ms-2s. ColBERT achieves comparable accuracy while keeping total latency under 100ms because document tokens are pre-computed.
-
-The one area I would supplement ColBERT is with a parallel BM25 index for exact-match queries (statute numbers, case citations) where keyword precision matters. I would use RRF to combine ColBERT and BM25 results before passing to the LLM.
+| 情境 | 最佳選擇 | 原因 |
+|------|----------|------|
+| 通用 RAG（< 100 萬份文件） | 混合式（密集 + BM25） | 最簡單，精確度足夠 |
+| 領域特定搜尋（法律、醫療） | ColBERT | Token 層級匹配保留專業術語 |
+| 多語言語料庫 | Jina ColBERT v2 | 原生支援 89 種語言 |
+| 成本敏感、高流量 | 雙編碼器 + BM25 | 最低儲存和計算成本 |
+| 最大精確度、中等規模 | ColBERT + 重新排序器 | 在無交叉編碼器延遲下達到最佳品質 |
+| 網路規模（10 億+ 文件） | 雙編碼器第一階段 + ColBERT 重新排序 | ColBERT 索引對主要檢索太大 |
 
 ---
 
-## References
-- Khattab & Zaharia. "ColBERT: Efficient and Effective Passage Search" (SIGIR 2020)
-- Santhanam et al. "ColBERTv2: Effective and Efficient Retrieval via Lightweight Late Interaction" (NAACL 2022)
-- Santhanam et al. "PLAID: An Efficient Engine for Late Interaction Retrieval" (CIKM 2022)
-- Answer.AI. "RAGatouille: State-of-the-art Late Interaction Retrieval" (GitHub, 2024)
-- Jina AI. "Jina-ColBERT-v2: General-Purpose Multilingual Late Interaction Retriever" (2024)
-- Weaviate. "An Overview of Late Interaction Retrieval Models" (2025)
-- ECIR 2026. "Late Interaction Workshop" (2026)
+## 面試問題
+
+### 問：解釋雙編碼器、交叉編碼器和晚期互動模型之間的差異。何時會選擇各自？
+
+**理想答案：**
+三種架構在*何時*讓查詢和文件互動方面有所不同：
+
+**雙編碼器**將查詢和文件獨立編碼為單一向量。互動只在最後透過點積進行。這很快（預先計算所有文件向量，毫秒級搜尋），但會失去細粒度匹配——整份文件的意義被壓縮成向量空間中的一個點。
+
+**交叉編碼器**透過單一 transformer 處理串聯的查詢 + 文件。全自我注意力意味著每個查詢 token 都會注意每個文件 token。這給予最高精確度，但無法預先計算——每個查詢-文件配對都需要完整的 forward pass，使其在第一階段檢索中不可行。交叉編碼器作為重新排序器用於前 10-100 個候選。
+
+**晚期互動（ColBERT）**獨立編碼查詢和文件（像雙編碼器），但編碼成*每 token*向量矩陣而非單一向量。評分使用 MaxSim——對每個查詢 token，找到其最佳匹配的文件 token。這在保留 token 層級細粒度的同時仍允許文件預先計算。結果是接近交叉編碼器的精確度，接近雙編碼器的速度。
+
+我會在需要大型第一階段檢索且簡單性很重要時選擇雙編碼器，在高風險的小候選集重新排序時選擇交叉編碼器，並在需要交叉編碼器的精確度但無法負擔其延遲時選擇 ColBERT——特別是對於領域特定搜尋，term 層級匹配很重要（法律、醫療、技術文件）。
+
+### 問：ColBERT 每個 token 儲存一個向量。它如何擴展，儲存的取捨是什麼？
+
+**理想答案：**
+ColBERT 的原始儲存成本很可觀。一份 200 個 token 的文件需要 200 個 128 維向量，而雙編碼器只需要 1 個 768-1024 維向量。這意味著每份文件大約多 3-5 倍的儲存。
+
+ColBERTv2 透過**殘差壓縮**解決這個問題：token 向量被分群到質心，只儲存質心 ID 加上量化殘差。這實現了每個 token 向量 16-32 倍的壓縮，使實際儲存約為雙編碼器的 2-4 倍。
+
+PLAID 索引引擎進一步在查詢時提高效率，透過多階段流程。它從質心剪枝（快速、粗略）開始，消除 99% 的候選，然後只對有潛力的候選逐步解壓縮殘差。最終的準確 MaxSim 在少於 100 份文件上計算，即使在 1000 萬+ 份文件的語料庫上也保持 50-100ms 的延遲。
+
+對於超過 1 億份文件的規模，我會將 ColBERT 用作重新排序器而非主要檢索器——讓雙編碼器或 BM25 進行第一階段檢索，將候選集縮小到 1000 份文件，然後應用 ColBERT 的 MaxSim 進行高品質重新排序。
+
+### 問：您正在設計一個包含 500 萬份文件的法律文件搜尋系統。團隊正在爭論是使用密集雙編碼器搜尋加交叉編碼器重新排序器，還是使用 ColBERT。您建議什麼？
+
+**理想答案：**
+基於三個原因，我會建議使用 ColBERT：
+
+首先，**法律文字對術語敏感**。合約條款引用特定的條款編號、定義術語（例如「不可抗力」）和精確措辭。ColBERT 的 token 層級 MaxSim 匹配保留了這些罕見但關鍵的術語，這些術語在單一向量雙編碼器嵌入中會被稀釋。
+
+其次，**500 萬份文件正好在 ColBERT 的最佳範圍內**。使用 ColBERTv2 壓縮，索引大約為 30-60 GB——可以輕鬆放在單一 GPU 上。這足夠小，可以用於主要檢索，避免需要单独的第一階段檢索器。
+
+第三，**交叉編碼器重新排序會增加延遲**。每個查詢-文件配對都需要完整的 transformer forward pass。重新排序 100 個候選可能需要 500ms-2s。ColBERT 在保持總延遲低於 100ms 的同時達到類似的精確度，因為文件 token 是預先計算的。
+
+我會補充 ColBERT 的一個領域是並行的 BM25 索引，用於精確匹配查詢（法規編號、案例引用），在這些情況下關鍵字精確度很重要。我會使用 RRF 組合 ColBERT 和 BM25 結果，然後再傳給 LLM。
 
 ---
 
-*Previous: [Contextual Retrieval](10-contextual-retrieval.md)*
+## 參考文獻
+
+- Khattab & Zaharia. 「ColBERT：高效且有效的段落搜尋」（SIGIR 2020）
+- Santhanam et al. 「ColBERTv2：透過輕量級晚期互動實現有效且高效的檢索」（NAACL 2022）
+- Santhanam et al. 「PLAID：晚期互動檢索的高效引擎」（CIKM 2022）
+- Answer.AI. 「RAGatouille：最先進的晚期互動檢索」（GitHub，2024）
+- Jina AI. 「Jina-ColBERT-v2：通用多語言晚期互動檢索器」（2024）
+- Weaviate. 「晚期互動檢索模型概述」（2025）
+- ECIR 2026. 「晚期互動研討會」（2026）
+
+---
+
+*上一頁：[Contextual Retrieval](10-contextual-retrieval.md)*
