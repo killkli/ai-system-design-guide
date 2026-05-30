@@ -1,93 +1,94 @@
-# Chain-of-Thought (CoT)
+# 思維鏈（CoT）
 
-Chain-of-Thought (CoT) is the technique of encouraging an LLM to generate intermediate reasoning steps before providing a final answer. It has evolved from a simple prompt phrase into the core architectural feature of reasoning models (o1, DeepSeek-R2, Claude Opus 4.7 with extended thinking, GPT-5.5 with extended thinking).
+思維鏈（Chain-of-Thought，CoT）是鼓勵 LLM 在提供最終答案之前生成中間推理步驟的技術。它已從簡單的提示詞短語演進為推理模型的核心架構特徵（o1、DeepSeek-R2、具延伸思考的 Claude Opus 4.7、具延伸思考的 GPT-5.5）。
 
-## Table of Contents
+## 目錄
 
-- [The CoT Revolution](#cot-revolution)
-- [Zero-Shot vs. Programmatic CoT](#zero-vs-programmatic)
-- [The Rise of "Thinking" Models (o1, DeepSeek-R1)](#thinking-models)
-- [Self-Correction and Verification](#self-correction)
-- [When CoT Fails (Over-thinking)](#over-thinking)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The CoT Revolution
-
-Standard LLMs are "Next Token Predictors." For complex math or logic, a single pass is often insufficient. CoT provides the "Scribble Pad" (Working Memory) for the model to work through sub-problems.
-
-**The Formula**: `Input -> Reasoning (Chain) -> Output`
+- [CoT 革命](#cot-revolution)
+- [零樣本與程式化 CoT](#zero-vs-programmatic)
+- [「思考」模型的崛起](#thinking-models)
+- [自我修正與驗證](#self-correction)
+- [CoT 何時失敗（過度思考）](#over-thinking)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Zero-Shot vs. Programmatic CoT
+## CoT 革命
 
-| Technique | Trigger Phrase | Efficiency | Use Case |
-|-----------|----------------|------------|----------|
-| **Zero-Shot CoT** | "Let's think step by step." | High | Ad-hoc queries. |
-| **Few-Shot CoT** | (Provided examples with logic) | Higher Stability | Production pipelines. |
-| **Programmatic CoT** | "1. Analyze X. 2. Verify Y. 3. Resolve Z." | **Best for Agents** | Complex multi-tool tasks. |
+標準 LLM 是「下一個 Token 預測器」。對於複雜數學或邏輯，單次運算往往不夠。CoT 為模型提供「草稿紙」（工作記憶體）來處理子問題。
+
+**公式**：`輸入 -> 推理（鏈）-> 輸出`
 
 ---
 
-## The Rise of "Thinking" Models
+## 零樣本與程式化 CoT
 
-Models like **OpenAI o1/GPT-5.5 extended thinking**, **DeepSeek-R2**, and **Claude Opus 4.7** have CoT "baked in" via Reinforcement Learning (RL).
-
-1. **System-Level CoT**: The model doesn't just "print" reasoning; it has a dedicated "Thinking Window."
-2. **Hidden CoT**: In many enterprise versions, the reasoning chain is hidden from the user but verifiable by the system to prevent prompt injection or "thought leakage."
-3. **Scaling Law**: These models follow the **Inference Scaling Law**—the longer they "think," the better they solve hard problems ($o1$ can solve gold-medal IMO math given enough time).
+| 技術 | 觸發短語 | 效率 | 使用場景 |
+|------|----------|------|----------|
+| **零樣本 CoT** | 「讓我們一步一步思考。」 | 高 | 臨時查詢。 |
+| **少樣本 CoT** | （提供帶邏輯的範例） | 更高穩定性 | 生產管線。 |
+| **程式化 CoT** | 「1. 分析 X。2. 驗證 Y。3. 解決 Z。」 | **最適合代理** | 複雜多工具任務。 |
 
 ---
 
-## Self-Correction and Verification
+## 「思考」模型的崛起
 
-Production pipelines no longer trust a single Chain-of-Thought. They layer in **Self-Verification**.
+**OpenAI o1/具延伸思考的 GPT-5.5**、**DeepSeek-R2** 和 **Claude Opus 4.7** 等模型透過強化學習（RL）將 CoT「烘焙」進去。
+
+1. **系統級 CoT**：模型不僅「列印」推理；它有一個專用的「思考視窗」。
+2. **隱藏 CoT**：在許多企業版本中，推理鏈對使用者隱藏，但系統可驗證，以防止提示詞注入或「思考洩漏」。
+3. **規模定律**：這些模型遵循**推理規模定律**——它們「思考」得越久，在困難問題上表現越好（$o1$ 在足夠時間下可解決國際數學奧林匹亞金牌題）。
+
+---
+
+## 自我修正與驗證
+
+生產管線不再信任單一思維鏈。它們分層加入**自我驗證**。
 
 ```markdown
-# Process
-1. Generate Answer A via CoT.
-2. Critique: "Are there any errors in the logic above?"
-3. If errors: "Correct the logic and provide Answer B."
+# 流程
+1. 透過 CoT 生成答案 A。
+2. 批評：「上述邏輯有任何錯誤嗎？」
+3. 若有錯誤：「修正邏輯並提供答案 B。」
 ```
 
-**Nuance**: This is now integrated into **Execution-Verified CoT** for coding, where the model writes the logic, runs the code, and corrects itself if the code fails.
+**專業細節**：這現在已整合到程式設計的**執行驗證 CoT** 中，模型撰寫邏輯、執行程式碼，若程式碼失敗則自我修正。
 
 ---
 
-## When CoT Fails (Over-thinking)
+## CoT 何時失敗（過度思考）
 
-CoT is not a silver bullet. For simple tasks, it adds:
-1. **Latency**: More tokens = slower response.
-2. **Cost**: You pay for every "thought" token.
-3. **Over-thinking**: The model might hallucinate complexity where none exists (e.g., explaining why 2+2=4 for 3 paragraphs).
-
----
-
-## Interview Questions
-
-### Q: Why does CoT improve performance on mathematical word problems?
-
-**Strong answer:**
-CoT improves performance by aligning the model's computational complexity with the task's logical complexity. In a standard single-pass generation, the model must predict the final answer token based on limited local information. With CoT, the model "breaks" the problem into smaller, auto-regressive steps. Each step uses the previous step's output as context, allowing the model's attention mechanism to focus on one sub-problem at a time (e.g., first adding the apples, then subtracting the oranges), reducing the "cognitive load" of the single-pass prediction.
-
-### Q: How do you handle CoT in a production environment where latency is critical?
-
-**Strong answer:**
-We use a **Hybrid Reasoning Architecture**:
-1. **Tier 1 (Fast)**: A classifier identifies if the query needs deep reasoning.
-2. **Tier 2 (Condensed CoT)**: We prompt the model with "Be concise in your reasoning," or use "Knowledge Distillation" where we train a smaller model to produce *only* the final answer while benefitting from a teacher's CoT-style pretraining. 
-3. **Tier 3 (Streaming)**: We stream the CoT to the user (if transparent) or a background process so the system can begin "pre-processing" the final result as it appears.
+CoT 不是萬靈丹。對於簡單任務，它只會增加：
+1. **延遲**：更多 Token = 更慢的回應。
+2. **成本**：您為每個「思考」Token 付費。
+3. **過度思考**：模型可能會在沒有復雜性的地方幻想出複雜性（例如，用 3 段解釋為什麼 2+2=4）。
 
 ---
 
-## References
+## 面試題目
+
+### Q：為什麼 CoT 能提高數學應用題的表現？
+
+**理想回答：**
+CoT 透過將模型的計算複雜度與任務的邏輯複雜度對齊來提高表現。在標準單次生成中，模型必須基於有限的局部資訊預測最終答案 Token。有了 CoT，模型將問題「分解」為更小的、自迴歸的步驟。每個步驟使用前一步驟的輸出作為上下文，允許模型的注意力機制一次專注於一個子問題（例如，先加上蘋果，再減去橘子），減少單次預測的「認知負擔」。
+
+### Q：如何在延遲關鍵的生產環境中處理 CoT？
+
+**理想回答：**
+我們使用**混合推理架構**：
+1. **第一層（快速）**：分類器識別查詢是否需要深度推理。
+2. **第二層（濃縮 CoT）**：我們提示模型「推理時要簡潔」，或使用「知識蒸餾」，訓練較小模型在受益於老師的 CoT 風格預訓練的同時，*只*產生最終答案。
+3. **第三層（串流）**：我們將 CoT 串流給使用者（若透明）或後台程序，這樣系統可以在最終結果出現時開始「預處理」。
+
+---
+
+## 參考文獻
+
 - Wei et al. "Chain-of-Thought Prompting Elicits Reasoning in Large Language Models" (2022)
 - Wang et al. "Self-Consistency Improves Chain of Thought Reasoning in Language Models" (2023)
 - OpenAI. "Learning to Reason with LLMs" (2024)
 
 ---
 
-*Next: [Tree-of-Thought](04-tree-of-thought.md)*
+*下一篇：[思維樹](04-tree-of-thought.md)*
