@@ -1,4 +1,4 @@
-# Behavioral Questions for AI/ML Roles
+# AI/ML 職位行為面試題
 
 Behavioral questions in AI roles assess how you approach ambiguous problems, collaborate across disciplines, and handle the unique challenges of AI systems. This chapter covers common questions and frameworks for strong answers.
 
@@ -7,7 +7,7 @@ Behavioral questions in AI roles assess how you approach ambiguous problems, col
 - [Why Behavioral Questions Matter for AI Roles](#why-behavioral-questions-matter-for-ai-roles)
 - [AI-Specific Behavioral Themes](#ai-specific-behavioral-themes)
 - [Question Categories and Examples](#question-categories-and-examples)
-- [Sample Answers Using STAR-L](#sample-answers-using-star-l)
+- [Sample Answers Using STAR-L（情境、任務、行動、結果、學習）](#sample-answers-using-star-l)
 - [Questions to Ask Your Interviewers](#questions-to-ask-your-interviewers)
 
 ---
@@ -63,11 +63,11 @@ AI capabilities are often misunderstood. Strong candidates manage stakeholder ex
 
 ### Theme 3: Dealing with Failure
 
-AI systems fail in ways that differ from traditional software. Strong candidates learn from failures without defensiveness.
+AI systems fail in ways that differ from traditional software. Strong candidates learn from 失敗 without defensiveness.
 
 **Questions to expect:**
 - Tell me about an AI system that did not work as expected
-- How do you handle a model that performs poorly in production?
+- How do you handle a model that performs poorly in 生產環境?
 - Describe a time you shipped something that had issues
 
 **What they look for:**
@@ -201,7 +201,7 @@ Strong answer elements:
 
 ---
 
-## Sample Answers Using STAR-L
+## Sample Answers Using STAR-L（情境、任務、行動、結果、學習）
 
 ### Example 1: Handling Ambiguity
 
@@ -218,15 +218,15 @@ I started by interviewing five key stakeholders to understand their underlying n
 
 I then built three rapid prototypes showing different levels of sophistication:
 1. Keyword search with better ranking
-2. Semantic search with embeddings
-3. Conversational search with RAG
+2. Semantic search with 嵌入
+3. Conversational search with RAG（檢索增強生成）
 
-I demoed each with real queries from our support logs, showing actual performance and explaining the engineering effort for each.
+I demoed each with real queries from our support 日誌, showing actual performance and explaining the engineering effort for each.
 
-This reframed the conversation from "what features" to "what value at what cost." We aligned on starting with semantic search, with a plan to add conversational features in phase two.
+This reframed the conversation from "what features" to "what value at what cost." We aligned on starting with 語義檢索, with a plan to add conversational features in phase two.
 
 **Result:**
-We shipped semantic search in 6 weeks. User time-to-answer dropped 40%. The clear success made it easy to get buy-in for phase two.
+We shipped 語義檢索 in 6 weeks. User time-to-answer dropped 40%. The clear success made it easy to get buy-in for phase two.
 
 **Learning:**
 I learned that ambiguity often comes from stakeholders optimizing for different things. Showing concrete options with real tradeoffs moves conversations forward faster than abstract discussions. I now start every ambiguous project with quick prototypes.
@@ -235,30 +235,30 @@ I learned that ambiguity often comes from stakeholders optimizing for different 
 
 ### Example 2: Managing Failed Expectations
 
-**Q: Tell me about a time an AI system did not perform as expected in production.**
+**Q: Tell me about a time an AI system did not perform as expected in 生產環境.**
 
 **Situation:**
-We launched a content recommendation system that performed great in testing but showed 30% lower engagement in production than our heuristic baseline.
+We launched a content recommendation system that performed great in testing but showed 30% lower engagement in 生產環境 than our heuristic baseline.
 
 **Task:**
 As the ML engineer who built it, I needed to diagnose the issue, decide whether to roll back, and regain stakeholder trust.
 
 **Action:**
-First, I did not hide the problem. I immediately flagged it to leadership with the data showing the gap. I proposed keeping 10% of traffic on the new system while I investigated.
+First, I did not hide the problem. I immediately flagged it to leadership with the 資料 showing the gap. I proposed keeping 10% of traffic on the new system while I investigated.
 
 Investigation revealed two issues:
-1. Our test set was not representative. It was from high-engagement users.
+1. Our 測試集 was not representative. It was from high-engagement users.
 2. Cold start was worse than expected for new users.
 
-I implemented stratified testing that matched production user distribution and added a heuristic fallback for cold users.
+I implemented stratified testing that matched 生產環境 user distribution and added a heuristic 降級 for cold users.
 
-I also created a monitoring dashboard so stakeholders could see real-time performance. This transparency helped rebuild trust.
+I also created a 監控 dashboard so stakeholders could see real-time performance. This transparency helped rebuild trust.
 
 **Result:**
 The revised system outperformed the baseline by 15% after two more weeks of iteration. More importantly, I established testing practices that caught similar issues in future projects.
 
 **Learning:**
-I learned that production is the only true test for ML systems. I now always instrument for monitoring before launch and plan for rapid iteration. I also learned that transparency during failures builds more trust than hiding problems.
+I learned that 生產環境 is the only true test for ML systems. I now always instrument for 監控 before launch and plan for rapid iteration. I also learned that transparency during 失敗 builds more trust than hiding problems.
 
 ---
 
@@ -267,7 +267,7 @@ I learned that production is the only true test for ML systems. I now always ins
 **Q: Tell me about a time you raised an ethical concern about an AI system.**
 
 **Situation:**
-We were building a resume screening system to help recruiters process high volumes of applications. During development, I noticed the training data was heavily biased toward engineers from top universities.
+We were building a resume screening system to help recruiters process high volumes of applications. During development, I noticed the 訓練資料 was heavily biased toward engineers from top universities.
 
 **Task:**
 I needed to raise the concern in a way that was taken seriously without being dismissed as slowing down the project.
@@ -278,13 +278,13 @@ I started by quantifying the problem. I showed that the model had 80% precision 
 I presented this to the team not as "we should not do this" but as "this is a business and legal risk." I cited recent cases where companies faced lawsuits over biased hiring and showed how our model could create similar exposure.
 
 I proposed two alternatives:
-1. Rebalance training data to ensure diverse representation
+1. Rebalance 訓練資料 to ensure diverse representation
 2. Use the model only for matching, not ranking, with human review for all candidates
 
-The team chose option one plus adding fairness metrics to our evaluation suite.
+The team chose option one plus adding fairness 指標 to our 評估 suite.
 
 **Result:**
-We delayed launch by three weeks but shipped a system that performed consistently across demographics. Legal and HR were grateful for the proactive approach. The fairness metrics became standard for all our ML models.
+We delayed launch by three weeks but shipped a system that performed consistently across demographics. Legal and HR were grateful for the proactive approach. The fairness 指標 became standard for all our ML models.
 
 **Learning:**
 I learned that framing ethical concerns in terms of business risk makes them more actionable. I also learned that raising concerns early with proposed solutions is more effective than waiting until problems are entrenched.
@@ -296,28 +296,28 @@ I learned that framing ethical concerns in terms of business risk makes them mor
 **Q: Tell me about working with a team that had different priorities.**
 
 **Situation:**
-Our research team had developed a novel retrieval approach that showed 20% better recall on benchmarks. They wanted to publish the paper and move on. Product wanted it shipped. I was the engineer responsible for productionizing it.
+Our research team had developed a novel 檢索 approach that showed 20% better recall on benchmarks. They wanted to publish the paper and move on. Product wanted it shipped. I was the engineer responsible for productionizing it.
 
 **Task:**
-I needed to get the system into production while maintaining a good relationship with researchers who had different incentives.
+I needed to get the system into 生產環境 while maintaining a good relationship with researchers who had different incentives.
 
 **Action:**
 I started by understanding what the researchers cared about. They wanted credit for the innovation and did not want their method "dumbed down" during productionization.
 
 I proposed a collaboration structure:
-- They would remain authors on any publications about the production system
-- I would document which of their contributions directly impacted production metrics
+- They would remain authors on any publications about the 生產環境 system
+- I would 文件 which of their contributions directly impacted 生產環境 指標
 - We would meet weekly to review changes and ensure scientific integrity
 
-This aligned their incentives with mine. They became invested in production success because it validated their research.
+This aligned their incentives with mine. They became invested in 生產環境 success because it validated their research.
 
-When I needed to simplify their approach for latency reasons, I showed them benchmarks proving the simplification preserved their key innovations. They actually found this interesting and contributed ideas for further optimization.
+When I needed to simplify their approach for 延遲 reasons, I showed them benchmarks proving the simplification preserved their key innovations. They actually found this interesting and contributed ideas for further optimization.
 
 **Result:**
-We shipped in 8 weeks with 18% recall improvement (slightly less than their benchmark due to latency constraints). They published a follow-up paper on production learnings. We established a template for research-to-production collaboration.
+We shipped in 8 weeks with 18% recall improvement (slightly less than their benchmark due to 延遲 constraints). They published a 追問 paper on 生產環境 learnings. We established a template for research-to-生產環境 collaboration.
 
 **Learning:**
-I learned that understanding what motivates others is the key to collaboration. Researchers want impact and credit. By making production success support those goals, I turned potential friction into partnership.
+I learned that understanding what motivates others is the key to collaboration. Researchers want impact and credit. By making 生產環境 success support those goals, I turned potential friction into partnership.
 
 ---
 
@@ -327,14 +327,14 @@ Strong candidates ask thoughtful questions. Here are AI-specific questions that 
 
 ### About the Team
 
-- How does the team balance research exploration with production delivery?
+- How does the team balance research exploration with 生產環境 delivery?
 - What is the ratio of building new models versus improving existing systems?
 - How do ML engineers and researchers collaborate here?
 
 ### About the Tech
 
 - What is the biggest technical challenge the team is facing right now?
-- How do you evaluate model quality in production?
+- How do you evaluate model quality in 生產環境?
 - What does your ML infrastructure look like? What would you change?
 
 ### About the Culture
