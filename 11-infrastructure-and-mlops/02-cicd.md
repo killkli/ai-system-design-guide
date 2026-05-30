@@ -1,47 +1,47 @@
-# CI/CD for LLM Applications
+# LLM 應用程式的 CI/CD
 
-Deploying LLM applications requires adapting traditional CI/CD practices for AI-specific concerns like model evaluation, prompt testing, and quality gates.
+部署 LLM 應用程式需要調整傳統 CI/CD 實踐以適應 AI 特定關注，如模型評估、提示詞測試和品質閘道。
 
-## Table of Contents
+## 目錄
 
-- [LLM CI/CD Challenges](#llm-cicd-challenges)
-- [Pipeline Architecture](#pipeline-architecture)
-- [Testing Stages](#testing-stages)
-- [Quality Gates](#quality-gates)
-- [Deployment Strategies](#deployment-strategies)
-- [Rollback Procedures](#rollback-procedures)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [LLM CI/CD 挑戰](#llm-cicd-challenges)
+- [管線架構](#pipeline-architecture)
+- [測試階段](#testing-stages)
+- [品質閘道](#quality-gates)
+- [部署策略](#deployment-strategies)
+- [回滾程序](#rollback-procedures)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## LLM CI/CD Challenges
+## LLM CI/CD 挑戰
 
-### What Makes LLM Deployments Different
+### 什麼使 LLM 部署與眾不同
 
-| Traditional CI/CD | LLM CI/CD |
+| 傳統 CI/CD | LLM CI/CD |
 |-------------------|-----------|
-| Binary tests (pass/fail) | Probabilistic evaluation |
-| Fast tests | Slow, expensive evaluations |
-| Deterministic outputs | Non-deterministic outputs |
-| Code changes only | Prompt + model + data changes |
-| Version control obvious | Prompt versioning complex |
+| 二元測試（通過/失敗） | 概率評估 |
+| 快速測試 | 慢、昂貴的評估 |
+| 確定性輸出 | 非確定性輸出 |
+| 僅程式碼變更 | 提示 + 模型 + 資料變更 |
+| 版本控制明顯 | 提示詞版本控制複雜 |
 
-### Change Types
+### 變更類型
 
-| Change Type | Risk | Testing Required |
+| 變更類型 | 風險 | 需要的測試 |
 |-------------|------|------------------|
-| Prompt text | Medium | Regression + quality eval |
-| System prompt | High | Full evaluation suite |
-| Model version | High | Comprehensive benchmark |
-| RAG index | Medium | Retrieval + quality eval |
-| Parameters (temp, etc) | Low-Medium | Quality sampling |
+| 提示文字 | 中 | 迴歸 + 品質評估 |
+| 系統提示 | 高 | 完整評估套件 |
+| 模型版本 | 高 | 全面基準測試 |
+| RAG 索引 | 中 | 檢索 + 品質評估 |
+| 參數（溫度等） | 低-中 | 品質抽樣 |
 
 ---
 
-## Pipeline Architecture
+## 管線架構
 
-### Full Pipeline
+### 完整管線
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -98,28 +98,28 @@ Deploying LLM applications requires adapting traditional CI/CD practices for AI-
 
 ---
 
-## Testing Stages
+## 測試階段
 
-### Stage 1: Static Validation
+### 階段 1：靜態驗證
 
 ```python
 class PromptValidator:
     def validate(self, prompt_config: dict) -> ValidationResult:
         errors = []
         
-        # Required fields
+        # 必填欄位
         if not prompt_config.get("system_prompt"):
             errors.append("Missing system_prompt")
         
-        # Template syntax
+        # 範本語法
         try:
             Template(prompt_config["user_template"]).substitute({})
         except KeyError:
-            pass  # Expected for templates with variables
+            pass  # 對於帶有變數的範本是預期的
         except ValueError as e:
             errors.append(f"Invalid template syntax: {e}")
         
-        # Token limits
+        # Token 限制
         system_tokens = count_tokens(prompt_config.get("system_prompt", ""))
         if system_tokens > 4000:
             errors.append(f"System prompt too long: {system_tokens} tokens")
@@ -130,7 +130,7 @@ class PromptValidator:
         )
 ```
 
-### Stage 2: Unit Tests
+### 階段 2：單元測試
 
 ```python
 class PromptUnitTests:
@@ -144,7 +144,7 @@ class PromptUnitTests:
         
         assert "test query" in rendered
         assert "test context" in rendered
-        assert len(rendered) < 10000  # Token limit
+        assert len(rendered) < 10000  # Token 限制
     
     def test_output_parsing(self):
         parser = OutputParser()
@@ -158,7 +158,7 @@ class PromptUnitTests:
             parser.parse(invalid_output)
 ```
 
-### Stage 3: Golden Set Tests
+### 階段 3：黃金集測試
 
 ```python
 class GoldenSetRunner:
@@ -171,16 +171,16 @@ class GoldenSetRunner:
         for example in self.golden_set:
             response = await llm_client.generate(example["input"])
             
-            # Exact match for deterministic outputs
+            # 確定性輸出的精確匹配
             if example.get("exact_match"):
                 passed = response == example["expected"]
-            # Contains check for flexible outputs
+            # 靈活輸出的包含檢查
             elif example.get("must_contain"):
                 passed = all(
                     phrase in response 
                     for phrase in example["must_contain"]
                 )
-            # LLM judge for quality
+            # 用於品質的 LLM judge
             else:
                 passed = await self.judge_quality(
                     response, example["expected"]
@@ -200,7 +200,7 @@ class GoldenSetRunner:
         )
 ```
 
-### Stage 4: LLM Evaluation
+### 階段 4：LLM 評估
 
 ```python
 class LLMEvaluationStage:
@@ -210,7 +210,7 @@ class LLMEvaluationStage:
         self.evaluator = LLMEvaluator()
     
     async def run(self, llm_client) -> EvalResults:
-        # Sample for cost efficiency
+        # 抽樣以提高成本效率
         sample = random.sample(
             self.eval_set,
             int(len(self.eval_set) * self.sample_rate)
@@ -238,9 +238,9 @@ class LLMEvaluationStage:
 
 ---
 
-## Quality Gates
+## 品質閘道
 
-### Gate Configuration
+### 閘道配置
 
 ```python
 class QualityGate:
@@ -250,7 +250,7 @@ class QualityGate:
     def evaluate(self, results: dict) -> GateResult:
         failures = []
         
-        # Golden set pass rate
+        # 黃金集通過率
         if results["golden_pass_rate"] < self.thresholds["golden_pass_rate"]:
             failures.append({
                 "metric": "golden_pass_rate",
@@ -258,7 +258,7 @@ class QualityGate:
                 "threshold": self.thresholds["golden_pass_rate"]
             })
         
-        # Quality scores
+        # 品質分數
         for metric in ["relevance", "accuracy", "helpfulness"]:
             if results.get(f"avg_{metric}", 0) < self.thresholds.get(metric, 0):
                 failures.append({
@@ -267,7 +267,7 @@ class QualityGate:
                     "threshold": self.thresholds[metric]
                 })
         
-        # Regression detection
+        # 迴歸偵測
         if results.get("regression_detected"):
             failures.append({
                 "metric": "regression",
@@ -279,10 +279,10 @@ class QualityGate:
             failures=failures
         )
 
-# Example thresholds
+# 範例閾值
 QUALITY_THRESHOLDS = {
-    "golden_pass_rate": 0.95,  # 95% of golden tests must pass
-    "relevance": 4.0,          # Average score >= 4.0/5.0
+    "golden_pass_rate": 0.95,  # 95% 的黃金測試必須通過
+    "relevance": 4.0,          # 平均分數 >= 4.0/5.0
     "accuracy": 4.0,
     "helpfulness": 3.5
 }
@@ -290,9 +290,9 @@ QUALITY_THRESHOLDS = {
 
 ---
 
-## Deployment Strategies
+## 部署策略
 
-### Canary Deployment
+### 金絲雀部署
 
 ```python
 class CanaryDeployer:
@@ -307,30 +307,30 @@ class CanaryDeployer:
         self.bake_time = bake_time_minutes
     
     async def deploy(self, new_version: str):
-        # Start canary
+        # 啟動金絲雀
         await self.router.set_canary(new_version, self.initial_percentage)
         
         percentage = self.initial_percentage
         while percentage < 100:
-            # Wait for bake time
+            # 等待烘烤時間
             await asyncio.sleep(self.bake_time * 60)
             
-            # Check canary health
+            # 檢查金絲雀健康狀況
             metrics = await self.get_canary_metrics(new_version)
             
             if not self.is_healthy(metrics):
                 await self.rollback(new_version)
                 raise CanaryFailedError(metrics)
             
-            # Increment traffic
+            # 增加流量
             percentage = min(100, percentage + self.increment)
             await self.router.set_canary(new_version, percentage)
         
-        # Full rollout
+        # 完整推出
         await self.router.promote_canary(new_version)
 ```
 
-### Shadow Deployment
+### 影子部署
 
 ```python
 class ShadowDeployer:
@@ -339,10 +339,10 @@ class ShadowDeployer:
         new_version: str,
         duration_hours: int = 24
     ):
-        # Run new version in shadow mode
+        # 在影子模式下運行新版本
         await self.enable_shadow(new_version)
         
-        # Collect comparison data
+        # 收集比較資料
         start = datetime.now()
         while datetime.now() - start < timedelta(hours=duration_hours):
             await asyncio.sleep(60)
@@ -351,15 +351,15 @@ class ShadowDeployer:
             if comparison["divergence_rate"] > 0.1:
                 await self.alert("High divergence in shadow test", comparison)
         
-        # Analyze results
+        # 分析結果
         return await self.generate_comparison_report(new_version)
 ```
 
 ---
 
-## Rollback Procedures
+## 回滾程序
 
-### Automated Rollback
+### 自動回滾
 
 ```python
 class AutoRollback:
@@ -370,17 +370,17 @@ class AutoRollback:
         while True:
             metrics = await self.get_live_metrics(version)
             
-            # Check error rate
+            # 檢查錯誤率
             if metrics["error_rate"] > self.thresholds["error_rate"]:
                 await self.trigger_rollback(version, "error_rate_exceeded")
                 return
             
-            # Check latency
+            # 檢查延遲
             if metrics["p99_latency"] > self.thresholds["p99_latency"]:
                 await self.trigger_rollback(version, "latency_exceeded")
                 return
             
-            # Check quality (sampled)
+            # 檢查品質（抽樣）
             if metrics.get("quality_score", 5) < self.thresholds["quality_score"]:
                 await self.trigger_rollback(version, "quality_degradation")
                 return
@@ -395,57 +395,57 @@ class AutoRollback:
 
 ---
 
-## Interview Questions
+## 面試題目
 
-### Q: How do you test prompt changes before production?
+### Q：在生產前如何測試提示詞變更？
 
-**Strong answer:**
+**強烈回答：**
 
-"I use a multi-stage testing pipeline:
+「我使用多階段測試管線：
 
-**Stage 1: Static validation.** Syntax check, token limits, template errors. Fast and cheap.
+**階段 1：靜態驗證。** 語法檢查、Token 限制、範本錯誤。快速且便宜。
 
-**Stage 2: Unit tests.** Template rendering, output parsing, deterministic behavior. Still fast.
+**階段 2：單元測試。** 範本渲染、輸出解析、確定性行為。仍然快速。
 
-**Stage 3: Golden set tests.** Known input/output pairs that must pass. Catches obvious regressions.
+**階段 3：黃金集測試。** 已知輸入/輸出配對必須通過。捕捉明顯迴歸。
 
-**Stage 4: LLM evaluation.** Sampled evaluation using LLM-as-judge. Measures quality dimensions (relevance, accuracy). More expensive but catches subtle issues.
+**階段 4：LLM 評估。** 使用 LLM-as-judge 的抽樣評估。測量品質維度（相關性、準確性）。更昂貴但捕捉細微問題。
 
-**Quality gates:** All stages must pass thresholds. Golden set > 95% pass rate, quality scores > 4.0/5.0.
+**品質閘道：** 所有階段必須通過閾值。黃金集 > 95% 通過率，品質分數 > 4.0/5.0。
 
-**Deployment:** Canary at 5% traffic, bake for 30 minutes, monitor metrics, gradually increase.
+**部署：** 金絲雀 5% 流量，烘烤 30 分鐘，監控指標，逐漸增加。
 
-The key insight is that LLM outputs are non-deterministic, so testing must be statistical. I cannot guarantee 100% correctness, but I can ensure quality stays within acceptable bounds."
+關鍵洞察是 LLM 輸出是非確定性的，因此測試必須是統計的。我無法保證 100% 正確性，但我可以確保品質保持在可接受的範圍內。」
 
-### Q: What triggers should cause automatic rollback?
+### Q：什麼觸發條件應該導致自動回滾？
 
-**Strong answer:**
+**強烈回答：**
 
-"I configure multiple rollback triggers:
+「我配置多個回滾觸發條件：
 
-**Error rate:** If errors exceed 5% for 5 consecutive minutes, rollback. This catches outright failures.
+**錯誤率：** 如果錯誤超過 5% 持續 5 分鐘，回滾。這捕捉整體失敗。
 
-**Latency:** If P99 latency exceeds SLA (e.g., 10s) for 10 minutes, rollback. This catches performance regressions.
+**延遲：** 如果 P99 延遲超過 SLA（例如 10 秒）持續 10 分鐘，回滾。這捕捉效能迴歸。
 
-**Quality score:** If sampled quality score drops below 3.5/5.0, rollback. This catches subtle quality degradation.
+**品質分數：** 如果抽樣品質分數低於 3.5/5.0，回滾。這捕捉細微品質下降。
 
-**User signals:** If negative feedback rate spikes 2x baseline, investigate and potentially rollback.
+**使用者信號：** 如果負面回饋率飆升 2 倍基線，調查並可能回滾。
 
-**Implementation:**
-- Prometheus alerts trigger rollback script
-- Automatic notification to team
-- Rollback to last known good version
-- Block further deploys until investigated
+**實施：**
+- Prometheus 警報觸發回滾腳本
+- 自動通知團隊
+- 回滾到最後已知良好版本
+- 在調查完成前阻止進一步部署
 
-The key is fast detection and action. A bad prompt in production for 10 minutes is acceptable. For 10 hours is not."
-
----
-
-## References
-
-- ML Ops: https://ml-ops.org/
-- LangSmith: https://docs.smith.langchain.com/
+關鍵是快速偵測和行動。生產中的錯誤提示 10 分鐘是可以接受的。10 小時是不可接受的。」
 
 ---
 
-*Previous: [LLM Infrastructure](01-llm-infrastructure.md)*
+## 參考文獻
+
+- ML Ops：https://ml-ops.org/
+- LangSmith：https://docs.smith.langchain.com/
+
+---
+
+*上一篇：[LLM 基礎設施](01-llm-infrastructure.md)*
