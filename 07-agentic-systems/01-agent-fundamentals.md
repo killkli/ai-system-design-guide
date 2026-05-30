@@ -1,6 +1,6 @@
-# 智慧代理基礎
+# 智慧代理基礎（Agent Fundamentals）
 
-代理（Agent）是指由大型語言模型驅動、超越「聊天」進入「自主問題解決」的系統。其定義已從簡單的 ReAct 迴圈演進為**封閉迴圈推理系統**，採用內建的「系統二（System 2）」思維（Claude Opus 4.7 延伸思考（Extended Thinking）、GPT-5.5 推理（Reasoning）、DeepSeek-R2、Gemini 3.1 Pro Deep Think）。
+代理（Agent）是指由大型語言模型（LLM）驅動、超越「聊天」進入「自主問題解決」的系統。其定義已從簡單的 ReAct（推理與行動）迴圈演進為**封閉迴圈推理系統**，採用內建的「系統二（System 2）」思維——例如 Claude Opus 4.7 延伸思考（Extended Thinking）、GPT-5.5 推理（Reasoning）、DeepSeek-R2、Gemini 3.1 Pro Deep Think。
 
 ## 目錄
 
@@ -17,7 +17,7 @@
 ## 代理公式
 
 現代代理常以下列公式描述：
-`代理 = 推理模型 + 工具使用 + 持久記憶 + 環境回饋`
+`代理 = 推理模型（Reasoning Model）+ 工具使用（Tool Use）+ 持久記憶（Persistent Memory）+ 環境回饋（Environment Feedback）`
 
 **細微差別**：2023 年，代理是聊天模型的「包裝層」。今日，代理日益**整合化**。前沿模型（Claude Opus 4.7、GPT-5.5 推理版、DeepSeek-R2）的「思考」過程已內建於預訓練中，使代理迴圈更加穩定，不易「停滯」。
 
@@ -36,7 +36,7 @@
 
 ---
 
-## 代理等級
+## 代理等級（Agency Levels）
 
 並非每個自主系統都是「代理」。我們依**代理等級（Agency Levels）**來分類：
 
