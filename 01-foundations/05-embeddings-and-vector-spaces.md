@@ -1,356 +1,354 @@
-# Embeddings and Vector Spaces
+# 嵌入和向量空間
 
-Embeddings are dense vector representations of text that capture semantic meaning. They are foundational to RAG systems, semantic search, and many AI applications.
+嵌入是文字的密集向量表示，捕捉語義含義。它們是 RAG 系統、語義搜尋和許多 AI 應用的基礎。
 
-## Table of Contents
+## 目錄
 
-- [What Are Embeddings](#what-are-embeddings)
-- [Embedding Model Architectures](#embedding-model-architectures)
-- [Training Objectives](#training-objectives)
-- [Distance Metrics](#distance-metrics)
-- [Embedding Model Comparison](#embedding-model-comparison)
-- [Matryoshka and Adaptive Dimensions](#matryoshka-and-adaptive-dimensions)
-- [Late Interaction vs. Late Chunking](#late-chunking-and-interaction)
-- [Binary and Scalar Quantization](#quantization-for-scale)
-- [Practical Considerations (Batching, Caching)](#practical-considerations)
-- [Embedding Drift and Versioning](#embedding-drift-and-versioning)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## What Are Embeddings
-
-Embeddings map discrete text (words, sentences, documents) to continuous vector spaces where semantic similarity corresponds to geometric proximity.
-
-**Key properties:**
-- Similar meanings are close together
-- Relationships can be encoded as vector operations (king - man + woman = queen)
-- Enable efficient similarity search through approximate nearest neighbor algorithms
-
-**Mental model:**
-Think of embeddings as coordinates in a very high-dimensional space. Dimensionality (512 to 4096) provides expressiveness. Each dimension captures some aspect of meaning, though individual dimensions are not interpretable.
+- [什麼是嵌入](#what-are-embeddings)
+- [嵌入模型架構](#embedding-model-architectures)
+- [訓練目標](#training-objectives)
+- [距離度量](#distance-metrics)
+- [嵌入模型比較](#embedding-model-comparison)
+- [Matryoshka 和自適應維度](#matryoshka-and-adaptive-dimensions)
+- [晚期互動 vs 晚期分塊](#late-interaction-vs-late-chunking)
+- [二元和標量量化](#binary-and-scalar-quantization)
+- [實用考量（批次處理、快取）](#practical-considerations-batching-caching)
+- [嵌入漂移和版本控制](#embedding-drift-and-versioning)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Embedding Model Architectures
+## 什麼是嵌入
 
-### Word Embeddings (Historical)
+嵌入將離散文字（單詞、句子、文件）映射到連續向量空間，其中語義相似性對應於幾何接近度。
 
-Early approaches embedded individual words:
+**關鍵特性：**
+- 相似含義彼此接近
+- 關係可以編碼為向量運算（king - man + woman = queen）
+- 通過近似最近鄰居演算法實現高效相似性搜尋
 
-| Model | Year | Approach | Limitation |
+**心理模型：**
+將嵌入視為非常高維空間中的座標。維度（512 到 4096）提供表達能力。每個維度捕捉含義的某個方面，儘管個別維度是不可解釋的。
+
+---
+
+## 嵌入模型架構
+
+### 單詞嵌入（歷史）
+
+早期方法嵌入單個單詞：
+
+| 模型 | 年份 | 方法 | 限制 |
 |-------|------|----------|------------|
-| Word2Vec | 2013 | Skip-gram, CBOW | Static: "bank" same in all contexts |
-| GloVe | 2014 | Co-occurrence matrix | Static |
-| FastText | 2017 | Subword embeddings | Static, but handles OOV |
+| Word2Vec | 2013 | Skip-gram、CBOW | 靜態：「bank」在所有語境中相同 |
+| GloVe | 2014 | 共現矩陣 | 靜態 |
+| FastText | 2017 | 子詞嵌入 | 靜態，但處理 OOV |
 
-**Key limitation:** Same word gets same embedding regardless of context.
+**關鍵限制：** 無論語境如何，相同單詞獲得相同的嵌入。
 
-### Contextual Embeddings
+### 上下文嵌入
 
-Transformer-based models produce context-dependent embeddings:
+基於 Transformer 的模型產生依賴語境的嵌入：
 
 ```python
-# Static embedding (Word2Vec)
-embed("bank") = [0.1, 0.3, ...]  # Same vector always
+# 靜態嵌入（Word2Vec）
+embed("bank") = [0.1, 0.3, ...]  # 總是相同的向量
 
-# Contextual embedding (BERT)
-embed("river bank") = [0.1, 0.3, ...]   # Geography sense
-embed("bank account") = [0.5, 0.2, ...]  # Finance sense
+# 上下文嵌入（BERT）
+embed("river bank") = [0.1, 0.3, ...]   # 地理意義
+embed("bank account") = [0.5, 0.2, ...]  # 金融意義
 ```
 
-### Sentence/Document Embeddings
+### 句子/文件嵌入
 
-For retrieval, we need to embed entire texts:
+對於檢索，我們需要嵌入整個文字：
 
-| Approach | Method | Pros | Cons |
+| 方法 | 說明 | 優點 | 缺點 |
 |----------|--------|------|------|
-| Mean pooling | Average token embeddings | Simple | Loses information |
-| CLS token | Use [CLS] token embedding | Standard for BERT | May not capture full text |
-| Last token | Use final token | Works for decoder models | Position bias |
-| Trained pooling | Learn pooling weights | Better quality | Requires training |
+| 平均池化 | 平均 token 嵌入 | 簡單 | 丟失資訊 |
+| CLS token | 使用 [CLS] token 嵌入 | BERT 標準 | 可能無法捕捉完整文字 |
+| 最後 token | 使用最後 token | 適用於解碼器模型 | 位置偏差 |
+| 訓練的池化 | 學習池化權重 | 更好的質量 | 需要訓練 |
 
-Modern embedding models are trained specifically for sentence/document embedding, not just adapted from language models.
+現代嵌入模型專門為句子/文件嵌入而訓練，而不僅僅是從語言模型改編。
 
-### Bi-Encoder Architecture
+### 雙編碼器架構
 
-Standard retrieval embedding architecture:
-
-```
-Document -> Encoder -> Document Embedding
-Query    -> Encoder -> Query Embedding
-
-Similarity = cosine(doc_embedding, query_embedding)
-```
-
-**Properties:**
-- Documents can be pre-computed and indexed
-- Query embedding computed at query time
-- O(1) similarity computation per document (with ANN)
-
-### Cross-Encoder Architecture
-
-Alternative that processes query and document together:
+標準檢索嵌入架構：
 
 ```
-[Query, Document] -> Encoder -> Relevance Score
+文件 -> 編碼器 -> 文件嵌入
+查詢 -> 編碼器 -> 查詢嵌入
+
+相似度 = cosine(doc_embedding, query_embedding)
 ```
 
-**Properties:**
-- More accurate (sees both together)
-- Cannot pre-compute: O(n) inference for n documents
-- Used for reranking, not retrieval
+**特性：**
+- 文件可以預先計算和索引
+- 查詢嵌入在查詢時計算
+- 每文件 O(1) 相似度計算（使用 ANN）
+
+### 交叉編碼器架構
+
+共同處理查詢和文件的替代方案：
+
+```
+[查詢, 文件] -> 編碼器 -> 相關性分數
+```
+
+**特性：**
+- 更準確（一起看到兩者）
+- 無法預先計算：n 個文件需要 O(n) 推理
+- 用於重新排序，而非檢索
 
 ---
 
-## Training Objectives
+## 訓練目標
 
-### Contrastive Learning
+### 對比學習
 
-Most modern embedding models use contrastive learning:
+大多數現代嵌入模型使用對比學習：
 
 ```python
-# Simplified contrastive loss
+# 簡化的對比損失
 def contrastive_loss(anchor, positive, negatives):
     pos_sim = cosine_similarity(anchor, positive)
     neg_sims = [cosine_similarity(anchor, neg) for neg in negatives]
     
-    # Push positive close, negatives far
+    # 推近正樣本，推遠負樣本
     loss = -log(exp(pos_sim / tau) / 
                 (exp(pos_sim / tau) + sum(exp(neg_sim / tau) for neg_sim in neg_sims)))
     return loss
 ```
 
-**Key factors:**
-- **Positive pairs:** Semantically similar texts (parallel sentences, query-document pairs)
-- **Hard negatives:** Similar but not matching texts (BM25 retrieved non-relevant)
-- **In-batch negatives:** Other batch items as negatives (efficient)
+**關鍵因素：**
+- **正樣本對：** 語義相似的文字（平行句子、查詢-文件對）
+- **困難負樣本：** 相似但不相關的文字（BM25 檢索的非相關項）
+- **批次內負樣本：** 其他批次項目作為負樣本（高效）
 
-### Training Data Sources
+### 訓練資料來源
 
-| Source | Positive Pairs | Quality | Scale |
+| 來源 | 正樣本對 | 品質 | 規模 |
 |--------|---------------|---------|-------|
-| Parallel sentences | Translation pairs | High | Medium |
-| Query-document | Search logs | High | Medium |
-| Title-body | Document structure | Medium | Large |
-| Paraphrase | NLI datasets | High | Small |
-| Generated | LLM creates pairs | Variable | Large |
+| 平行句子 | 翻譯對 | 高 | 中等 |
+| 查詢-文件 | 搜尋日誌 | 高 | 中等 |
+| 標題-正文 | 文件結構 | 中等 | 大 |
+| 改寫 | NLI 資料集 | 高 | 小 |
+| 生成 | LLM 創建對 | 可變 | 大 |
 
-### Instruction-Tuned Embeddings
+### 指令調整嵌入
 
-Recent models accept task instructions:
+最近模型接受任務指令：
 
 ```python
-# Instruction-tuned (e.g., E5, BGE)
+# 指令調整的（例如 E5、BGE）
 query_embedding = embed("Represent this query for retrieval: What is RAG?")
 doc_embedding = embed("Represent this document for retrieval: RAG combines...")
 ```
 
-This improves performance by specifying the intended use.
+這通過指定預期用途來提高性能。
 
 ---
 
-## Distance Metrics
+## 距離度量
 
-### Cosine Similarity
+### 餘弦相似度
 
-Most common for text embeddings:
+對於文字嵌入最常用：
 
 ```python
 def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 ```
 
-**Properties:**
-- Range: [-1, 1] (for normalized vectors, [0, 1] if positive)
-- Measures angle, not magnitude
-- Invariant to vector length
+**特性：**
+- 範圍：[-1, 1]（對於正規化向量，[0, 1]如果是正的）
+- 測量角度，而非大小
+- 對向量長度不變
 
-**When to use:** Default choice for text embeddings.
+**何時使用：** 文字嵌入的預設選擇。
 
-### Dot Product
+### 點積
 
 ```python
 def dot_product(a, b):
     return np.dot(a, b)
 ```
 
-**Properties:**
-- Magnitude matters
-- Unbounded range
-- Equivalent to cosine for normalized vectors
+**特性：**
+- 大小很重要
+- 無界範圍
+- 對於正規化向量等於餘弦
 
-**When to use:** When embeddings are already normalized, or magnitude is meaningful.
+**何時使用：** 當嵌入已經正規化時，或者當大小有意義時。
 
-### Euclidean Distance
+### 歐幾里得距離
 
 ```python
 def euclidean_distance(a, b):
     return np.linalg.norm(a - b)
 ```
 
-**Properties:**
-- Measures absolute difference
-- Affected by magnitude
-- For normalized vectors: sqrt(2 - 2 * cosine)
+**特性：**
+- 測量絕對差異
+- 受大小影響
+- 對於正規化向量：sqrt(2 - 2 * cosine)
 
-**When to use:** Rarely for text; more common for image embeddings.
+**何時使用：** 很少用於文字；更常用於圖像嵌入。
 
-### Metric Selection
+### 度量選擇
 
-| Metric | Vector Databases | Common Use |
+| 度量 | 向量資料庫 | 常見用途 |
 |--------|------------------|------------|
-| Cosine | Pinecone, Qdrant, Weaviate | Text embeddings |
-| Dot Product | All major DBs | Normalized embeddings |
-| Euclidean | All major DBs | Image, multimodal |
+| 餘弦 | Pinecone、Qdrant、Weaviate | 文字嵌入 |
+| 點積 | 所有主要 DB | 正規化嵌入 |
+| 歐幾里得 | 所有主要 DB | 圖像、多模態 |
 
 ---
 
-## Embedding Model Comparison
+## 嵌入模型比較
 
-### Current Top Models (December 2025)
+### 當前頂級模型（2025 年 12 月）
 
-| Model | Dimensions | Max Tokens | MTEB Retrieval | Cost / 1M tokens |
+| 模型 | 維度 | 最大 Token | MTEB 檢索 | 每 1M Token 成本 |
 |-------|------------|------------|----------------|------------------|
 | OpenAI text-embedding-4 | 3072 | 16k | 68.2 | $0.10 |
 | Voyage-4 | 1024 | 128k | 70.1 | $0.05 |
 | Cohere embed-v3.5 | 1024 | 512 | 67.5 | $0.10 |
 | Google text-embedding-005 | 768 | 8k | 67.2 | $0.02 |
 
-*MTEB scores are approximate and vary by benchmark subset. Always verify current values. The English leaderboard is currently led by Gemini Embedding 001 (68.32); the multilingual leaderboard by Qwen3-Embedding-8B (70.58) and Llama-Embed-Nemotron-8B.*
+*MTEB 分數是近似的，因基準測試子集而異。始終驗證當前值。英語排行榜目前由 Gemini Embedding 001（68.32）領先；多語言排行榜由 Qwen3-Embedding-8B（70.58）和 Llama-Embed-Nemotron-8B 領先。*
 
-### Open Source Models
+### 開源模型
 
-| Model | Dimensions | Max Tokens | MTEB Retrieval | Notes |
+| 模型 | 維度 | 最大 Token | MTEB 檢索 | 備註 |
 |-------|------------|------------|----------------|-------|
-| BGE-large-en-v1.5 | 1024 | 512 | 63.9 | Strong open model |
-| E5-large-v2 | 1024 | 512 | 62.4 | Instruction-tuned |
-| GTE-large | 1024 | 512 | 63.1 | Alibaba |
-| Nomic-embed-text-v1.5 | 768 | 8192 | 62.3 | Long context, open |
+| BGE-large-en-v1.5 | 1024 | 512 | 63.9 | 強大的開源模型 |
+| E5-large-v2 | 1024 | 512 | 62.4 | 指令調整 |
+| GTE-large | 1024 | 512 | 63.1 | 阿里巴巴 |
+| Nomic-embed-text-v1.5 | 768 | 8192 | 62.3 | 長上下文、開源 |
 
-### Selection Criteria
+### 選擇標準
 
-| Factor | Considerations |
+| 因素 | 考量 |
 |--------|----------------|
-| Quality (MTEB) | Higher is better, but task-specific evaluation matters more |
-| Dimensions | Higher = more expressive but more storage/compute |
-| Max tokens | Must accommodate your document sizes |
-| Cost | API vs self-hosting tradeoffs |
-| Latency | Embedding generation time |
-| Multilingual | If serving non-English content |
+| 品質（MTEB） | 越高越好，但任務特定評估更重要 |
+| 維度 | 越高 = 越有表達力但更多儲存/計算 |
+| 最大 token | 必須容納您的文件大小 |
+| 成本 | API 與自託管的權衡 |
+| 延遲 | 嵌入生成時間 |
+| 多語言 | 如果服務非英語內容 |
 
 ---
 
-## Matryoshka and Adaptive Dimensions
+## Matryoshka 和自適應維度
 
-### The Idea
+### 理念
 
-Matryoshka Representation Learning (MRL) trains embeddings such that prefixes of the full embedding are also meaningful:
+Matryoshka 表示學習（MRL）訓練嵌入，使得完整嵌入的前綴也是有意義的：
 
 ```python
-full_embedding = model.encode(text)  # 1024 dimensions
+full_embedding = model.encode(text)  # 1024 維度
 
-# All these are valid embeddings with decreasing quality
+# 這些都是具有遞減質量的有效嵌入
 dim_512 = full_embedding[:512]  
 dim_256 = full_embedding[:256]
 dim_128 = full_embedding[:128]
 dim_64 = full_embedding[:64]
 ```
 
-### Why It Matters
+### 為什麼重要
 
-| Use Case | Dimension | Tradeoff |
+| 用例 | 維度 | 權衡 |
 |----------|-----------|----------|
-| Full Retrieval | 1024-3072 | Peak Accuracy |
-| **Two-Stage Retrieval**| 128 -> 1024 | **Production standard**: retrieve 1000 with 128-d, refine top 100 with 1024-d. |
-| Cost-sensitive | 256 | 12x storage savings, <2% MRR loss |
-| Edge / Mobile | 64 | Maximum speed, handles simple intent |
+| 完整檢索 | 1024-3072 | 峰值準確度 |
+| **兩階段檢索**| 128 -> 1024 | **生產標準**：用 128-d 檢索 1000 個，用 1024-d 優化前 100 個。 |
+| 成本敏感 | 256 | 12 倍儲存節省，<2% MRR 損失 |
+| 邊緣/移動 | 64 | 最大速度，處理簡單意圖 |
 
-### Models with Matryoshka Support
+### 支持 Matryoshka 的模型
 
-- OpenAI text-embedding-3-* (native)
+- OpenAI text-embedding-3-*（原生）
 - Nomic-embed-text-v1.5
-- Several fine-tuned models
+- 幾個微調模型
 
-### Using Matryoshka Embeddings
+### 使用 Matryoshka 嵌入
 
 ```python
 from openai import OpenAI
 client = OpenAI()
 
-# Request smaller dimensions
+# 請求較小的維度
 response = client.embeddings.create(
     model="text-embedding-3-large",
     input="Your text here",
-    dimensions=256  # Request 256 instead of full 3072
+    dimensions=256  # 請求 256 而非完整的 3072
 )
 ```
 
 ---
 
-### Late Chunking (The 2025 Shift)
+### 晚期分塊（2025 年轉變）
 
-**Traditional Chunking:**
-`Document -> Split into chunks -> Embed chunks individually`
-- **Issue**: Chunk 2 loses the context from Chunk 1.
+**傳統分塊：** `文件 -> 分塊 -> 個別嵌入區塊`
+- **問題**：區塊 2 丟失來自區塊 1 的上下文。
 
-**Late Chunking (introduced by Jina AI/Voyage):**
-`Full Document -> Model Encoder -> Token-level Embeddings -> Pool into chunk boundaries`
-- **Benefit**: Each chunk's embedding contains information from the **entire document** because the transformer's self-attention was applied to the full sequence before pooling.
-- **Requirement**: A model with long-context support (at least 8k+ tokens).
+**晚期分塊（由 Jina AI/Voyage 引入）：** `完整文件 -> 模型編碼器 -> Token 級嵌入 -> 在區塊邊界池化`
+- **優勢**：每個區塊的嵌入包含來自**整個文件**的資訊，因為 Transformer 的自注意力在池化之前應用於完整序列。
+- **要求**：支持長上下文的模型（至少 8k+ token）。
 
 ---
 
-## Quantization for Scale
+## 二元和標量量化
 
-To handle billions of vectors, **Binary** and **Scalar (Int8)** quantization are now standard.
+為處理數十億個向量，**二元**和**標量（Int8）**量化現在是標準。
 
-| Type | Data Size | Memory Savings | Quality Loss | Supported By |
+| 類型 | 資料大小 | 記憶體節省 | 質量損失 | 支持者 |
 |------|-----------|----------------|--------------|--------------|
-| Float32 | 4 bytes/dim | Baseline | 0% | All |
-| Int8 | 1 byte/dim | 4x | <1% | Cohere, BGE |
-| **Binary** | **1 bit/dim** | **32x** | ~5-10% | Cohere v3, v4 |
+| Float32 | 4 位元組/維度 | 基線 | 0% | 全部 |
+| Int8 | 1 位元組/維度 | 4x | <1% | Cohere、BGE |
+| **二元** | **1 位元組/維度** | **32x** | ~5-10% | Cohere v3、v4 |
 
-**Binary Quantization Pattern:**
-1. Retrieve top 1000 using Binary embeddings (extreme speed).
-2. Rerank top 50 using Float32 or a Cross-Encoder (peak accuracy).
+**二元量化模式：**
+1. 使用二元嵌入檢索前 1000 個（極快）。
+2. 使用 Float32 或交叉編碼器對前 50 個重新排序（峰值準確度）。
 
-### When to Use ColBERT
+### 何時使用 ColBERT
 
-- Retrieval precision is critical
-- Can afford storage overhead
-- Query latency budget > 50ms
+- 檢索精度至關重要
+- 可以負擔儲存開銷
+- 查詢延遲預算 > 50ms
 
-### Implementation
+### 實現
 
 ```python
-# Using RAGatouille
+# 使用 RAGatouille
 from ragatouille import RAGPretrainedModel
 
 model = RAGPretrainedModel.from_pretrained("colbert-ir/colbertv2.0")
 
-# Index documents
+# 索引文件
 model.index(
     collection=documents,
     index_name="my_index"
 )
 
-# Search
+# 搜尋
 results = model.search(query="What is RAG?", k=10)
 ```
 
 ---
 
-## Practical Considerations
+## 實用考量
 
-### Batch Processing
+### 批次處理
 
 ```python
-# Inefficient: one API call per document
+# 低效：每個文件一次 API 調用
 embeddings = [embed(doc) for doc in documents]
 
-# Efficient: batch API calls
+# 高效：批次 API 調用
 batch_size = 100
 embeddings = []
 for i in range(0, len(documents), batch_size):
@@ -359,9 +357,9 @@ for i in range(0, len(documents), batch_size):
     embeddings.extend(batch_embeddings)
 ```
 
-### Chunking for Embeddings
+### 用於嵌入的分塊
 
-Long documents must be chunked before embedding:
+長文件必須在嵌入前分塊：
 
 ```python
 def embed_document(document: str, max_tokens: int = 512) -> list[np.array]:
@@ -373,29 +371,29 @@ def embed_document(document: str, max_tokens: int = 512) -> list[np.array]:
     return embeddings
 ```
 
-**Considerations:**
-- Chunk size should be less than model max tokens
-- Overlap helps preserve context across chunk boundaries
-- Store chunk-to-document mapping for retrieval
+**考量：**
+- 區塊大小應小於模型最大 token
+- 重疊有助於在區塊邊界保留上下文
+- 儲存區塊到文件的映射以便檢索
 
-### Normalization
+### 正規化
 
-Many systems expect normalized embeddings:
+許多系統期望正規化嵌入：
 
 ```python
 def normalize(embedding):
     norm = np.linalg.norm(embedding)
     return embedding / norm
 
-# Cosine similarity of normalized vectors = dot product
+# 正規化向量的餘弦相似度 = 點積
 similarity = np.dot(normalize(a), normalize(b))
 ```
 
-Most vector databases and embedding APIs handle normalization, but verify.
+大多數向量資料庫和嵌入 API 處理正規化，但請驗證。
 
-### Caching
+### 快取
 
-Embedding computation is expensive. Cache aggressively:
+嵌入計算是昂貴的。積極快取：
 
 ```python
 import hashlib
@@ -413,25 +411,25 @@ def get_embedding(text: str, cache: dict) -> np.array:
 
 ---
 
-## Embedding Drift and Versioning
+## 嵌入漂移和版本控制
 
-### The Problem
+### 問題
 
-Embeddings are not comparable across:
-- Different models
-- Different versions of the same model
-- Sometimes different API calls (some APIs have non-determinism)
+嵌入在以下情況下不可比較：
+- 不同模型
+- 相同模型的不同版本
+- 有時不同的 API 調用（有些 API 有非確定性）
 
-### Consequences
+### 後果
 
-If you update your embedding model:
-- All existing embeddings become incompatible
-- Must re-embed entire corpus
-- Search results will be inconsistent during migration
+如果您更新嵌入模型：
+- 所有現有嵌入變得不相容
+- 必須重新嵌入整個語料庫
+- 遷移期間搜尋結果將不一致
 
-### Mitigation Strategies
+### 緩解策略
 
-**1. Version your embeddings:**
+**1. 對嵌入進行版本控制：**
 ```python
 embedding_metadata = {
     "model": "text-embedding-3-large",
@@ -441,105 +439,89 @@ embedding_metadata = {
 }
 ```
 
-**2. Plan for re-embedding:**
-- Estimate cost and time for full re-embed
-- Build pipelines that can run in background
-- Test new embeddings before switching
+**2. 規劃重新嵌入：**
+- 估計完整重新嵌入的成本和時間
+- 建置可以在背景運行的管道
+- 在切換前測試新嵌入
 
-**3. Blue-green deployment:**
+**3. 藍綠部署：**
 ```
-Index A: Current embeddings
-Index B: New embeddings (building)
+索引 A：當前嵌入
+索引 B：新嵌入（建置中）
 
-Query -> Both indexes -> Merge or switch
+查詢 -> 兩個索引 -> 合併或切換
 ```
 
-**4. Track embedding quality:**
-- Monitor retrieval metrics continuously
-- Detect drift in embedding distributions
-- Alert on quality degradation
+**4. 追蹤嵌入質量：**
+- 持續監控檢索指標
+- 檢測嵌入分佈中的漂移
+- 對質量下降發出警報
 
 ---
 
-## Interview Questions
+## 面試問題
 
-### Q: How do embedding models learn semantic similarity?
+### Q：嵌入模型如何學習語義相似性？
 
-**Strong answer:**
-Embedding models are trained with contrastive learning. The objective is to make embeddings of semantically similar texts close together and dissimilar texts far apart.
+**強而有力的回答：**
+嵌入模型使用對比學習進行訓練。目標是使語義相似文字的嵌入彼此接近，使不相似的文字彼此遠離。
 
-Training process:
-1. Positive pairs: Texts that should be similar (query-document pairs, paraphrases, translations)
-2. Negative pairs: Texts that should be dissimilar (often from same batch or hard negatives from BM25)
-3. Loss function: Pushes positive pairs close, negative pairs far
+訓練過程：
+1. 正樣本對：應該相似的文字（查詢-文件對、改寫、翻譯）
+2. 負樣本對：應該不相似的文字（通常來自同一批次或 BM25 的困難負樣本）
+3. 損失函數：推近正樣本對，推遠負樣本對
 
-The model learns to place texts in a high-dimensional space where distance correlates with semantic similarity. This enables retrieval: embed the query, find nearest neighbors in the document embedding space.
+模型學習將文字放置在高維空間中，其中距離與語義相似性相關。這使得檢索成為可能：嵌入查詢，在文件嵌入空間中找到最近鄰居。
 
-Modern models like E5 and BGE are also instruction-tuned, where you prefix with task instructions to specialize the embedding.
+現代模型如 E5 和 BGE 也是指令調整的，您可以使用任務指令作為前綴來專門化嵌入。
 
-### Q: When would you use ColBERT over a bi-encoder?
+### Q：什麼時候使用 ColBERT 而不是雙編碼器？
 
-**Strong answer:**
-ColBERT uses late interaction: instead of one embedding per document, it keeps per-token embeddings. At query time, it computes token-level similarity.
+**強而有力的回答：**
+ColBERT 使用晚期互動：不是每個文件一個嵌入，而是保留每 token 嵌入。在查詢時，它計算 token 級相似度。
 
-Choose ColBERT when:
-- Retrieval precision is critical (legal, medical, high-stakes)
-- You can afford 10-100x storage overhead per document
-- Query latency budget is 50ms+ (slightly slower than bi-encoder)
-- Your queries benefit from lexical matching (technical terms)
+在以下情況選擇 ColBERT：
+- 檢索精度至關重要（法律、醫療、高風險）
+- 可以負擔每文件 10-100 倍的儲存開銷
+- 查詢延遲預算為 50ms+（比雙編碼器稍慢）
+- 您的查詢受益於詞彙匹配（技術術語）
 
-Choose bi-encoder when:
-- Storage is constrained
-- Need sub-20ms latency
-- Retrieval precision from bi-encoder is sufficient
-- Frequent re-indexing (ColBERT reindex is expensive)
+在以下情況選擇雙編碼器：
+- 儲存受限
+- 需要 <20ms 延遲
+- 雙編碼器的檢索精度足夠
+- 頻繁重新索引（ColBERT 重新索引昂貴）
 
-In practice, a common pattern is: bi-encoder for first-stage retrieval (top 100), then cross-encoder or ColBERT for reranking.
+實際上，常見模式是：雙編碼器用於第一階段檢索（前 100 個），然後使用交叉編碼器或 ColBERT 進行重新排序。
 
-### Q: How do you handle embedding drift when updating models?
+### Q：更新模型時如何處理嵌入漂移？
 
-**Strong answer:**
-Embedding models produce vectors that are only meaningful relative to the same model. If you update the model, all old embeddings become incompatible.
+**強而有力的回答：**
+嵌入漂移是指當您切換到新的嵌入模型或版本時，舊嵌入和新嵌入不再可比較的問題。
 
-My approach:
-1. **Never update in place.** Create a parallel index with new embeddings.
-2. **Test before switching.** Compare retrieval quality on a test set with both old and new embeddings.
-3. **Background rebuild.** Re-embed the entire corpus with the new model in the background.
-4. **Atomic switch.** Once the new index is complete and validated, switch traffic atomically.
-5. **Rollback plan.** Keep the old index available for quick rollback.
+策略：
 
-For cost estimation: if you have 10M documents at 500 tokens average, and text-embedding-3-large costs $0.13/1M tokens, re-embedding costs about $650. Plan for this cost when considering model updates.
+1. **版本控制**：始終追蹤嵌入使用的模型和版本。使用中繼資料標記每個嵌入。
 
-### Q: How do you choose dimensions for embeddings?
+2. **藍綠部署**：在建置新索引的同時保持舊索引運行。通過查詢兩個索引並比較結果來驗證新索引。
 
-**Strong answer:**
-Higher dimensions capture more information but cost more storage and computation.
+3. **漸進式遷移**：不要一次切換所有內容。先對一小部分請求測試新嵌入，監控品質指標。
 
-Considerations:
-- **Storage:** 1024-d float32 = 4 KB per embedding. At 10M docs = 40 GB just for embeddings.
-- **Search speed:** Higher dimensions = slower nearest neighbor search.
-- **Quality:** Diminishing returns above certain dimensions for most tasks.
+4. **重新嵌入計劃**：遲早需要重新嵌入。提前規劃並預算時間和成本。
 
-Practical approach:
-1. Start with the model's recommended dimensions.
-2. If using Matryoshka models (like text-embedding-3), experiment with lower dimensions on your task.
-3. Benchmark quality at different dimensions: often 256-512 is 95% of full quality.
-4. For two-stage retrieval: use low dimensions for first stage, full dimensions for reranking.
+5. **混合方法**：在過渡期間，同時查詢舊索引和新索引，並合併結果。
 
-For most applications, 768-1024 dimensions provide good balance. The exception is very high-precision requirements where 2048-4096 may help.
+6. **監控**：部署後，持續監控檢索品質指標，以捕捉任何回歸。
 
 ---
 
-## References
+## 參考文獻
 
-- Reimers and Gurevych. "Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks" (2019)
-- Khattab and Zaharia. "ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT" (2020)
-- Wang et al. "Text Embeddings by Weakly-Supervised Contrastive Pre-training" (E5, 2022)
-- Xiao et al. "C-Pack: Packaged Resources To Advance General Chinese Embedding" (BGE, 2023)
-- Kusupati et al. "Matryoshka Representation Learning" (MRL, 2022)
-- MTEB Leaderboard: https://huggingface.co/spaces/mteb/leaderboard
-- OpenAI Embeddings Guide: https://platform.openai.com/docs/guides/embeddings
+- Reimers and Gurevych. "Sentence-BERT: A Sentence Embedding Model using Siamese BERT-Networks" (2019)
+- Karpukhin et al. "Dense Passage Retrieval for Open-Domain Question Answering" (2020)
+- Gao et al. "Text Embeddings by Contrastive Learning" (2021)
+- Li et al. "Midpoint": "Late Chunking: Chunked Vectors Can Retrieve Meaning" (2024)
 
 ---
 
-*Previous: [Transformer Architecture](04-transformer-architecture.md) | Next: [Inference Pipeline](06-inference-pipeline.md)*
+*上一章：[Transformer 架構](04-transformer-architecture.md) | 下一章：[推論管道](06-inference-pipeline.md)*

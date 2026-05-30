@@ -1,6 +1,6 @@
 # 智慧代理基礎（Agent Fundamentals）
 
-代理（Agent）是指由大型語言模型（LLM）驅動、超越「聊天」進入「自主問題解決」的系統。其定義已從簡單的 ReAct（推理與行動）迴圈演進為**封閉迴圈推理系統**，採用內建的「系統二（System 2）」思維——例如 Claude Opus 4.7 延伸思考（Extended Thinking）、GPT-5.5 推理（Reasoning）、DeepSeek-R2、Gemini 3.1 Pro Deep Think。
+代理（Agent）是指由大型語言模型（LLM）驅動、超越「聊天」進入「自主問題解決」的系統。其定義已從簡單的 ReAct（推理與行動）迴圈演進為**封閉迴圈推理系統**，採用內建的「系統二（System 2）」思維——例如 Claude 的延伸思考（Extended Thinking）、GPT 的推理（Reasoning）模式、DeepSeek-R2、Gemini 3.1 Pro Deep Think。
 
 ## 目錄
 
@@ -19,7 +19,7 @@
 現代代理常以下列公式描述：
 `代理 = 推理模型（Reasoning Model）+ 工具使用（Tool Use）+ 持久記憶（Persistent Memory）+ 環境回饋（Environment Feedback）`
 
-**細微差別**：2023 年，代理是聊天模型的「包裝層」。今日，代理日益**整合化**。前沿模型（Claude Opus 4.7、GPT-5.5 推理版、DeepSeek-R2）的「思考」過程已內建於預訓練中，使代理迴圈更加穩定，不易「停滯」。
+**細微差別**：2023 年，代理是聊天模型的「包裝層」。今日，代理日益**整合化**。前沿模型（Claude、GPT 推理模式、DeepSeek-R2）的「思考」過程已內建於預訓練中，使代理迴圈更加穩定，不易「停滯」。
 
 ---
 
@@ -30,7 +30,7 @@
 | 模式 | 認知類型 | 類比 | 目前技術堆疊 |
 |------|----------|------|-------------|
 | **系統一（System 1）** | 快速、直覺、反應 | 反射動作 | Claude Haiku 4.5 / Sonnet 4.6 / GPT-5.5-mini / Gemini 3.1 Flash |
-| **系統二（System 2）** | 緩慢、邏輯、規劃 | 深思熟慮 | Claude Opus 4.7 / GPT-5.5 推理（Reasoning）/ DeepSeek-R2 / Gemini 3.1 Pro Deep Think |
+| **系統二（System 2）** | 緩慢、邏輯、規劃 | 深思熟慮 | Claude Opus / GPT 推理模式 / DeepSeek-R2 / Gemini 3.1 Pro Deep Think |
 
 **設計模式**：使用系統一模型處理「快速 UI」與「路由」。使用系統二模型處理「決策關卡」與「複雜規劃」。
 
@@ -76,7 +76,7 @@
 
 ## 面試問題
 
-### Q：為什麼「推理模型」（Reasoning Model）（如 Claude Opus 4.7 或 GPT-5.5 延伸思考版）比標準 LLM 更適合代理？
+### Q：為什麼「推理模型」（Reasoning Model）（如 Claude 或 GPT 推理模式）比標準 LLM 更適合代理？
 
 **理想回答：**
 標準 LLM（系統一）根據模式匹配預測*下一個 token*。當工具呼叫發生錯誤時，它們常會幻想出一個修復方案而非承認失敗。推理模型在推理過程中使用**思維鏈（Chain-of-Thought, CoT）**。它們在輸出回應前，會在多個隱藏步驟中「思考」。對代理而言，這意味著更高的**路徑可靠性（Path Reliability）**——模型不太可能陷入無限迴圈或對同一個失敗動作重試兩次，因為它已在內部模擬過該失敗。

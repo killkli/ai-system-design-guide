@@ -28,7 +28,7 @@
 錯誤現在被視為**資訊 token（Information Token）**。
 
 - **模式**：當工具失敗時，錯誤訊息*不僅*被記錄；它作為提示回饋給模型：*「動作失敗，錯誤：X。反思為何發生，並提供替代策略。」*
-- **推理模型（Reasoning Model）**（Claude Opus 4.7 延伸思考（Extended Thinking）、GPT-5.5 推理（Reasoning）、DeepSeek-R2）：這些模型在這方面表現出色，因為它們在隱藏思維鏈中「內化」錯誤，帶來更高的單次恢復率。
+- **推理模型**（Claude 延伸思考模式、GPT 推理模式、DeepSeek-R2）：這些模型在這方面表現出色，因為它們在隱藏思維鏈中「內化」錯誤，帶來更高的單次恢復率。
 
 ---
 
@@ -53,7 +53,7 @@
 
 ## 優雅降級
 
-如果高推理代理（Claude Opus 4.7、GPT-5.5 推理（Reasoning））持續失敗，我們降級至：
+如果高推理代理（Claude、GPT 推理模式）持續失敗，我們降級至：
 - **簡化代理（Simplified Agent）**：較小模型，工具較少但更可靠。
 - **僅 RAG 模式（RAG-Only Mode）**：停用動作，僅根據知識庫提供概念性答案。
 - **人類升級（Human Escalation）**： （見下一章）。

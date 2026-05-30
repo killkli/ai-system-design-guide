@@ -30,8 +30,8 @@
 
 截至 2026 年，這是最常見的企業模式。
 
-- **監督者**：高推理模型（Claude Opus 4.7、GPT-5.5 推理、Gemini 3.1 Pro Deep Think），將使用者提示分解並委託給工作者。
-- **工作者**：快速、符合成本效益的模型（Claude Haiku 4.5、Gemini 3.1 Flash、GPT-5.5-mini）執行工作。
+- **監督者**：高推理模型（Claude Opus、GPT 推理模式、Gemini 3.1 Pro Deep Think），將使用者提示分解並委託給工作者。
+- **工作者**：快速、符合成本效益的模型（Claude Haiku、GPT-5.5-mini、Gemini 3.1 Flash）執行工作。
 - **審查者**：獨立代理，根據監督者的原始計劃驗證整合後的輸出。
 
 **架構**：LangGraph 仍然是實作這些具有狀態感知能力的階層式迴圈的主流框架。截至 2026 年，Claude Agent SDK、Google ADK 與 Microsoft Agent Framework 都原生支援此模式。
@@ -64,7 +64,7 @@
 |------|---------|-----------|
 | **LangGraph**（24k stars） | 具類型狀態的命令式 DAG | 最成熟、社區最廣 |
 | **Google ADK**（17k stars） | 具內建 A2A 的代理圖形 | 原生 Google Cloud 整合 |
-| **Microsoft Agent Framework** | 工作流程圖形（順序 並發 交接） | 統一 .NET + Python、企業治理 |
+| **Microsoft Agent Framework** | 工作流程圖形（順序、並發、交接） | 統一 .NET + Python、企業治理 |
 | **Claude Agent SDK** | 基於監督者的階層式樹 | 內建工具（bash、編輯器）、生產就緒 |
 
 ### 迴紋針模式（規模化階層代理）

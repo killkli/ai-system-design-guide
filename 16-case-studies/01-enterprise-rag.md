@@ -1,13 +1,21 @@
 # 案例研究：企業 RAG 系統
 
+<<<<<<< Updated upstream
 本案例研究逐步介紹為企業文檔搜索設計生產 RAG 系統。它涵蓋需求收集、架構決策和實施細節。
+=======
+本案例研究帶您逐步設計一套用於企業文件搜尋的生產 RAG（檢索增強生成，Retrieval-Augmented Generation）系統。涵蓋需求收集、架構決策與實作細節。
+>>>>>>> Stashed changes
 
 ## 目錄
 
 - [問題陳述](#問題陳述)
 - [需求分析](#需求分析)
 - [系統架構](#系統架構)
+<<<<<<< Updated upstream
 - [組件深度解析](#組件深度解析)
+=======
+- [元件深入探討](#元件深入探討)
+>>>>>>> Stashed changes
 - [擴展考量](#擴展考量)
 - [成本分析](#成本分析)
 - [經驗教訓](#經驗教訓)
@@ -17,6 +25,7 @@
 
 ## 問題陳述
 
+<<<<<<< Updated upstream
 ### 場景
 
 一家金融服務公司想要為其內部文檔構建 AI 驅動的搜索系統：
@@ -32,6 +41,23 @@
 - 關鍵字搜索返回太多不相關的結果
 - 知識跨部門孤立
 - 新員工需要數月才能提高生產力
+=======
+### 情境
+
+一家金融服務公司希望建立一個 AI 驅動的內部文件搜尋系統：
+- 500,000 份文件（政策、程序、研究報告）
+- 5,000 名員工，橫跨多個部門
+- 文件每日更新
+- 嚴格的合規與審計要求
+- 需要回答附有引用來源根據的問題
+
+### 目前痛點
+
+- 員工每天花費超過 2 小時搜尋資訊
+- 關鍵字搜尋返回太多不相關結果
+- 知識被封存於各部門
+- 新員工需要數月才能上手
+>>>>>>> Stashed changes
 
 ---
 
@@ -39,6 +65,7 @@
 
 ### 功能需求
 
+<<<<<<< Updated upstream
 | 需求 | 優先級 | 備註 |
 |-------------|----------|-------|
 | 自然語言問答 | P0 | 核心功能 |
@@ -46,11 +73,21 @@
 | 多文檔推理 | P1 | 跨文檔連接資訊 |
 | 跟進問題 | P1 | 對話上下文 |
 | 文檔摘要 | P2 | 快速概覽長文檔 |
+=======
+| 需求 | 優先順序 | 備註 |
+|-------------|----------|-------|
+| 自然語言問答 | P0 | 核心功能 |
+| 來源引用 | P0 | 合規要求 |
+| 跨文件推理 | P1 | 連接跨文件資訊 |
+| 追問 | P1 | 對話上下文 |
+| 文件摘要 | P2 | 長文件的快速概覽 |
+>>>>>>> Stashed changes
 
 ### 非功能需求
 
 | 需求 | 目標 | 理由 |
 |-------------|--------|-----------|
+<<<<<<< Updated upstream
 | 延遲 (P95) | < 5 秒 | 用戶體驗 |
 | 準確率 | > 90% | 信任和採用 |
 | 可用性 | 99.9% | 業務關鍵 |
@@ -63,55 +100,103 @@
 - 所有查詢的審計日誌記錄
 - 無數據離開公司網路
 - PII 檢測和處理
+=======
+| 延遲（P95）| < 5 秒 | 使用者體驗 |
+| 準確率 | > 90% | 信任與採用 |
+| 可用性 | 99.9% | 業務關鍵 |
+| 同時使用者 | 500 | 尖峰用量 |
+| 文件新鮮度 | < 1 小時 | 政策更新 |
+
+### 安全需求
+
+- 角色型存取控制（RBAC）
+- 所有查詢的審計日誌
+- 資料不得離開公司網路
+- PII（個人識別資訊，Personally Identifiable Information）偵測與處理
+>>>>>>> Stashed changes
 
 ---
 
 ## 系統架構
 
+<<<<<<< Updated upstream
 ### 高層架構
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                           用戶介面                                        │
 │  (Web 應用、Slack 機器人、API)                                           │
+=======
+### 高層級架構
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           使用者介面                                │
+│  （網頁應用、Slack Bot、API）                                             │
+>>>>>>> Stashed changes
 └─────────────────────────────┬───────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
+<<<<<<< Updated upstream
 │                          API 網關                                        │
 │  • 身份驗證    • 速率限制    • 請求路由                                  │
+=======
+│                          API 閘道器                                    │
+│  • 驗證    • 速率限制    • 請求路由              │
+>>>>>>> Stashed changes
 └─────────────────────────────┬───────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
+<<<<<<< Updated upstream
 │                        查詢服務                                          │
 │  • 查詢理解   • 許可權檢查   • 編排                                      │
+=======
+│                        查詢服務                                    │
+│  • 查詢理解   • 權限檢查   • 協調          │
+>>>>>>> Stashed changes
 └─────────────────────────────┬───────────────────────────────────────────┘
                               │
         ┌─────────────────────┼─────────────────────┐
         │                     │                     │
         ▼                     ▼                     ▼
 ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+<<<<<<< Updated upstream
 │   檢索        │   │   重排名      │   │   生成        │
 │   服務        │   │   服務        │   │   服務        │
 │               │   │               │   │               │
 │ • 混合        │   │ • 交叉        │   │ • LLM         │
 │   搜索        │   │   編碼器      │   │ • 提示        │
 │ • 過濾        │   │ • 評分        │   │   構建        │
+=======
+│   檢索服務     │   │   重排序服務   │   │   生成服務     │
+│               │   │               │   │               │
+│ • 混合搜尋    │   │ • 跨編碼器     │   │ • LLM         │
+│ • 過濾        │   │ • 評分        │   │ • 提示詞建構   │
+>>>>>>> Stashed changes
 └───────┬───────┘   └───────────────┘   └───────────────┘
         │
         ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
+<<<<<<< Updated upstream
 │                        數據層                                           │
 │                                                                         │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │
 │  │  向量資料庫  │  │  搜索索引   │  │  文檔存儲   │  │   元數據    │   │
+=======
+│                        資料層                                       │
+│                                                                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │
+│  │  向量資料庫   │  │ 搜尋索引   │  │  文件儲存   │  │  中繼資料   │   │
+>>>>>>> Stashed changes
 │  │  (Qdrant)   │  │ (Elastic)   │  │   (S3)      │  │  (Postgres) │   │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘   │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────┐
+<<<<<<< Updated upstream
 │                      攝入管道                                           │
 │  文檔上傳 → 解析 → 分塊 → 嵌入 → 索引 → 存儲元數據                      │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -124,23 +209,50 @@ flowchart TD
     UI[用戶介面<br/>Web / Slack / API]
     GW[API 網關<br/>認證 + 速率限制]
     QS[查詢服務<br/>許可權 + 編排]
+=======
+│                      攝取管道                                 │
+│  文件上傳 → 解析 → 分塊 → 嵌入 → 索引 → 儲存中繼資料      │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+呈現為流程圖（分層系統通過查詢管道展開，並在資料層收斂）：
+
+```mermaid
+flowchart TD
+    UI[使用者介面<br/>網頁 / Slack / API]
+    GW[API 閘道器<br/>驗證 + 速率限制]
+    QS[查詢服務<br/>權限 + 協調]
+>>>>>>> Stashed changes
 
     UI --> GW --> QS
 
     subgraph PIPELINE[查詢管道]
+<<<<<<< Updated upstream
         RS[檢索<br/>混合搜索]
         RR[重排名<br/>交叉編碼器]
+=======
+        RS[檢索<br/>混合搜尋]
+        RR[重排序<br/>跨編碼器]
+>>>>>>> Stashed changes
         GS[生成<br/>Gemini 3 Pro]
         RS --> RR --> GS
     end
 
     QS --> PIPELINE
 
+<<<<<<< Updated upstream
     subgraph DATA[數據層]
         VDB[(向量資料庫)]
         ES[(搜索索引)]
         DOC[(文檔存儲)]
         META[(元數據)]
+=======
+    subgraph DATA[資料層]
+        VDB[(向量資料庫)]
+        ES[(搜尋索引)]
+        DOC[(文件儲存)]
+        META[(中繼資料)]
+>>>>>>> Stashed changes
     end
 
     RS -.semantic.-> VDB
@@ -151,6 +263,7 @@ flowchart TD
     GS --> UI
 ```
 
+<<<<<<< Updated upstream
 ### 技術選擇（2025年12月更新）
 
 | 組件 | 選擇 | 理由 |
@@ -170,6 +283,27 @@ flowchart TD
 ## 組件深度解析
 
 ### 文檔攝入管道
+=======
+### 技術選型（2025 年 12 月更新）
+
+| 元件 | 選型 | 理由 |
+|-----------|--------|-----------|
+| **主要 LLM** | Gemini 3.0 Pro | **250 萬上下文**原生處理 100+ 文件，無需碎片化 |
+| **代理型 LLM** | GPT-5.2 | 業界領先的複雜跨文件分析工具使用準確率 |
+| **檢索器** | Gemini 3 Flash | 超大上下文視窗的低成本檢索 |
+| **嵌入** | text-embedding-3-large | 成熟品質與成本效益 |
+| **向量資料庫** | Qdrant（自托管）| 效能、過濾與就地合規 |
+| **重排序** | BGE-Reranker-v2-X | 開源領先水平，適合就地隔離 |
+
+> [!NOTE]
+> **轉變：** 生產團隊已從「小分塊 RAG」轉向**「均衡上下文 RAG」**。隨著每個主要前沿模型的上下文視窗達到 100 萬至 200 萬 tokens，我們不再需要尋找「完美的 512 token 分塊」。我們檢索整個文件區段（10k-50k tokens），讓模型原生注意力處理要徑。
+
+---
+
+## 元件深入探討
+
+### 文件攝取管道
+>>>>>>> Stashed changes
 
 ```python
 class IngestionPipeline:
@@ -184,19 +318,33 @@ class IngestionPipeline:
         self.metadata_db = PostgresClient()
     
     async def ingest(self, document: Document, user_context: UserContext):
+<<<<<<< Updated upstream
         # 1. 解析文檔
         parsed = self.parser.parse(document)
         
         # 2. 提取元數據
+=======
+        # 1. 解析文件
+        parsed = self.parser.parse(document)
+        
+        # 2. 擷取中繼資料
+>>>>>>> Stashed changes
         metadata = self.extract_metadata(parsed, document)
         
         # 3. 分塊
         chunks = self.chunker.chunk(parsed.text)
         
+<<<<<<< Updated upstream
         # 4. 生成嵌入（批量）
         embeddings = await self.embedder.embed_batch([c.text for c in chunks])
         
         # 5. 使用元數據存儲到向量資料庫
+=======
+        # 4. 生成嵌入（批次）
+        embeddings = await self.embedder.embed_batch([c.text for c in chunks])
+        
+        # 5. 帶中繼資料儲存至向量資料庫
+>>>>>>> Stashed changes
         points = [
             PointStruct(
                 id=str(uuid4()),
@@ -211,16 +359,33 @@ class IngestionPipeline:
             for chunk, embed in zip(chunks, embeddings)
         ]
         
+<<<<<<< Updated upstream
         # 6. 原子寫入（要么全部成功，要么全部失敗）
         await self.vector_db.upsert(
             collection_name=f"tenant_{user_context.tenant_id}",
             points=points
+=======
+        await self.vector_db.upsert(collection="documents", points=points)
+        
+        # 6. 儲存完整文件
+        await self.doc_store.put(document.id, parsed.text)
+        
+        # 7. 儲存中繼資料
+        await self.metadata_db.insert_document(document.id, metadata)
+        
+        # 8. 在 Elasticsearch 中建立關鍵字搜尋索引
+        await self.es_client.index(
+            index="documents",
+            id=document.id,
+            body={"text": parsed.text, **metadata.to_dict()}
+>>>>>>> Stashed changes
         )
         
         # 7. 更新元數據資料庫
         await self.metadata_db.insert_document(document, metadata)
 ```
 
+<<<<<<< Updated upstream
 **關鍵設計决策：**
 
 1. **每租戶 collection**：每個租戶的文檔在物理上隔離，防止交叉污染
@@ -228,6 +393,34 @@ class IngestionPipeline:
 3. **元數據傳播**：將租戶 ID 和訪問級別傳播到向量有效載荷以實現安全過濾
 
 ### 查詢服務
+=======
+程式碼看似線性序列，但其中四個寫入操作是平行進行的。序列圖使分散式明確化，這對於理解部分失敗模式至關重要：
+
+```mermaid
+sequenceDiagram
+    participant U as 上傳事件
+    participant P as 解析器
+    participant C as 分塊器
+    participant E as 嵌入器
+    participant V as 向量資料庫
+    participant S as 搜尋索引
+    participant D as 文件儲存
+    participant M as 中繼資料庫
+
+    U->>P: document
+    P->>C: parsed text + metadata
+    C->>E: chunks
+    par 平行寫入
+        E->>V: chunk vectors + payloads
+        P->>S: full text + metadata
+        P->>D: full document blob
+        P->>M: document metadata + ACL
+    end
+    Note over V,M: 文件僅在所有四個寫入提交後才可查詢
+```
+
+### 查詢處理
+>>>>>>> Stashed changes
 
 ```python
 class QueryService:
@@ -241,6 +434,7 @@ class QueryService:
         if not await self.acl_service.can_access(query.user, query.resource):
             raise AccessDeniedError()
         
+<<<<<<< Updated upstream
         # 2. 意圖分類
         intent = await self.classifier.classify(query.text)
         
@@ -267,14 +461,169 @@ class QueryService:
 ```
 
 ### 許可權和控制
+=======
+        # 1. 輸入護欄
+        guardrail_result = self.guardrails.check_input(query)
+        if not guardrail_result.passed:
+            return QueryResponse(
+                answer="我無法協助此請求。",
+                blocked=True,
+                reason=guardrail_result.reason
+            )
+        
+        # 2. 查詢理解（可選：重寫查詢）
+        processed_query = await self.understand_query(query, conversation_history)
+        
+        # 3. 帶權限過濾檢索候選項
+        candidates = await self.retriever.search(
+            query=processed_query,
+            filters=self.build_permission_filter(user_context),
+            top_k=50
+        )
+        
+        # 4. 重排序
+        reranked = await self.reranker.rerank(
+            query=processed_query,
+            documents=candidates,
+            top_k=10
+        )
+        
+        # 5. 建構上下文
+        context = self.build_context(reranked)
+        
+        # 6. 生成答案
+        answer = await self.generator.generate(
+            query=query,
+            context=context,
+            conversation_history=conversation_history
+        )
+        
+        # 7. 輸出護欄
+        guardrail_result = self.guardrails.check_output(answer, context)
+        if not guardrail_result.passed:
+            answer = self.fallback_response()
+        
+        # 8. 建構帶引用的回應
+        return QueryResponse(
+            answer=answer,
+            sources=[self.format_source(doc) for doc in reranked[:5]],
+            confidence=self.calculate_confidence(reranked)
+        )
+    
+    def build_permission_filter(self, user_context: UserContext) -> dict:
+        return {
+            "should": [
+                {"key": "access_level", "match": {"value": "public"}},
+                {"key": "department", "match": {"value": user_context.department}},
+                {"key": "access_list", "match": {"any": [user_context.user_id]}}
+            ]
+        }
+```
+
+### 混合檢索
+>>>>>>> Stashed changes
 
 ```python
 class AccessControlService:
     async def get_accessible_documents(
         self,
+<<<<<<< Updated upstream
         user: User,
         document_ids: list[str]
     ) -> list[str]:
+=======
+        query: str,
+        filters: dict,
+        top_k: int = 50
+    ) -> list[Document]:
+        
+        # 平行檢索
+        vector_results, keyword_results = await asyncio.gather(
+            self.vector_search(query, filters, top_k * 2),
+            self.keyword_search(query, filters, top_k * 2)
+        )
+        
+        # 倒數排名融合
+        fused = self.rrf_fusion(
+            [vector_results, keyword_results],
+            weights=[self.vector_weight, self.keyword_weight],
+            k=60
+        )
+        
+        return fused[:top_k]
+    
+    async def vector_search(self, query: str, filters: dict, top_k: int):
+        query_embedding = await self.embedder.embed(query)
+        
+        results = await self.vector_db.search(
+            collection="documents",
+            query_vector=query_embedding,
+            query_filter=filters,
+            limit=top_k
+        )
+        
+        return [
+            Document(
+                id=r.payload["document_id"],
+                chunk_id=r.id,
+                text=r.payload["text"],
+                score=r.score,
+                metadata=r.payload
+            )
+            for r in results
+        ]
+    
+    def rrf_fusion(self, result_lists: list, weights: list, k: int = 60) -> list:
+        scores = defaultdict(float)
+        docs = {}
+        
+        for results, weight in zip(result_lists, weights):
+            for rank, doc in enumerate(results):
+                rrf_score = weight / (k + rank + 1)
+                scores[doc.chunk_id] += rrf_score
+                docs[doc.chunk_id] = doc
+        
+        sorted_ids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
+        return [docs[id] for id in sorted_ids]
+```
+
+混合檢索流程一覽。兩個平行檢索器，然後 RRF 以加權排名融合，再由跨編碼器對頂部候選項重新排序，然後格式化上下文：
+
+```mermaid
+flowchart LR
+    Q[使用者查詢] --> EMB[嵌入查詢]
+    Q --> KW[擷取關鍵字]
+
+    EMB --> VS[向量搜尋<br/>top 100]
+    KW --> KS[關鍵字搜尋<br/>BM25 top 100]
+
+    VS --> RRF[倒數排名融合<br/>0.7 語意 / 0.3 關鍵字]
+    KS --> RRF
+
+    RRF --> RR[跨編碼器重排序<br/>top 50 至 top 10]
+    RR --> CTX[上下文格式化<br/>帶引用]
+    CTX --> LLM[生成<br/>Gemini 3 Pro 2.5M 上下文]
+```
+
+### 大上下文生成（2025 年 12 月）
+
+```python
+class GeminiGenerator:
+    def __init__(self):
+        self.client = genai.GenerativeModel("gemini-3.0-pro")
+    
+    async def generate(
+        self,
+        query: str,
+        context_docs: list[Document],
+        conversation_history: list[Message] = None
+    ) -> str:
+        # 250 萬上下文允許傳遞整個文件，而非僅片段
+        system_instruction = """
+        You are an enterprise knowledge assistant. 
+        Analyze the provided documents to answer the query accurately.
+        Cite every claim using [[DocName:PageNumber]] format.
+>>>>>>> Stashed changes
         """
         基於用戶角色返回可訪問的文檔 ID。
         這是深度防禦策略的一部分——在應用層和數據層都檢查。
@@ -292,6 +641,7 @@ class AccessControlService:
             doc_ids=document_ids,
             user_roles=user_roles
         )
+<<<<<<< Updated upstream
         
         # 3. 返回過濾後的文檔
         return [d.document_id for d in allowed]
@@ -338,10 +688,73 @@ class BalancedContextRAG:
         
         # 3. 返回前 k 個段（每個 10k-50k tokens）
         return reranked[:top_k]
+=======
+        return response.text
+```
+
+> [!TIP]
+> **生產環境選擇 vs. 前沿技術**
+> 雖然 Gemini 3.1 Pro 提供 100 萬 token 視窗，但許多生產系統仍默認使用 **Claude Sonnet 4.6** 或 **GPT-5.5** 作為主要生成器。
+>
+> **為什麼？**
+> - **成熟度**：12+ 個月的生產追蹤記錄。
+> - **可預測性**：已知延遲模式，長尾請求的「幻覺峰值」較少。
+> - **SDK 穩定性**：與 LangGraph 和 LlamaIndex 等框架深度整合。
+> - **成本**：高用量標準 RAG 的最佳化定價。
+
+---
+
+## 擴展考量
+
+### 處理 50 萬份文件
+
+```python
+# Qdrant 分片策略
+qdrant_config = {
+    "collection": "documents",
+    "vectors": {
+        "size": 3072,  # text-embedding-3-large
+        "distance": "Cosine"
+    },
+    "optimizers": {
+        "indexing_threshold": 20000  # 2 萬點後建立索引
+    },
+    "replication_factor": 2,  # 高可用性
+    "shard_number": 4  # 分散至多節點
+}
+```
+
+### 處理 500 名同時使用者
+
+```
+負載平衡器
+     │
+     ├──► 查詢服務（副本 1）
+     ├──► 查詢服務（副本 2）
+     ├──► 查詢服務（副本 3）
+     └──► 查詢服務（副本 4）
+            │
+            ├──► 向量資料庫（3 節點叢集）
+            ├──► LLM API（帶重試/回退）
+            └──► Elasticsearch（3 節點叢集）
+```
+
+### 快取策略
+
+```python
+class QueryCache:
+    def __init__(self):
+        self.exact_cache = Redis(ttl=3600)  # 1 小時
+        self.semantic_cache = SemanticCache(
+            threshold=0.95,  # 語意相似度閾值
+            ttl=86400       # 24 小時
+        )
+>>>>>>> Stashed changes
 ```
 
 ---
 
+<<<<<<< Updated upstream
 ## 擴展考量
 
 ### 性能優化
@@ -442,3 +855,76 @@ class BalancedContextRAG:
 
 *上一篇：[引言](../intro.md)*
 *下一篇：[對話式智慧體](../02-conversational-agent.md)*
+=======
+## 成本分析
+
+### 月度成本細項（500 名同時使用者）
+
+| 元件 | 成本 |
+|------|------|
+| LLM（Gemini 3 Pro，混合用途）| $3,000 |
+| 向量資料庫（Qdrant Cloud）| $800 |
+| Elasticsearch（3 節點）| $600 |
+| 嵌入服務 | $400 |
+| 快取（Redis）| $200 |
+| **總計** | **$5,000/月** |
+
+### 關鍵效能指標
+
+| 指標 | 目標 | 實際 |
+|------|------|------|
+| 延遲（P95）| < 5s | 4.2s |
+| 準確率 | > 90% | 92% |
+| 可用性 | 99.9% | 99.95% |
+| 每日活躍使用者 | 500 | 480 |
+
+---
+
+## 經驗教訓
+
+### 有效的做法
+
+1. **混合檢索結合語意與關鍵字搜尋** — 單一方法不足
+2. **重排序提升精確度** — cross-encoder 顯著改善結果品質
+3. **快取減少成本** — 精確匹配快取命中率高
+4. **權限過濾內建於檢索層** — 不依賴下游過濾
+
+### 未如預期的做法
+
+1. **小分塊並非總是較好** — 大區段利用大上下文視窗
+2. **僅依賴向量搜尋不足** — 關鍵字對金融術語至關重要
+3. **過度工程化的分塊策略** — 簡單的混合方法效果更好
+
+---
+
+## 面試演練
+
+**面試官：**「為一家金融服務公司設計企業級文件搜尋系統。」
+
+**強勢回應模式：**
+
+1. **釐清需求**（2 分鐘）
+   - 「文件量和類型為何？哪些部門會使用？」
+
+2. **明確約束條件**
+   - 「關鍵約束：準確率優先於速度、合規性、資料隔離」
+
+3. **高層級架構**（3 分鐘）
+   - 繪製流程：攝取 → 分塊 → 嵌入 → 檢索 → 重排序 → 生成 → 引用
+
+4. **關鍵元件深入探討**（5 分鐘）
+   - 「詳細說明混合檢索策略...」
+
+5. **處理可靠性**（3 分鐘）
+   - 「為可靠性，我會使用自一致性檢索、多提供者回退」
+
+6. **指標與監控**（2 分鐘）
+   - 「關鍵指標：準確率、延遲、來源引用率」
+
+7. **成本考量**（1 分鐘）
+   - 「在 50 萬份文件規模下，每份文件成本很重要」
+
+---
+
+*下一篇：[程式碼助理案例研究](02-code-assistant.md)*
+>>>>>>> Stashed changes

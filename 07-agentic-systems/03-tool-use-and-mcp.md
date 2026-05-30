@@ -4,19 +4,19 @@
 
 ## 目錄
 
-- [工具使用機制](#mechanism)
-- [模型上下文協定（MCP）](#mcp)
-- [MCP 2.0：Streamable HTTP 與認證](#mcp-updates)
-- [MCP 藍圖與生態系](#mcp-roadmap)
-- [代理對代理協定（A2A）](#a2a)
-- [協定格局：MCP + A2A + ACP](#protocol-landscape)
-- [電腦使用工具（Anthropic）](#computer-use)
-- [定義高精度工具](#precision)
-- [MCP vs. OpenAI Function Calling](#mcp-vs-openai)
-- [Context7：即時文件 MCP](#context7)
-- [串流工具呼叫](#streaming)
-- [面試問題](#interview-questions)
-- [參考文獻](#references)
+- [工具使用機制](#工具使用機制)
+- [模型上下文協定（MCP）](#模型上下文協定mcp)
+- [MCP 2.0：Streamable HTTP 與認證](#mcp-20-streamable-http-與認證)
+- [MCP 藍圖與生態系](#mcp-藍圖與生態系)
+- [代理對代理協定（A2A）](#代理對代理協定a2a)
+- [協定格局：MCP + A2A + ACP](#協定格局-mcp-a2a-acp)
+- [電腦使用工具（Anthropic）](#電腦使用工具anthropic)
+- [定義高精度工具](#定義高精度工具)
+- [MCP vs. OpenAI Function Calling](#mcp-vs-openai-function-calling)
+- [Context7：即時文件 MCP](#context7即時文件-mcp)
+- [串流工具呼叫](#串流工具呼叫)
+- [面試問題](#面試問題)
+- [參考文獻](#參考文獻)
 
 ---
 

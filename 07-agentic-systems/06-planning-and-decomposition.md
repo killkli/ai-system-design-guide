@@ -41,7 +41,7 @@
 ## 思維鏈（CoT）與 o1 推理
 
 模型的內部「思考」視窗（推理擴展）作為**隱藏規劃者（Hidden Planner）**。
-- 我們不使用单独的「規劃 LLM」，而是使用推理模型（Claude Opus 4.7、GPT-5.5 延伸思考、DeepSeek-R2）產生「心智草稿（Mental Draft）」。
+- 我們不使用单独的「規劃 LLM」，而是使用推理模型（Claude、GPT 推理模式、DeepSeek-R2）產生「心智草稿（Mental Draft）」。
 - 該草稿被翻譯為**任務 DAG（有向無環圖）**，由編排者執行。
 
 ---

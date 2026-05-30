@@ -1,51 +1,51 @@
-# Inference Pipeline
+# 推論管道
 
-This chapter covers how LLMs generate text at inference time, the computational phases involved, and the key metrics for production serving.
+本章涵蓋 LLM 在推論時如何生成文字、涉及的計算階段，以及生產服務的關鍵指標。
 
-## Table of Contents
+## 目錄
 
-- [Generation Basics](#generation-basics)
-- [Prefill and Decode Phases](#prefill-and-decode-phases)
-- [Sampling Strategies](#sampling-strategies)
-- [Stopping Conditions](#stopping-conditions)
-- [Latent Optimization: Speculative Decoding](#speculative-decoding)
-- [Latency Metrics & TTFT vs. TPS](#latency-metrics)
-- [Memory and Compute Requirements](#memory-and-compute-requirements)
-- [Continuous Batching & Prefix Caching](#continuous-batching-and-prefix-caching)
-- [Multi-LoRA Serving](#multi-lora-serving)
-- [Streaming](#streaming)
-- [Production Considerations](#production-considerations)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [生成基礎](#generation-basics)
+- [預填充和解碼階段](#prefill-and-decode-phases)
+- [採樣策略](#sampling-strategies)
+- [停止條件](#stopping-conditions)
+- [潛在優化：推測解碼](#speculative-decoding)
+- [延遲指標和 TTFT 與 TPS](#latency-metrics)
+- [記憶體和計算需求](#memory-and-compute-requirements)
+- [連續批次處理和前綴快取](#continuous-batching-and-prefix-caching)
+- [多 LoRA 服務](#multi-lora-serving)
+- [串流](#streaming)
+- [生產考量](#production-considerations)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Generation Basics
+## 生成基礎
 
-LLMs generate text autoregressively: one token at a time, using all previous tokens as context.
+LLM 自迴歸生成文字：一次一個 token，使用所有先前的 token 作為上下文。
 
 ```
-Input: "The quick brown"
-Step 1: Generate "fox" -> "The quick brown fox"
-Step 2: Generate "jumps" -> "The quick brown fox jumps"
-Step 3: Generate "over" -> "The quick brown fox jumps over"
+輸入："The quick brown"
+步驟 1：生成 "fox" -> "The quick brown fox"
+步驟 2：生成 "jumps" -> "The quick brown fox jumps"
+步驟 3：生成 "over" -> "The quick brown fox jumps over"
 ...
 ```
 
-### The Generation Loop
+### 生成循環
 
 ```python
 def generate(prompt: str, max_tokens: int, model) -> str:
     tokens = tokenize(prompt)
     
     for _ in range(max_tokens):
-        # Forward pass: get logits for next token
+        # 前向傳遞：獲取下一個 token 的 logits
         logits = model.forward(tokens)
         
-        # Sample next token from probability distribution
+        # 從機率分佈中採樣下一個 token
         next_token = sample(logits[-1])
         
-        # Check for stop condition
+        # 檢查停止條件
         if next_token == EOS_TOKEN:
             break
         
@@ -56,89 +56,89 @@ def generate(prompt: str, max_tokens: int, model) -> str:
 
 ---
 
-## Prefill and Decode Phases
+## 預填充和解碼階段
 
-Inference has two distinct phases with different characteristics:
+推論有兩個具有不同特性的不同階段：
 
-### Prefill Phase
+### 預填充階段
 
-Processes the entire input prompt in parallel.
-
-```
-Input: "The quick brown fox" (4 tokens)
-
-Prefill:
-- Process all 4 tokens simultaneously
-- Compute attention across all pairs
-- Populate KV cache for all positions
-- Output: logits for next token
-```
-
-**Characteristics:**
-- Compute-bound (lots of matrix operations)
-- Parallelizable across tokens
-- Time scales with prompt length
-- Happens once per generation
-
-### Decode Phase
-
-Generates one token at a time.
+平行處理整個輸入提示。
 
 ```
-Decode step 1:
-- Input: new token position only
-- Attend to all KV cache (prompt + previously generated)
-- Generate one token
+輸入："The quick brown fox"（4 個 token）
 
-Decode step 2:
-- Append new K, V to cache
-- Input: newest token position
-- Generate next token
-
-...repeat until done
+預填充：
+- 同時處理所有 4 個 token
+- 計算所有配對之間的注意力
+- 為所有位置填充 KV 快取
+- 輸出：下一個 token 的 logits
 ```
 
-**Characteristics:**
-- Memory-bound (loading KV cache from HBM)
-- Sequential (must complete each step to start next)
-- Time per token roughly constant
-- Repeated until stopping condition
+**特性：**
+- 計算受限（大量矩陣運算）
+- 可跨 token 平行化
+- 時間隨提示長度縮放
+- 每生成一次發生一次
 
-### Why This Matters
+### 解碼階段
 
-| Phase | Bottleneck | Optimization |
+一次生成一個 token。
+
+```
+解碼步驟 1：
+- 輸入：僅新 token 位置
+- 關注所有 KV 快取（提示 + 先前生成的）
+- 生成一個 token
+
+解碼步驟 2：
+- 將新的 K、V 附加到快取
+- 輸入：最新 token 位置
+- 生成下一個 token
+
+...重複直到完成
+```
+
+**特性：**
+- 記憶體受限（從 HBM 載入 KV 快取）
+- 依序（必須完成每個步驟才能開始下一個）
+- 每 token 時間大致恆定
+- 重複直到滿足停止條件
+
+### 為什麼這很重要
+
+| 階段 | 瓶頸 | 優化 |
 |-------|------------|--------------|
-| Prefill | Compute (GPU cores) | Flash Attention, better GPU |
-| Decode | Memory bandwidth | GQA, batching, quantization |
+| 預填充 | 計算（GPU 核心） | 閃電注意力、更好的 GPU |
+| 解碼 | 記憶體頻寬 | GQA、批次處理、量化 |
 
-**Implication for serving:**
-- Long prompts increase prefill time (affects TTFT)
-- Long generations increase decode time (affects total latency)
-- Batching helps decode efficiency more than prefill
+**對服務的影響：**
+- 長提示增加預填充時間（影響 TTFT）
+- 長生成增加解碼時間（影響總延遲）
+- 批次處理對解碼效率的幫助比預填充更多
 
 ---
 
-## Sampling Strategies
+## 採樣策略
 
-After computing logits, we need to select the next token. Different strategies produce different outputs.
+在計算 logits 後，我們需要選擇下一個 token。不同的策略產生不同的輸出。
 
-### Greedy Decoding
+### 貪心解碼
 
-Always pick the highest probability token:
+始終選擇最高機率 token：
 
 ```python
 def greedy_sample(logits):
     return torch.argmax(logits)
 ```
 
-**Properties:**
-- Deterministic
-- Often repetitive for long generations
-- Good for factual/structured outputs
+**特性：**
+- 確定性
+- 對於長生成通常重複
+- 適用於事實/結構化輸出
 
-### Temperature Sampling
+### 溫度採樣
 
-Scale logits before softmax to control randomness:
+在 softmax 前縮放 logits 以控制隨機性：
 
 ```python
 def temperature_sample(logits, temperature=1.0):
@@ -147,18 +147,18 @@ def temperature_sample(logits, temperature=1.0):
     return torch.multinomial(probs, num_samples=1)
 ```
 
-**Temperature effects:**
+**溫度效果：**
 
-| Temperature | Behavior | Use Case |
+| 溫度 | 行為 | 用例 |
 |-------------|----------|----------|
-| 0 | Greedy (deterministic) | Factual Q&A, code |
-| 0.3-0.7 | Low randomness | General tasks |
-| 1.0 | Baseline | Creative writing |
-| 1.5+ | High randomness | Brainstorming |
+| 0 | 貪心（確定性） | 事實問答、程式碼 |
+| 0.3-0.7 | 低隨機性 | 一般任務 |
+| 1.0 | 基線 | 創意寫作 |
+| 1.5+ | 高隨機性 | 腦力激盪 |
 
-### Top-K Sampling
+### Top-K 採樣
 
-Only consider the K highest probability tokens:
+只考慮 K 個最高機率 token：
 
 ```python
 def top_k_sample(logits, k=50):
@@ -168,11 +168,11 @@ def top_k_sample(logits, k=50):
     return indices[sampled_idx]
 ```
 
-**Effect:** Filters out low-probability tokens that might be nonsensical.
+**效果：** 過濾掉可能無意義的低機率 token。
 
-### Top-P (Nucleus) Sampling
+### Top-P（核心）採樣
 
-Include tokens until cumulative probability exceeds P:
+包括 token 直到累積機率超過 P：
 
 ```python
 def top_p_sample(logits, p=0.9):
@@ -181,10 +181,10 @@ def top_p_sample(logits, p=0.9):
     )
     cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
     
-    # Find cutoff
+    # 找到截止點
     cutoff_idx = torch.searchsorted(cumulative_probs, p)
     
-    # Sample from truncated distribution
+    # 從截斷分佈中採樣
     selected_probs = sorted_probs[:cutoff_idx + 1]
     selected_probs = selected_probs / selected_probs.sum()
     sampled_idx = torch.multinomial(selected_probs, num_samples=1)
@@ -192,21 +192,21 @@ def top_p_sample(logits, p=0.9):
     return sorted_indices[sampled_idx]
 ```
 
-**Advantage over Top-K:** Dynamically adjusts based on probability distribution. High-confidence predictions include fewer tokens; uncertain predictions include more.
+**相對於 Top-K 的優勢：** 根據機率分佈動態調整。高置信度預測包含更少的 token；不確定的預測包含更多。
 
-### Common Configurations
+### 常見配置
 
-| Use Case | Temperature | Top-P | Top-K |
+| 用例 | 溫度 | Top-P | Top-K |
 |----------|-------------|-------|-------|
-| Code generation | 0-0.2 | 0.95 | - |
-| Factual Q&A | 0.1-0.3 | 1.0 | - |
-| General chat | 0.7 | 0.9 | - |
-| Creative writing | 1.0 | 0.95 | - |
-| Brainstorming | 1.2 | 1.0 | - |
+| 程式碼生成 | 0-0.2 | 0.95 | - |
+| 事實問答 | 0.1-0.3 | 1.0 | - |
+| 一般聊天 | 0.7 | 0.9 | - |
+| 創意寫作 | 1.0 | 0.95 | - |
+| 腦力激盪 | 1.2 | 1.0 | - |
 
-### Repetition Penalties
+### 重複懲罰
 
-Reduce probability of recently generated tokens:
+降低最近生成 token 的機率：
 
 ```python
 def apply_repetition_penalty(logits, generated_tokens, penalty=1.2):
@@ -215,37 +215,37 @@ def apply_repetition_penalty(logits, generated_tokens, penalty=1.2):
     return logits
 ```
 
-**Variants:**
-- Presence penalty: Penalize all tokens that appeared
-- Frequency penalty: Penalize proportional to occurrence count
+**變體：**
+- 存在懲罰：懲罰所有出現過的 token
+- 頻率懲罰：按出現次數比例懲罰
 
 ---
 
-## Stopping Conditions
+## 停止條件
 
-Generation continues until a stopping condition is met:
+生成持續直到滿足停止條件：
 
 ### EOS Token
 
-Model generates end-of-sequence token:
+模型生成序列結束 token：
 
 ```python
 if next_token == tokenizer.eos_token_id:
     break
 ```
 
-### Max Tokens
+### 最大 Token
 
-Hard limit on generation length:
+生成長度的硬限制：
 
 ```python
 for i in range(max_tokens):
-    # generate...
+    # 生成...
 ```
 
-### Stop Sequences
+### 停止序列
 
-Custom strings that terminate generation:
+終止生成的自訂字串：
 
 ```python
 stop_sequences = ["###", "\n\n", "Human:"]
@@ -256,221 +256,223 @@ for seq in stop_sequences:
         break
 ```
 
-## Latent Optimization: Speculative Decoding
+---
 
-**The current standard for high-bandwidth serving.**
+## 潛在優化：推測解碼
 
-Speculative decoding uses a smaller "draft model" to predict multiple future tokens in a single step, which the larger "target model" then verifies in parallel.
+**高頻寬服務的當前標準。**
+
+推測解碼使用較小的「草稿模型」在一個步驟中預測多個未來 token，然後由較大的「目標模型」並行驗證。
 
 ```
-Draft Model (Small): Predicts 5 tokens -> "The", "quick", "brown", "fox", "jumps"
-Target Model (Large): Verifies all 5 tokens in ONE forward pass.
-Result: If target agrees on 4 tokens, we've generated 4 tokens for the cost of 1 large forward pass.
+草稿模型（小）：預測 5 個 token -> "The", "quick", "brown", "fox", "jumps"
+目標模型（大）：在一個前向傳遞中驗證所有 5 個 token。
+結果：如果目標同意 4 個 token，我們用 1 次大前向傳遞的成本生成了 4 個 token。
 ```
 
-| Method | Approach | Speedup | Example |
+| 方法 | 方法 | 加速 | 範例 |
 |--------|----------|---------|---------|
-| Draft Model | Small model (e.g., 1B) + Large (70B) | 2x-3x | vLLM, TGI |
-| **Medusa Heads** | Multiple LM heads on the same model | 1.5x-2x | Medusa, Eagle |
-| Prompt Lookup | Uses substrings from prompt as speculation| 1.2x | RAG / Code completion |
+| 草稿模型 | 小模型（例如 1B）+ 大模型（70B） | 2x-3x | vLLM、TGI |
+| **Medusa 頭** | 同一模型上的多個 LM 頭 | 1.5x-2x | Medusa、Eagle |
+| 提示查詢 | 使用提示中的子字串作為推測 | 1.2x | RAG / 程式碼完成 |
 
 ---
 
-## Latency Metrics
+## 延遲指標
 
-### Time to First Token (TTFT)
+### 首個 Token 的時間（TTFT）
 
-Time from request to first generated token.
-
-```
-TTFT = network_latency + queue_time + prefill_time
-```
-
-**What affects TTFT:**
-- Prompt length (prefill is O(n))
-- Model size
-- GPU speed
-- Queue depth
-
-**Targets:**
-- Interactive chat: < 500ms
-- Real-time: < 200ms
-- Batch: Less critical
-
-### Tokens Per Second (TPS)
-
-Rate of token generation after first token.
+從請求到首個生成 token 的時間。
 
 ```
-TPS = (total_tokens - 1) / (total_time - TTFT)
+TTFT = 網路延遲 + 排隊時間 + 預填充時間
 ```
 
-**What affects TPS:**
-- Model size
-- Batch size
-- GPU memory bandwidth
-- KV cache size
+**什麼影響 TTFT：**
+- 提示長度（預填充是 O(n)）
+- 模型大小
+- GPU 速度
+- 排隊深度
 
-**Typical values:**
-- Llama 70B on H100: 30-50 tokens/sec per request
-- GPT-4 via API: 20-80 tokens/sec (varies)
-- Small model (7B): 100+ tokens/sec
+**目標：**
+- 互動聊天：< 500ms
+- 即時：< 200ms
+- 批次：不那麼關鍵
 
-### Total Latency
+### 每秒 Token（TPS）
 
-```
-Total = TTFT + (output_tokens / TPS)
-```
-
-**Example:**
-- TTFT: 200ms
-- TPS: 50 tokens/sec
-- Output: 100 tokens
-- Total: 200ms + 2000ms = 2.2s
-
-### Throughput
-
-Requests completed per unit time:
+首個 token 之後的 token 生成速率。
 
 ```
-Throughput = concurrent_requests * TPS / average_output_tokens
+TPS = (總 token - 1) / (總時間 - TTFT)
 ```
 
-Higher batch sizes increase throughput but may increase per-request latency.
+**什麼影響 TPS：**
+- 模型大小
+- 批次大小
+- GPU 記憶體頻寬
+- KV 快取大小
+
+**典型值：**
+- H100 上的 Llama 70B：每請求 30-50 tokens/秒
+- 透過 API 的 GPT-4：20-80 tokens/秒（可變）
+- 小模型（7B）：100+ tokens/秒
+
+### 總延遲
+
+```
+總延遲 = TTFT + (輸出 token / TPS)
+```
+
+**範例：**
+- TTFT：200ms
+- TPS：50 tokens/秒
+- 輸出：100 tokens
+- 總延遲：200ms + 2000ms = 2.2s
+
+### 吞吐量
+
+單位時間完成的請求數：
+
+```
+吞吐量 = 並發請求 * TPS / 平均輸出 token
+```
+
+更大的批次大小增加吞吐量，但可能增加每請求延遲。
 
 ---
 
-## Memory and Compute Requirements
+## 記憶體和計算需求
 
-### Model Weights
+### 模型權重
 
 ```
-Memory = parameters * bytes_per_parameter
+記憶體 = 參數 * 每參數位元組
 
-70B model in FP16:
-= 70B * 2 bytes
+FP16 中的 70B 模型：
+= 70B * 2 位元組
 = 140 GB
 
-70B model in INT4:
-= 70B * 0.5 bytes
+INT4 中的 70B 模型：
+= 70B * 0.5 位元組
 = 35 GB
 ```
 
-### KV Cache
+### KV 快取
 
 ```
-Per token: 2 * layers * heads * head_dim * bytes
-Per request: per_token * sequence_length
+每 token：2 * 層數 * 頭數 * 頭維度 * 位元組
+每請求：每 token * 序列長度
 
-Llama 70B (80 layers, 64 heads, 128 dim, FP16):
-= 2 * 80 * 64 * 128 * 2 bytes
-= 2.6 MB per token
+Llama 70B（80 層、64 頭、128 維度、FP16）：
+= 2 * 80 * 64 * 128 * 2 位元組
+= 每 token 2.6 MB
 
-At 4K context: 10.5 GB per request
-At 8K context: 21 GB per request
+4K 上下文：每請求 10.5 GB
+8K 上下文：每請求 21 GB
 ```
 
-### Total GPU Memory
+### 總 GPU 記憶體
 
 ```
-Total = model_weights + kv_cache * batch_size + activations
+總計 = 模型權重 + KV 快取 * 批次大小 + 激活
 
-Example: Llama 70B serving
-- Weights (INT4): 35 GB
-- KV cache (8K, batch 4): 84 GB
-- Activations: ~5 GB
-- Total: ~124 GB (fits on 2x H100 80GB)
+範例：Llama 70B 服務
+- 權重（INT4）：35 GB
+- KV 快取（8K、批次 4）：84 GB
+- 激活：~5 GB
+- 總計：~124 GB（適合 2x H100 80GB）
 ```
 
-### FLOPs per Token
+### 每 Token 的 FLOPs
 
 ```
-Forward pass FLOPs ≈ 2 * parameters
+前向傳遞 FLOPs ≈ 2 * 參數
 
-70B model:
-≈ 140 TFLOPs per token
+70B 模型：
+≈ 140 TFLOPs 每 token
 
-At 40 tokens/sec:
-≈ 5.6 PFLOPs sustained
+以 40 tokens/秒：
+≈ 5.6 PFLOPs 持續
 ```
 
 ---
 
-## Streaming
+## 串流
 
-For interactive applications, stream tokens as they are generated:
+對於互動應用，隨生成串流 token：
 
-### Server-Side Events (SSE)
+### 伺服器端事件（SSE）
 
 ```python
-# Server
+# 伺服器
 async def generate_stream(prompt: str):
     for token in model.generate_iter(prompt):
         yield f"data: {json.dumps({'token': token})}\n\n"
     yield "data: [DONE]\n\n"
 
-# Client
+# 用戶端
 async for event in sse_client.stream("/generate"):
     token = json.loads(event.data)["token"]
     display(token)
 ```
 
-### Benefits
+### 優勢
 
-| Aspect | Streaming | Non-streaming |
+| 方面 | 串流 | 非串流 |
 |--------|-----------|---------------|
-| Perceived latency | TTFT only | Full generation time |
-| User experience | Progressive | Waiting, then complete |
-| Early termination | User can stop | Must wait |
-| Memory | Lower | Higher (buffer response) |
+| 感知延遲 | 僅 TTFT | 完整生成時間 |
+| 用戶體驗 | 漸進 | 等待，然後完整 |
+| 提前終止 | 用戶可以停止 | 必須等待 |
+| 記憶體 | 較低 | 較高（緩衝回應） |
 
-### Implementation Details
+### 實現細節
 
-- Flush after each token
-- Handle connection drops gracefully
-- Consider buffering for very fast generation
-- Some frameworks buffer by default; disable for streaming
+- 每個 token 後刷新
+- 優雅處理連接中斷
+- 考慮為非常快的生成緩衝
+- 有些框架預設緩衝；串流時停用
 
 ---
 
-## Production Considerations
+## 生產考量
 
-### Batching for Throughput
+### 批次處理以提高吞吐量
 
-Combine multiple requests to maximize GPU utilization:
+組合多個請求以最大化 GPU 利用率：
 
 ```python
-# Without batching: GPU underutilized
+# 無批次處理：GPU 利用不足
 for request in requests:
     response = model.generate(request)
 
-# With batching: parallel processing
+# 批次處理：平行處理
 batch = collect_requests(timeout=10ms, max_batch=32)
 responses = model.generate_batch(batch)
 ```
 
-### Continuous Batching and Prefix Caching
+### 連續批次處理和前綴快取
 
-**Continuous Batching (Iteration-level Scheduling):**
-Unlike static batching, continuous batching injects new requests as soon as any request in the batch hits an EOS token. This increases throughput by up to 20x.
+**連續批次處理（疊代級排程）：**
+與靜態批次處理不同，連續批次處理在批次中的任何請求達到 EOS token 時立即注入新請求。這可以將吞吐量提高多達 20 倍。
 
-**Prefix Caching (RAD-O):**
-Caches the KV tensors of common prefixes (e.g., system prompts, few-shot examples).
-- **TTFT Reduction**: 90%
-- **Mechanism**: Use a hash of the prefix to lookup KV tensors in a GPU-memory LRU cache.
+**前綴快取（RAD-O）：**
+快取常見前綴（例如系統提示、少樣本範例）的 KV 張量。
+- **TTFT 減少**：90%
+- **機制**：使用前綴的雜湊值在 GPU 記憶體 LRU 快取中查詢 KV 張量。
 
-### Multi-LoRA Serving
+### 多 LoRA 服務
 
-**Scenario:** Serving 1000 different fine-tuned models (adapters) on one base model.
-**The Challenge:** Loading 1000 separate models would take terabytes of VRAM.
+**場景：** 在一個基礎模型上服務 1000 個不同的微調模型（適配器）。
+**挑戰：** 載入 1000 個單獨模型將佔用 TB 的 VRAM。
 
-**The Solution (LoRAX / S-LoRA):**
-1. Load one base model in VRAM.
-2. Store LoRA adapters (megabytes) in host RAM or SSD.
-3. Dynamically swap adapters during the forward pass based on the request ID.
-4. **Implementation**: Use a specialized kernel (S-LoRA) that performs matrix-vector multiplication for multiple different adapters in the same batch.
+**解決方案（LoRAX / S-LoRA）：**
+1. 在 VRAM 中載入一個基礎模型。
+2. 將 LoRA 適配器（MB）儲存在主機 RAM 或 SSD 中。
+3. 根據請求 ID 在前向傳遞期間動態交換適配器。
+4. **實現**：使用專門的內核（S-LoRA）在同一批次中執行多個不同適配器的矩陣-向量乘法。
 
-### Request Prioritization
+### 請求優先級
 
 ```python
 class RequestQueue:
@@ -484,13 +486,13 @@ class RequestQueue:
         return await self.low_priority.get()
 ```
 
-**Priority criteria:**
-- Customer tier
-- Request type
-- Wait time
-- Estimated compute cost
+**優先級標準：**
+- 客戶層級
+- 請求類型
+- 等待時間
+- 估計計算成本
 
-### Timeout Handling
+### 超時處理
 
 ```python
 async def generate_with_timeout(prompt: str, timeout: float):
@@ -501,155 +503,121 @@ async def generate_with_timeout(prompt: str, timeout: float):
         )
         return result
     except asyncio.TimeoutError:
-        return {"error": "timeout", "partial": partial_output}
+        return {"error": "Generation timeout"}
 ```
 
-### Graceful Degradation
+**最佳實踐：**
+- 為不同請求類型設置不同的超時
+- 提供有意义的超時錯誤消息
+- 考慮使用 last token 作為回退
+- 記錄超時以進行容量規劃
+
+### 速率限制
 
 ```python
-async def generate_with_fallback(prompt: str):
-    try:
-        return await primary_model.generate(prompt)
-    except RateLimitError:
-        return await fallback_model.generate(prompt)
-    except TimeoutError:
-        return await small_fast_model.generate(prompt)
+class RateLimiter:
+    def __init__(self, requests_per_minute: int):
+        self.rpm = requests_per_minute
+        self.window = 60.0  # 秒
+        self.requests = deque()
+    
+    async def acquire(self):
+        now = time.time()
+        
+        # 清理過期請求
+        while self.requests and self.requests[0] < now - self.window:
+            self.requests.popleft()
+        
+        if len(self.requests) >= self.rpm:
+            sleep_time = self.window - (now - self.requests[0])
+            await asyncio.sleep(sleep_time)
+        
+        self.requests.append(time.time())
 ```
 
-### Cost Tracking
+### 監視和指標
 
-```python
-@dataclass
-class RequestMetrics:
-    input_tokens: int
-    output_tokens: int
-    model: str
-    latency_ms: float
-    cost_usd: float
+關鍵指標：
+- TTFT 和 TPS（延遲）
+- 請求錯誤率
+- GPU 利用率
+- 批次大小分佈
+- 佇列深度
 
-def calculate_cost(metrics: RequestMetrics) -> float:
-    pricing = {
-        "gpt-4o": {"input": 2.50, "output": 10.00},
-        "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-    }
-    rates = pricing[metrics.model]
-    return (
-        (metrics.input_tokens / 1_000_000) * rates["input"] +
-        (metrics.output_tokens / 1_000_000) * rates["output"]
-    )
+建議：
+- 使用結構化日誌記錄所有請求
+- 追蹤 P50、P95、P99 延遲
+- 為異常模式設置警報
+- 持續監控成本
+
+---
+
+## 面試問題
+
+### Q：解釋預填充和解碼之間的區別。
+
+**強而有力的回答：**
+預填充和 解碼是 LLM 推論的兩個不同階段：
+
+**預填充** 處理整個輸入提示並計算首個 logits。這是高度平行化的——提示中的所有 token 同時處理。時間取決於提示長度，是 O(n)。
+
+**解碼** 一次生成一個輸出 token。每個 token 的生成需要載入 KV 快取並執行注意力操作。這是記憶體受限的且依序執行。
+
+從服務角度來看，預填充延遲（TTFT）主要受 GPU 計算能力影響，而解碼延遲（TPS）主要受 GPU 記憶體頻寬影響。這就是為什麼它們需要分開優化。
+
+### Q：什麼是 KV 快取，它如何影響服務？
+
+**強而有力的回答：**
+KV 快取儲存 Transformer 注意力層中鍵和值張量的計算結果。在自迴歸生成期間，每個新 token 需要 attending 到所有先前位置。
+
+沒有 KV 快取，每個新 token 都需要重新計算所有先前位置的 K 和 V，這是 O(n²) 在序列長度上的重複計算。KV 快取通過儲存這些值來避免這種重複，使每個新 token 的計算變為 O(1)。
+
+代價是記憶體。KV 快取隨序列長度線性增長，對於 Llama 70B 在 8K 上下文可達每請求 21 GB。這直接限制了批次大小和並發請求數量。
+
+GQA 和 MQA 等技術通過跨查詢頭共享 K 和 V 來減少這個記憶體開銷。
+
+### Q：推測解碼如何工作？
+
+**強而有力的回答：**
+推測解碼使用一個小型「草稿模型」來猜測多個未來 token，然後由大型「目標模型」並行驗證。
+
+工作原理：
+1. 草稿模型（前向傳遞）提出多個候選 token
+2. 目標模型（前向傳遞）並行驗證所有候選
+3. 如果目標同意草稿的 token，它們被接受
+4. 如果目標拒絕一個 token，則從該點開始使用目標的預測
+
+好處是：如果目標同意大部分草稿（例如 4/5 個 token），我們用一次大模型前向傳遞生成了多個 token。這可以實現 2-3 倍的加速。
+
+### Q：如何估計 LLM 服務的硬體需求？
+
+**強而有力的回答：**
+估計硬體需求時需要考慮：
+
+1. **模型權重記憶體**：這是基本需求。70B 模型在 FP16 需要 140 GB，在 INT4 需要 35 GB。
+
+2. **KV 快取記憶體**：這取決於並發請求數和上下文長度。每 token 約 2.6 MB，8K 上下文每請求 21 GB。
+
+3. **激活記憶體**：前向傳遞期間的中間結果。通常較小（幾 GB）但不可忽視。
+
+4. **批次大小**：在記憶體固定的情况下，更大的批次意味著更低的延遲但需要更多記憶體。
+
+實用計算：
+```
+總記憶體需求 ≈ 模型權重 + (KV快取 × 批次大小 × 並發請求) + 激活
 ```
 
----
-
-## Interview Questions
-
-### Q: Explain the difference between prefill and decode phases.
-
-**Strong answer:**
-LLM inference has two distinct phases:
-
-**Prefill:**
-- Processes the entire input prompt at once
-- All tokens attend to each other in parallel
-- Populates the KV cache for all prompt positions
-- Compute-bound: uses GPU cores efficiently
-- Time scales with prompt length
-
-**Decode:**
-- Generates one token at a time
-- New token attends to all KV cache entries
-- Appends new K, V to cache
-- Memory-bound: bottlenecked by loading KV cache
-- Time per token is roughly constant
-
-This matters for system design because:
-- Long prompts increase TTFT (prefill intensive)
-- Batching helps decode more than prefill
-- Different optimization strategies for each phase
-
-### Q: How do temperature and top-p affect generation?
-
-**Strong answer:**
-Both control randomness in token selection:
-
-**Temperature:**
-- Scales logits before softmax
-- Low (0-0.3): More deterministic, picks high-probability tokens
-- High (1.0+): More random, flattens probability distribution
-- Zero: Greedy decoding
-
-**Top-p (nucleus sampling):**
-- Filters to smallest set of tokens with cumulative probability > p
-- Dynamically adjusts cutoff based on distribution
-- High confidence: few tokens considered
-- Low confidence: many tokens considered
-
-Typical production settings:
-- Factual Q&A: temperature 0.1, top-p 0.95
-- General chat: temperature 0.7, top-p 0.9
-- Creative: temperature 1.0+, top-p 0.95
-
-The key insight is that these work together. Temperature reshapes the distribution; top-p truncates it.
-
-### Q: What determines TTFT vs TPS?
-
-**Strong answer:**
-**TTFT (Time to First Token):**
-- Network latency to reach the server
-- Queue wait time
-- Prefill computation time
-- Dominated by: prompt length, GPU compute speed
-
-**TPS (Tokens Per Second):**
-- Decode phase efficiency
-- Memory bandwidth for loading KV cache
-- Dominated by: memory bandwidth, batch size, model size
-
-Optimization strategies differ:
-- TTFT: Reduce prompt when possible, use faster networking, minimize queueing
-- TPS: Increase batch size, use GQA/MQA models, optimize memory access
-
-The tradeoff: batching improves TPS (throughput) but may increase TTFT (latency) if requests wait for batch formation.
-
-### Q: How would you estimate GPU requirements for serving a model?
-
-**Strong answer:**
-Three main memory consumers:
-
-1. **Model weights:**
-   - FP16: parameters * 2 bytes
-   - INT8: parameters * 1 byte
-   - INT4: parameters * 0.5 bytes
-
-2. **KV cache:**
-   - Per token: 2 * layers * kv_heads * head_dim * 2 bytes (FP16)
-   - Per request: per_token * sequence_length
-   - Total: per_request * batch_size
-
-3. **Activations:** Typically 5-10% overhead
-
-Example for Llama 70B serving:
-- Weights (INT4): 35 GB
-- KV cache (8K context, batch 8): 168 GB
-- Need: ~200 GB total
-
-Hardware options:
-- 3x A100 80GB with tensor parallelism
-- 2x H100 80GB with tensor parallelism
-- 8x A100 40GB with more parallelism
-
-Then verify throughput meets requirements via benchmarking.
+對於 Llama 70B INT4 服務 4 個並發 8K 上下文請求：
+35 GB（權重）+ 84 GB（KV快取）+ 5 GB（激活）≈ 124 GB，需要 2x H100 80GB GPU。
 
 ---
 
-## References
+## 參考文獻
 
-- Holtzman et al. "The Curious Case of Neural Text Degeneration" (nucleus sampling, 2020)
-- Kwon et al. "Efficient Memory Management for Large Language Model Serving with PagedAttention" (vLLM, 2023)
-- [vLLM Documentation](https://docs.vllm.ai/)
-- [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM)
-- [OpenAI API Documentation](https://platform.openai.com/docs/api-reference)
+- Hugging Face Generation Documentation
+- vLLM: Easy, Fast, and Cheap LLM Serving with PagedAttention
+- Continuous Batching and Prefix Caching in Production LLM Serving
 
 ---
 
-*Previous: [Embeddings and Vector Spaces](05-embeddings-and-vector-spaces.md) | Next: [Model Taxonomy](../02-model-landscape/01-model-taxonomy.md)*
+*上一章：[嵌入和向量空間](05-embeddings-and-vector-spaces.md)*

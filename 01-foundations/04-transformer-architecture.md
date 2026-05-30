@@ -1,72 +1,72 @@
-# Transformer Architecture
+# Transformer 架構
 
-This chapter provides a comprehensive view of the complete transformer architecture, bringing together the components from previous chapters into a unified understanding.
+本章提供完整 Transformer 架構的全面視圖，將前幾章的組成部分整合為統一的理解。
 
-## Table of Contents
+## 目錄
 
-- [Architecture Overview](#architecture-overview)
-- [Input Processing](#input-processing)
-- [The Transformer Block](#the-transformer-block)
-- [Output Processing](#output-processing)
-- [Modern Architecture Variations (Hybrid MoE, MLA)](#mixture-of-experts-moe--hybrid-architectures)
-- [Untied vs. Tied Embeddings](#untied-vs-tied-embeddings)
-- [Scaling Properties](#scaling-properties)
-- [Architecture Comparison Table](#architecture-comparison-table)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [架構概觀](#architecture-overview)
+- [輸入處理](#input-processing)
+- [Transformer 區塊](#the-transformer-block)
+- [輸出處理](#output-processing)
+- [現代架構變體（混合 MoE、MLA）](#mixture-of-experts-moe--hybrid-architectures)
+- [綁定與非綁定嵌入](#untied-vs-tied-embeddings)
+- [縮放特性](#scaling-properties)
+- [架構比較表](#architecture-comparison-table)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Architecture Overview
+## 架構概觀
 
-A decoder-only transformer (the architecture used by GPT, Claude, Llama) consists of:
+僅解碼器 Transformer（GPT、Claude、Llama 使用的架構）由以下組成：
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Token Embeddings                            │
-│              + Position Embeddings (or RoPE)                    │
+│                     Token 嵌入                                   │
+│              + 位置嵌入（或 RoPE）                                │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
 │    ┌─────────────────────────────────────────────────────┐      │
-│    │                  Transformer Block                   │      │
+│    │                  Transformer 區塊                     │      │
 │    │  ┌─────────────────────────────────────────────┐    │      │
-│    │  │              RMSNorm/LayerNorm              │    │      │
+│    │  │              RMSNorm/LayerNorm               │    │      │
 │    │  └───────────────────┬─────────────────────────┘    │      │
 │    │                      ▼                              │      │
 │    │  ┌─────────────────────────────────────────────┐    │      │
-│    │  │         Masked Multi-Head Attention         │    │      │
-│    │  │            (with KV Cache)                  │    │      │
+│    │  │         遮罩多頭注意力                        │    │      │
+│    │  │            （帶 KV 快取）                     │    │      │
 │    │  └───────────────────┬─────────────────────────┘    │      │
 │    │                      │                              │      │
-│    │                  + Residual                         │      │
+│    │                  + 殘差連接                          │      │
 │    │                      │                              │      │
 │    │  ┌─────────────────────────────────────────────┐    │      │
-│    │  │              RMSNorm/LayerNorm              │    │      │
+│    │  │              RMSNorm/LayerNorm               │    │      │
 │    │  └───────────────────┬─────────────────────────┘    │      │
 │    │                      ▼                              │      │
 │    │  ┌─────────────────────────────────────────────┐    │      │
-│    │  │             Feed-Forward Network            │    │      │
-│    │  │               (SwiGLU/GELU)                 │    │      │
+│    │  │             前饋網路                          │    │      │
+│    │  │               （SwiGLU/GELU）               │    │      │
 │    │  └───────────────────┬─────────────────────────┘    │      │
 │    │                      │                              │      │
-│    │                  + Residual                         │      │
+│    │                  + 殘差連接                          │      │
 │    └──────────────────────┴──────────────────────────────┘      │
 │                           │                                     │
-│                    Repeat × N layers                            │
+│                    重複 × N 層                                   │
 └───────────────────────────┬─────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Output RMSNorm                             │
+│                      輸出 RMSNorm                               │
 └───────────────────────────┬─────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                   Language Model Head                           │
-│              (Linear: hidden_dim → vocab_size)                  │
+│                   語言模型頭                                    │
+│              （線性：hidden_dim → vocab_size）                  │
 └───────────────────────────┬─────────────────────────────────────┘
                             │
                             ▼
@@ -75,11 +75,11 @@ A decoder-only transformer (the architecture used by GPT, Claude, Llama) consist
 
 ---
 
-## Input Processing
+## 輸入處理
 
-### Token Embedding
+### Token 嵌入
 
-Convert token IDs to dense vectors:
+將 token ID 轉換為密集向量：
 
 ```python
 class TokenEmbedding(nn.Module):
@@ -91,41 +91,41 @@ class TokenEmbedding(nn.Module):
         return self.embedding(token_ids)
 ```
 
-**Dimensions:**
-- Input: [batch_size, seq_len] token IDs
-- Output: [batch_size, seq_len, d_model] embeddings
+**維度：**
+- 輸入：[batch_size, seq_len] token ID
+- 輸出：[batch_size, seq_len, d_model] 嵌入
 
-### Position Information
+### 位置資訊
 
-Position is incorporated via one of:
+位置通過以下方式之一整合：
 
-**1. Rotary Position Embedding (RoPE):**
-Applied within attention, not added to embeddings:
+**1. 旋轉位置嵌入（RoPE）：**
+在注意力內應用，不添加到嵌入：
 ```python
 def apply_rope(q, k, positions):
-    # Rotate q and k vectors based on position
+    # 根據位置旋轉 q 和 k 向量
     freqs = compute_frequencies(positions)
     q_rotated = rotate_embeddings(q, freqs)
     k_rotated = rotate_embeddings(k, freqs)
     return q_rotated, k_rotated
 ```
 
-**2. Learned Position Embeddings:**
-Added directly to token embeddings:
+**2. 學習的位置嵌入：**
+直接添加到 token 嵌入：
 ```python
 position_embeddings = nn.Embedding(max_seq_len, d_model)
 x = token_embeddings + position_embeddings(positions)
 ```
 
-**Modern models (Llama, Mistral, GPT-4) use RoPE** for better length generalization.
+**現代模型（Llama、Mistral、GPT-4）使用 RoPE** 以獲得更好的長度泛化。
 
 ---
 
-## The Transformer Block
+## Transformer 區塊
 
-### Pre-Norm Structure
+### Pre-Norm 結構
 
-Modern transformers use pre-normalization:
+現代 Transformer 使用預正規化：
 
 ```python
 class TransformerBlock(nn.Module):
@@ -144,16 +144,16 @@ class TransformerBlock(nn.Module):
         )
     
     def forward(self, x, mask=None, kv_cache=None):
-        # Attention with residual
+        # 帶殘差的注意力
         h = x + self.attn(self.attn_norm(x), mask, kv_cache)
         
-        # FFN with residual
+        # 帶殘差的 FFN
         out = h + self.ff(self.ff_norm(h))
         
         return out
 ```
 
-### Attention Component
+### 注意力元件
 
 ```python
 class GroupedQueryAttention(nn.Module):
@@ -171,39 +171,39 @@ class GroupedQueryAttention(nn.Module):
     def forward(self, x, mask, kv_cache):
         B, T, D = x.shape
         
-        # Project
+        # 投影
         q = self.q_proj(x).view(B, T, self.n_heads, self.head_dim)
         k = self.k_proj(x).view(B, T, self.n_kv_heads, self.head_dim)
         v = self.v_proj(x).view(B, T, self.n_kv_heads, self.head_dim)
         
-        # Apply RoPE
+        # 應用 RoPE
         q, k = apply_rope(q, k, positions)
         
-        # Update KV cache
+        # 更新 KV 快取
         if kv_cache is not None:
             k = torch.cat([kv_cache.k, k], dim=1)
             v = torch.cat([kv_cache.v, v], dim=1)
             kv_cache.update(k, v)
         
-        # Repeat KV heads for GQA
+        # 重複 KV 頭以實現 GQA
         k = k.repeat_interleave(self.n_heads // self.n_kv_heads, dim=2)
         v = v.repeat_interleave(self.n_heads // self.n_kv_heads, dim=2)
         
-        # Attention (using Flash Attention in practice)
+        # 注意力（實際使用 Flash Attention）
         attn_out = flash_attention(q, k, v, mask)
         
-        # Output projection
+        # 輸出投影
         out = self.o_proj(attn_out.view(B, T, -1))
         return out
 ```
 
-### Feed-Forward Network
+### 前饋網路
 
 ```python
 class SwiGLUFFN(nn.Module):
     def __init__(self, d_model, d_ff):
         super().__init__()
-        # SwiGLU has 3 projections instead of 2
+        # SwiGLU 有 3 個投影而非 2 個
         self.gate_proj = nn.Linear(d_model, d_ff, bias=False)
         self.up_proj = nn.Linear(d_model, d_ff, bias=False)
         self.down_proj = nn.Linear(d_ff, d_model, bias=False)
@@ -214,7 +214,7 @@ class SwiGLUFFN(nn.Module):
         return self.down_proj(gate * up)
 ```
 
-**FFN hidden dimension** is typically 2.7x the model dimension for SwiGLU (vs 4x for standard FFN with GELU).
+**FFN 隱藏維度** 對於 SwiGLU 通常是模型維度的 2.7 倍（標準 FFN 與 GELU 為 4 倍）。
 
 ### RMSNorm
 
@@ -230,23 +230,23 @@ class RMSNorm(nn.Module):
         return self.weight * (x / rms)
 ```
 
-Simpler and faster than LayerNorm since it skips mean centering.
+比 LayerNorm 更簡單更快，因為跳過了均值中心化。
 
 ---
 
-## Output Processing
+## 輸出處理
 
-### Final Normalization
+### 最終正規化
 
-Apply RMSNorm after the last transformer block:
+在最後一個 Transformer 區塊後應用 RMSNorm：
 
 ```python
 hidden_states = self.output_norm(hidden_states)
 ```
 
-### Language Model Head
+### 語言模型頭
 
-Project to vocabulary size:
+投影到詞彙表大小：
 
 ```python
 class LMHead(nn.Module):
@@ -255,228 +255,234 @@ class LMHead(nn.Module):
         self.linear = nn.Linear(d_model, vocab_size, bias=False)
     
     def forward(self, x):
-        return self.linear(x)  # Returns logits
+        return self.linear(x)  # 返回 logits
 ```
 
-## Untied vs. Tied Embeddings
+## 綁定與非綁定嵌入
 
-**Standard Pattern (GPT-3, Llama 2):** Weight Tying
-- Output head shares weights with input embeddings.
-- **Pro**: Saves memory (vocab_size * hidden_dim).
-- **Con**: Forces input and output latent spaces to be identical, which can be suboptimal.
+**標準模式（GPT-3、Llama 2）：** 權重綁定
+- 輸出頭與輸入嵌入共享權重。
+- **優點**：節省記憶體（vocab_size * hidden_dim）。
+- **缺點**：強迫輸入和輸出潛在空間相同，這可能不是最優的。
 
-**2025 Frontier Pattern (Llama 3/4, GPT-5.2):** Untied Embeddings
-- Output head has its own weights.
-- **Why?**: Larger vocabularies (128k+) make the embedding table a significant portion of the model. Untying allows the output head to specialize in "predictive logic" while input embeddings focus on "semantic understanding."
-- **System Impact**: Increases parameter count but often improves perplexity for multilingual and code tasks.
+**2025 年前沿模式（Llama 3/4、GPT-5.2）：** 非綁定嵌入
+- 輸出頭有自己的權重。
+- **為什麼？**：更大的詞彙表（128k+）使嵌入表成為模型的重要組成部分。非綁定允許輸出頭專注於「預測邏輯」，而輸入嵌入專注於「語義理解」。
+- **系統影響**：增加參數數量，但通常會提高多語言和程式碼任務的困惑度。
 
-### Getting Predictions
+### 獲取預測
 
 ```python
-# During generation
-logits = lm_head(hidden_states[:, -1, :])  # Last position only
+# 生成期間
+logits = lm_head(hidden_states[:, -1, :])  # 僅最後位置
 next_token = sample(logits)
 
-# During training
-logits = lm_head(hidden_states)  # All positions
+# 訓練期間
+logits = lm_head(hidden_states)  # 所有位置
 loss = cross_entropy(logits, targets)
 ```
 
 ---
 
-## Modern Architecture Variations
+## 現代架構變體
 
-### Llama 2/3 Architecture
+### Llama 2/3 架構
 
-| Component | Implementation |
+| 元件 | 實現 |
 |-----------|----------------|
-| Attention | Grouped Query Attention (GQA) |
-| Position | Rotary Position Embedding (RoPE) |
-| Normalization | RMSNorm (pre-norm) |
-| Activation | SwiGLU |
-| Bias | No bias in linear layers |
+| 注意力 | 分組查詢注意力（GQA） |
+| 位置 | 旋轉位置嵌入（RoPE） |
+| 正規化 | RMSNorm（pre-norm） |
+| 啟動 | SwiGLU |
+| 偏置 | 線性層無偏置 |
 
-### Mistral Architecture
+### Mistral 架構
 
-Same as Llama but adds:
-- **Sliding Window Attention:** Each layer only attends to 4K tokens
-- Still achieves effective 32K+ context via stacking
+與 Llama 相同但添加了：
+- **滑動視窗注意力：** 每層只關注 4K token
+- 仍然通過堆疊實現有效的 32K+ 上下文
 
-### Mixture of Experts (MoE) & Hybrid Architectures
+### 混合專家（MoE）和混合架構
 
-State-of-the-art models often use **Hybrid MoE/Dense** blocks:
-- **Periodic Dense Layers**: Every few MoE layers, a dense layer is added to ensure "global" knowledge is shared across all experts.
-- **Expert Parallelism**: Distributing different experts across different GPUs. This makes **inter-node bandwidth** (NVLink/InfiniBand) a primary architecture bottleneck.
+最先進的模型通常使用**混合 MoE/密集**區塊：
+- **週期性密集層：** 每隔幾個 MoE 層添加一個密集層，以確保「全局」知識在所有專家之間共享。
+- **專家平行性：** 將不同的專家分發到不同的 GPU。這使得**節點間頻寬**（NVLink/InfiniBand）成為主要架構瓶頸。
 
+<<<<<<< Updated upstream
 ### Multi-head Latent Attention (MLA) Integration
 The standard attention block in [DeepSeek-V3 / V4](03-attention-mechanisms.md#multi-head-latent-attention-mla) and equivalent modern architectures replaces the standard Q/K/V projections with low-rank latent compressions.
 - **Architectural Shift**: The "KV Cache" is now a compressed latent representation, changing the memory/compute ratio of the entire transformer block.
+=======
+### 多頭潛在注意力（MLA）整合
+標準注意力區塊在 [DeepSeek-V3 / V4](file:///Users/om/play/ai-system-design-guide/01-foundations/03-attention-mechanisms.md#multi-head-latent-attention-mla) 及等效現代架構中，用低秩潛在壓縮替換了標準 Q/K/V 投影。
+- **架構轉變**：「KV 快取」現在是一個壓縮的潛在表示，改變了整個 Transformer 區塊的記憶體/計算比率。
+>>>>>>> Stashed changes
 
-### Comparison of Choices
+### 選擇比較
 
-| Choice | Old Approach | Modern Approach | Benefit |
+| 選擇 | 舊方法 | 現代方法 | 優勢 |
 |--------|--------------|-----------------|---------|
-| Norm | Post-LN | Pre-LN / RMSNorm | Training stability, speed |
-| Position | Sinusoidal/Learned | RoPE | Better extrapolation |
-| Activation | GELU | SwiGLU | Quality (+1% on benchmarks) |
-| Attention | MHA | GQA | 8x smaller KV cache |
-| Bias | With bias | No bias | Fewer parameters, similar quality |
+| 正規化 | Post-LN | Pre-LN / RMSNorm | 訓練穩定性、速度 |
+| 位置 | 正弦/學習的 | RoPE | 更好的泛化 |
+| 啟動 | GELU | SwiGLU | 質量（基準測試 +1%） |
+| 注意力 | MHA | GQA | 8 倍更小的 KV 快取 |
+| 偏置 | 有偏置 | 無偏置 | 更少參數，相似質量 |
 
 ---
 
-## Scaling Properties
+## 縮放特性
 
-### Parameter Counts
+### 參數數量
 
-| Component | Parameters |
+| 元件 | 參數 |
 |-----------|------------|
-| Token embedding | vocab_size * d_model |
-| Per layer Q/K/V | 3 * d_model * d_model (for MHA) |
-| Per layer O proj | d_model * d_model |
-| Per layer FFN | 3 * d_model * d_ff (for SwiGLU) |
-| LM head | d_model * vocab_size (often tied) |
+| Token 嵌入 | vocab_size * d_model |
+| 每層 Q/K/V | 3 * d_model * d_model（MHA） |
+| 每層 O 投影 | d_model * d_model |
+| 每層 FFN | 3 * d_model * d_ff（SwiGLU） |
+| LM 頭 | d_model * vocab_size（通常綁定） |
 
-**Approximation for decoder-only:**
+**僅解碼器的近似：**
 ```
-Total ≈ 12 * n_layers * d_model^2 (for d_ff = 4 * d_model, MHA)
-```
-
-### Compute Requirements
-
-**Training:** FLOPs per token ≈ 6 * parameters (forward + backward)
-
-**Inference:** FLOPs per token ≈ 2 * parameters (forward only)
-
-### Scaling Laws
-
-The Chinchilla scaling law suggests optimal allocation:
-
-```
-D (data tokens) ≈ 20 * N (parameters)
+總計 ≈ 12 * n_layers * d_model^2（對於 d_ff = 4 * d_model，MHA）
 ```
 
-For a 70B model, train on ~1.4T tokens for compute-optimal training.
+### 計算需求
 
-**But:** Many modern models overtrain relative to Chinchilla for better inference efficiency. Llama was trained on 2T+ tokens.
+**訓練：** 每 token FLOPs ≈ 6 * 參數（正向 + 反向）
+
+**推論：** 每 token FLOPs ≈ 2 * 參數（僅正向）
+
+### 縮放定律
+
+Chinchilla 縮放定律建議最佳分配：
+
+```
+D（資料 token）≈ 20 * N（參數）
+```
+
+對於 70B 模型，在約 1.4T token 上訓練以達到計算最優訓練。
+
+**但是：** 許多現代模型相對於 Chinchilla 進行過度訓練以獲得更好的推論效率。Llama 在 2T+ token 上訓練。
 
 ---
 
-## Architecture Comparison Table
+## 架構比較表
 
-| Model | Params | Layers | d_model | Heads | KV Heads | FFN | Context |
+| 模型 | 參數 | 層數 | d_model | 頭數 | KV 頭 | FFN | 上下文 |
 |-------|--------|--------|---------|-------|----------|-----|---------|
 | GPT-3 | 175B | 96 | 12288 | 96 | 96 | GELU | 2K |
 | Llama 2 70B | 70B | 80 | 8192 | 64 | 8 | SwiGLU | 4K |
 | Llama 3 405B| 405B | 126 | 16384 | 128 | 16 | SwiGLU | 128K |
 | DeepSeek V3 | 671B | 128 | 7168 | 128 | MLA | MoE | 128K |
-| Llama 4 (spec)| 1T+ | 140+ | 18432 | 192 | 24 | MoE/H | 1M+ |
+| Llama 4（規格）| 1T+ | 140+ | 18432 | 192 | 24 | MoE/H | 1M+ |
 
-*Mistral uses sliding window attention for effective long context.
+*Mistral 使用滑動視窗注意力以實現有效的長上下文。
 
 ---
 
-## Interview Questions
+## 面試問題
 
-### Q: Walk me through the forward pass of a transformer.
+### Q：帶我走過 Transformer 的前向傳遞。
 
-**Strong answer:**
-For a decoder-only model generating text:
+**強而有力的回答：**
+對於生成文字的僅解碼器模型：
 
-1. **Tokenization:** Convert input text to token IDs
+1. **分詞：** 將輸入文字轉換為 token ID
 
-2. **Embedding:** Look up token embeddings from the embedding table
+2. **嵌入：** 從嵌入表中查詢 token 嵌入
 
-3. **For each transformer layer:**
-   - Apply RMSNorm to input
-   - Compute Q, K, V projections
-   - Apply RoPE to Q and K for position
-   - For generation: append new K, V to KV cache
-   - Compute attention (masked, so each position only sees previous)
-   - Project attention output and add residual
-   - Apply RMSNorm
-   - Pass through SwiGLU feed-forward network
-   - Add residual
+3. **對於每個 Transformer 層：**
+   - 對輸入應用 RMSNorm
+   - 計算 Q、K、V 投影
+   - 對 Q 和 K 應用 RoPE 以獲取位置
+   - 對於生成：將新的 K、V 附加到 KV 快取
+   - 計算注意力（遮罩的，所以每個位置只看到前面的）
+   - 投影注意力輸出並添加殘差
+   - 應用 RMSNorm
+   - 通過 SwiGLU 前饋網路傳遞
+   - 添加殘差
 
-4. **Output norm:** Apply final RMSNorm
+4. **輸出正規化：** 應用最終 RMSNorm
 
-5. **LM head:** Project to vocabulary size to get logits
+5. **LM 頭：** 投影到詞彙表大小以獲取 logits
 
-6. **Sample:** Select next token from logits using temperature/top-p
+6. **採樣：** 使用 temperature/top-p 從 logits 中選擇下一個 token
 
-For generation, repeat steps 3-6 for each new token, reusing the KV cache from previous positions.
+對於生成，重複步驟 3-6 對每個新 token，重複使用先前位置的 KV 快取。
 
-### Q: What is the difference between pre-norm and post-norm?
+### Q：pre-norm 和 post-norm 有什麼區別？
 
-**Strong answer:**
-The difference is where layer normalization is applied relative to sublayers (attention, FFN):
+**強而有力的回答：**
+區別在於相對於子層（注意力、FFN）應用層正規化的位置：
 
-**Post-norm (original transformer):**
+**Post-norm（原始 Transformer）：**
 ```
 x = LayerNorm(x + Sublayer(x))
 ```
-Normalize after adding residual.
+在添加殘差後正規化。
 
-**Pre-norm (modern transformers):**
+**Pre-norm（現代 Transformer）：**
 ```
 x = x + Sublayer(LayerNorm(x))
 ```
-Normalize before the sublayer.
+在子層之前正規化。
 
-Pre-norm is preferred because:
-1. Gradients flow more directly through residual connections
-2. Training is more stable, especially for deep models
-3. Less sensitive to initialization and learning rate
-4. No need for learning rate warmup
+首選 Pre-norm 因為：
+1. 梯度通過殘差連接更直接地流動
+2. 訓練更穩定，特別是對於深度模型
+3. 對初始化和學習率不太敏感
+4. 不需要學習率預熱
 
-The cost is slightly lower final performance in some benchmarks, but the training stability is worth it for large models.
+代價是在某些基準測試中最終性能略低，但對於大型模型來說訓練穩定性是值得的。
 
-### Q: Explain GQA and why it matters for serving.
+### Q：解釋 GQA 及其對服務的重要性。
 
-**Strong answer:**
-Grouped Query Attention (GQA) shares Key and Value heads across groups of Query heads.
+**強而有力的回答：**
+分組查詢注意力（GQA）在查詢頭組之間共享鍵和值頭。
 
-Standard Multi-Head Attention: 64 query heads, 64 KV heads (1:1)
-GQA: 64 query heads, 8 KV heads (8:1)
+標準多頭注意力：64 個查詢頭，64 個 KV 頭（1:1）
+GQA：64 個查詢頭，8 個 KV 頭（8:1）
 
-Implementation: Each KV head is used by 8 query heads via repetition.
+實現：每個 KV 頭通過重複為 8 個查詢頭服務。
 
-**Why it matters:**
-The KV cache stores K and V for all positions during generation. For Llama 70B at 8K context:
-- MHA: 2.6 MB/token * 8K = 21 GB per request
-- GQA (8:1): ~2.6 GB per request
+**為什麼重要：**
+KV 快取在生成期間儲存所有位置的 K 和 V。對於 8K 上下文的 Llama 70B：
+- MHA：每 token 2.6 MB * 8K = 每請求 21 GB
+- GQA（8:1）：每請求約 2.6 GB
 
-8x reduction enables:
-- Larger batch sizes (more concurrent users)
-- Longer contexts
-- Lower GPU memory requirements
+8 倍減少使得：
+- 更大的批次大小（更多並發用戶）
+- 更長的上下文
+- 更低的 GPU 記憶體需求
 
-Quality impact: Minimal. Research shows GQA achieves 99%+ of MHA quality.
+質量影響：最小。研究表明 GQA 達到 MHA 質量的 99% 以上。
 
-### Q: What changed between GPT-2 and Llama 2?
+### Q：GPT-2 和 Llama 2 之間有什麼變化？
 
-**Strong answer:**
-Key architecture improvements:
+**強而有力的回答：**
+關鍵架構改進：
 
-| Component | GPT-2 | Llama 2 |
-|-----------|-------|---------|
-| Norm | Post-LayerNorm | Pre-RMSNorm |
-| Position | Learned absolute | RoPE (rotary) |
-| Activation | GELU | SwiGLU |
-| Attention | MHA | GQA (for 70B) |
-| Bias | Present | Removed |
+| 元件 | GPT-2 | Llama 2 |
+|-------|-------|---------|
+| 正規化 | Post-LayerNorm | Pre-RMSNorm |
+| 位置 | 學習的絕對位置 | RoPE（旋轉） |
+| 啟動 | GELU | SwiGLU |
+| 注意力 | MHA | GQA（70B） |
+| 偏置 | 存在 | 移除 |
 
-Impact:
-- RMSNorm: Faster and equally effective
-- RoPE: Better length extrapolation
-- SwiGLU: ~1% quality improvement
-- GQA: 8x smaller KV cache for serving
-- No bias: Fewer parameters, no quality loss
+影響：
+- RMSNorm：更快且同樣有效
+- RoPE：更好的長度泛化
+- SwiGLU：~1% 質量改進
+- GQA：服務 8 倍更小的 KV 快取
+- 無偏置：更少參數，無質量損失
 
-These changes enable training larger models more stably and serving them more efficiently.
+這些改進使得訓練更大的模型更穩定，服務更高效。
 
 ---
 
-## References
+## 參考文獻
 
 - Vaswani et al. "Attention Is All You Need" (2017)
 - Touvron et al. "Llama: Open and Efficient Foundation Language Models" (2023)
@@ -488,4 +494,4 @@ These changes enable training larger models more stably and serving them more ef
 
 ---
 
-*Previous: [Attention Mechanisms](03-attention-mechanisms.md) | Next: [Embeddings and Vector Spaces](05-embeddings-and-vector-spaces.md)*
+*上一章：[注意力機制](03-attention-mechanisms.md) | 下一章：[嵌入和向量空間](05-embeddings-and-vector-spaces.md)*

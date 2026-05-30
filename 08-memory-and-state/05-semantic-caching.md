@@ -1,76 +1,76 @@
-# Semantic Caching
+# 語意快取
 
-Caching has evolved from exact string matching to **Semantic Matching**. Semantic caching reduces costs by **30-70%** and cuts latency from seconds to milliseconds by reusing completions for "equivalent" queries.
+快取已從精確字串匹配演進為**語意匹配（Semantic Matching）**。語意快取透過對「等價」查詢重用回應，可降低成本 **30-70%**，並將延遲從秒級縮短至毫秒級。
 
-## Table of Contents
+## 目錄
 
-- [Exact Cache vs. Semantic Cache](#vs)
-- [The Semantic Matching Pipeline](#pipeline)
-- [RedisVL and GPTCache](#tech-stack)
-- [Evaluation: Hit Rate vs. Hallucinated Drift](#eval)
-- [Multimodal Semantic Caching](#multimodal)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [精確快取 vs. 語意快取](#vs)
+- [語意匹配管線](#pipeline)
+- [RedisVL 與 GPTCache](#tech-stack)
+- [評估：命中率 vs. 幻覺漂移](#eval)
+- [多模態語意快取](#multimodal)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Exact Cache vs. Semantic Cache
+## 精確快取 vs. 語意快取
 
-| Feature | Exact Cache (Redis/Memcached) | Semantic Cache (RedisVL/Qdrant) |
+| 功能 | 精確快取（Redis/Memcached） | 語意快取（RedisVL/Qdrant） |
 |---------|-------------------------------|---------------------------------|
-| **Key** | Hashed query string | Query embedding vector |
-| **Match**| 100% string identity | Cosine Similarity > Threshold |
-| **Efficiency**| Low (Minor typos break cache) | High (Understands intent) |
-| **Risk** | Zero | Semantic Drift (Returning wrong answer) |
+| **金鑰** | 雜湊後的查詢字串 | 查詢嵌入向量 |
+| **匹配**| 100% 字串相同 | 餘弦相似度 > 閾值 |
+| **效率**| 低（些許拼字錯誤即破壞快取） | 高（理解意圖） |
+| **風險** | 零 | 語意漂移（回傳錯誤答案） |
 
 ---
 
-## The Semantic Matching Pipeline
+## 語意匹配管線
 
-1. **Embed**: The incoming query is converted into a vector (e.g., using `text-embedding-3-small`).
-2. **Search**: Search the cache for the nearest neighbor.
-3. **Threshold Check**: If `distance < 0.05` (very similar), return the cached result.
-4. **LLM Verification**: For high-stakes queries, a tiny "Verifier Model" (e.g., GPT-5.5-mini, Claude Haiku 4.5) checks if the cached response actually answers the new query.
-5. **Update**: If no hit, call the LLM and store the new result in the vector cache.
-
----
-
-## RedisVL and GPTCache
-
-Standard stack:
-- **RedisVL**: Provides low-latency vector search directly within a Redis instance.
-- **Hybrid Caching**: Using Redis for both metadata (keys) and vector payloads.
-- **TTL**: Semantic caches should have a TTL (Time-To-Live). The common pattern is **Dynamic TTL**: popular answers live longer while "stale" information is evicted regularly.
+1. **嵌入**：將傳入的查詢轉換為向量（例如使用 `text-embedding-3-small`）。
+2. **搜尋**：在快取中搜尋最近鄰。
+3. **閾值檢查**：若 `distance < 0.05`（非常相似），則回傳快取的結果。
+4. **LLM 驗證**：對於高風險查詢，一個小型「驗證模型」（例如 GPT-5.5-mini、Claude Haiku 4.5）會檢查快取回應是否實際回答了新查詢。
+5. **更新**：若未命中，則呼叫 LLM 並將新結果儲存至向量快取。
 
 ---
 
-## Multimodal Semantic Caching
+## RedisVL 與 GPTCache
 
-With native multimodal frontier models (Gemini 3.1 Pro, GPT-5.5, Claude Opus 4.7), we now cache **Image and Audio queries**.
-- **Visual Similarity**: Caching the description of an image if a semantically similar image was processed before.
-- **Audio Fingerprinting**: Caging transcripts for similar voice commands.
-
----
-
-## Interview Questions
-
-### Q: What is "Semantic Drift" in caching, and how do you prevent it?
-
-**Strong answer:**
-Semantic Drift occurs when the similarity threshold is too loose (e.g., 0.8 instead of 0.95). A query like *"How do I fix my car?"* might match a cached response for *"How do I wash my car?"*. To prevent this, we use **Multi-Stage Validation**: 1) Vector similarity check, 2) **Entity-Match check** (ensures both queries involve "Car" and the same "Verb"), and 3) **Threshold Tightening**: for technical or medical queries, we require $>0.98$ similarity to return a cached result.
-
-### Q: Why is a Semantic Cache sometimes *more* expensive than a raw LLM call at low volume?
-
-**Strong answer:**
-Because a semantic cache requires its own **Embedding API call** and **Vector Search query**. If the embedding model costs $0.02 and the search takes 100ms, and your primary LLM call is only $0.05 and takes 500ms, the relative savings are small. Semantic caching only becomes a significant win at **High Scale** (millions of requests) where the cache hit rate is high enough to offset the "Embedding Tax" and drastically reduce aggregate latency.
+標準技術堆疊：
+- **RedisVL**：在 Redis 實例內提供低延遲向量搜尋。
+- **混合快取**：使用 Redis 同時處理中繼資料（金鑰）和向量負載。
+- **TTL**：語意快取應有 TTL（存留時間）。常見模式是**動態 TTL**：熱門答案存活更久，而「過時」資訊會定期被驅逐。
 
 ---
 
-## References
+## 多模態語意快取
+
+隨著原生多模態前沿模型（Gemini 3.1 Pro、GPT-5.5、Claude Opus 4.7）的出現，我們現在可以快取**圖片和音訊查詢**。
+- **視覺相似度**：若先前已處理過語意相似的圖片，則快取該圖片的描述。
+- **音訊指紋**：為相似的語音指令快取轉錄稿。
+
+---
+
+## 面試問題
+
+### Q：快取中的「語意漂移」是什麼，如何防止？
+
+**理想回答：**
+語意漂移發生在相似度閾值過於寬鬆時（例如 0.8 而非 0.95）。像「如何修理我的車？」這樣的查詢，可能會匹配到「如何洗我的車？」的快取回應。為防止此問題，我們使用**多階段驗證**：1）向量相似度檢查，2）**實體匹配檢查**（確保兩個查詢都涉及「汽車」和相同的「動詞」），以及 3）**閾值收緊**：對於技術性或醫療性查詢，我們要求 $>0.98$ 的相似度才回傳快取結果。
+
+### Q：為什麼在低流量時，語意快取有時*比*原始 LLM 呼叫更昂貴？
+
+**理想回答：**
+因為語意快取需要自己的**嵌入 API 呼叫**和**向量搜尋查詢**。若嵌入模型成本 $0.02 且搜尋耗時 100ms，而主要 LLM 呼叫僅需 $0.05 和 500ms，相對節省很小。語意快取只有在**大規模**（數百萬請求）且快取命中率足夠高以抵消「嵌入稅」並大幅降低總延遲時，才會成為顯著優勢。
+
+---
+
+## 參考文獻
 - Redis. "RedisVL: Python Client for Redis Vector Library" (2025)
 - Akiba et al. "GPTCache: A Library for Creating Semantic Cache" (2024/2025)
 - Google Cloud. "Generative AI Caching Patterns" (2025)
 
 ---
 
-*Next: [State Management Patterns](06-state-management-patterns.md)*
+*下一篇：[狀態管理模式](06-state-management-patterns.md)*

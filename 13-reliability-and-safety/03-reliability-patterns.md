@@ -1,23 +1,37 @@
 # 可靠性模式
 
+<<<<<<< Updated upstream
 生產 LLM 系統需要超越基本重試邏輯的穩健可靠性模式。本章涵蓋構建彈性 AI 應用程式的高級模式。
+=======
+生產 LLM 系統需要超越基本重試邏輯的強健可靠性模式。本章涵蓋用於構建彈性 AI 應用程式的進階模式。
+>>>>>>> Stashed changes
 
 ## 目錄
 
 - [可靠性挑戰](#可靠性挑戰)
 - [重試模式](#重試模式)
+<<<<<<< Updated upstream
 - [熔斷器](#熔斷器)
 - [隔離模式](#隔離模式)
 - [超時策略](#超時策略)
 - [優雅降級](#優雅降級)
 - [多提供商故障轉移](#多提供商故障轉移)
 - [面試題目](#面試題目)
+=======
+- [斷路器](#斷路器)
+- [隔離模式](#隔離模式)
+- [超時策略](#超時策略)
+- [優雅降級](#優雅降級)
+- [多提供者故障轉移](#多提供者故障轉移)
+- [面試問題](#面試問題)
+>>>>>>> Stashed changes
 - [參考文獻](#參考文獻)
 
 ---
 
 ## 可靠性挑戰
 
+<<<<<<< Updated upstream
 ### LLM 特定的失敗模式
 
 | 失敗模式 | 原因 | 影響 |
@@ -36,12 +50,36 @@
 | 關鍵 | 99.99% | < 3秒 | 支付處理 |
 | 標準 | 99.9% | < 10秒 | 客戶支援 |
 | 最大努力 | 99% | < 30秒 | 後台任務 |
+=======
+### LLM 特有故障模式
+
+| 故障模式 | 原因 | 影響 |
+|----------|------|------|
+| 速率限制 | 超過配額 | 請求拒絕 |
+| 逾時 | 長時間生成、網路問題 | 回應緩慢/失敗 |
+| 提供者中斷 | 基礎設施問題 | 完全失敗 |
+| 品質下降 | 模型更新、負載 | 輸出變差 |
+| 上下文溢出 | 輸入太大 | 請求失敗 |
+| 格式錯誤的輸出 | 生成錯誤 | 解析失敗 |
+
+### 可靠性目標
+
+| 層級 | 可用性 | 延遲 p99 | 範例 |
+|------|--------|----------|------|
+| 關鍵 | 99.99% | < 3s | 付款處理 |
+| 標準 | 99.9% | < 10s | 客戶支援 |
+| 盡力而為 | 99% | < 30s | 背景任務 |
+>>>>>>> Stashed changes
 
 ---
 
 ## 重試模式
 
+<<<<<<< Updated upstream
 ### 帶抖動的指數退避
+=======
+### 指數退避與抖動
+>>>>>>> Stashed changes
 
 ```python
 import random
@@ -98,7 +136,11 @@ async def retry_with_backoff(
     raise last_exception
 ```
 
+<<<<<<< Updated upstream
 ### 可重試 vs 不可重試錯誤
+=======
+### 可重試與不可重試錯誤
+>>>>>>> Stashed changes
 
 ```python
 class LLMRetryPolicy:
@@ -133,9 +175,15 @@ class LLMRetryPolicy:
 
 ---
 
+<<<<<<< Updated upstream
 ## 熔斷器
 
 ### 實現
+=======
+## 斷路器
+
+### 實作
+>>>>>>> Stashed changes
 
 ```python
 from enum import Enum
@@ -218,7 +266,11 @@ class CircuitBreaker:
         return datetime.now() - self.last_failure_time >= self.config.recovery_timeout
 ```
 
+<<<<<<< Updated upstream
 ### 與 LLM 客戶端一起使用
+=======
+### 與 LLM 用戶端一起使用
+>>>>>>> Stashed changes
 
 ```python
 class ResilientLLMClient:
@@ -397,7 +449,11 @@ class AdaptiveTimeout:
 
 ## 優雅降級
 
+<<<<<<< Updated upstream
 ### 降級級別
+=======
+### 降級層級
+>>>>>>> Stashed changes
 
 ```python
 class DegradationLevel(Enum):
@@ -455,9 +511,15 @@ class GracefulDegrader:
 
 ---
 
+<<<<<<< Updated upstream
 ## 多提供商故障轉移
 
 ### 提供商管理器
+=======
+## 多提供者故障轉移
+
+### 提供者管理器
+>>>>>>> Stashed changes
 
 ```python
 class ProviderManager:
@@ -500,7 +562,11 @@ class ProviderManager:
             asyncio.create_task(self._health_check_later(provider_name))
 ```
 
+<<<<<<< Updated upstream
 ---
+=======
+### 請求對沖
+>>>>>>> Stashed changes
 
 ## 面試題目
 
@@ -549,6 +615,7 @@ class ProviderManager:
 
 ---
 
+<<<<<<< Updated upstream
 ## 參考文獻
 
 - Circuit Breaker Pattern: Martin Fowler
@@ -558,3 +625,56 @@ class ProviderManager:
 ---
 
 *上一篇：[集成方法](02-ensemble-methods.md)*
+=======
+## 面試問題
+
+### Q: 如何為 LLM 系統設計高可用性？
+
+**理想回答：**
+
+「我使用多層可靠性：
+
+**帶退避的重試：** 指數退避與抖動處理瞬態故障。重要的是區分可重試（速率限制、逾時）和不可重試（認證、錯誤請求）錯誤。
+
+**斷路器：** 如果提供者重複失敗，停止嘗試一段冷卻時間。這防止在死去的提供者上浪費延遲，並給它時間恢復。
+
+**多提供者故障轉移：** 永遠不要依賴單一提供者。我配置主要/次要/第三順位，帶自動故障轉移。每個提供者有自己的斷路器。
+
+**優雅降級：** 定義當沒有提供者可用時會發生什麼。更好的做法是返回降級的回應（更簡單的模型、快取的結果），而不是完全失敗。
+
+**隔離：** 隔離不同的工作負載。批量處理激增不應該讓即時查詢當機。
+
+關鍵見解是假設失敗。LLM API 比傳統 API 不可靠。設計時假設提供者會當機，因為它會。」
+
+### Q: 斷路器和重試有什麼區別？
+
+**理想回答：**
+
+「它們解決不同問題：
+
+**重試**處理瞬態故障。如果單一請求失敗，再試一次。它假設故障是獨立的，下一次嘗試可能成功。
+
+**斷路器**處理系統性故障。如果許多請求都失敗了，完全停止嘗試。它假設下游系統不健康，重複嘗試浪費資源並減慢恢復。
+
+**它們如何一起工作：**
+1. 請求失敗 → 帶退避重試（嘗試 1、2、3）
+2. 如果所有重試都失敗 → 斷路器記錄故障
+3. N 次失敗後 → 斷路器打開，立即拒絕請求
+4. 逾時後 → 斷路器半開，允許有限的測試請求
+5. 如果測試成功 → 斷路器關閉，正常操作恢復
+
+沒有斷路器：在中斷期間，每個請求都會等待所有重試後才失敗。延遲飆升，資源耗盡。
+
+有斷路器：在偵測到中斷後，請求快速失敗。系統保持回應，可以故障轉移到替代方案。」
+
+---
+
+## 參考文獻
+
+- Microsoft Resilience Patterns: https://learn.microsoft.com/en-us/azure/architecture/patterns/
+- Netflix Hystrix: https://github.com/Netflix/Hystrix
+
+---
+
+*上一篇：[集成方法](02-ensemble-methods.md)*
+>>>>>>> Stashed changes
