@@ -346,4 +346,4 @@ class ModelCascade:
 
 ---
 
-*下一篇：[微調指南](../03-training-and-adaptation/01-pretraining-basics.md)*
+*前一篇：[定價與成本](03-pricing-and-costs.md) | 下一篇：[微調指南](../03-training-and-adaptation/01-pretraining-basics.md)*

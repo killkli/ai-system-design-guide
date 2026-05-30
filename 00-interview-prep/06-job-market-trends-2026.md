@@ -1,3 +1,8 @@
+---
+title: "AI 就業市場趨勢——2026 年 5 月"
+description: "2026 年 5 月 AI 就業市場趨勢，涵蓋職稱、技能要求、薪資範圍與面試格式。來源：100+ 公開職缺、招聘報告與獵人頭信號。"
+---
+
 # AI 就業市場趨勢——2026 年 5 月
 
 > **Last verified: May 17, 2026.** This chapter distills what's actually happening in AI hiring right now - titles companies post, skills they screen for, compensation ranges, and the interview formats you'll encounter. Sourced from 100+ public job listings, hiring reports, and recruiter signals across April–May 2026.

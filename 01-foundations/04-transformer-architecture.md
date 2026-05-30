@@ -309,7 +309,7 @@ State-of-the-art models often use **Hybrid MoE/Dense** blocks:
 - **Expert Parallelism**: Distributing different experts across different GPUs. This makes **inter-node bandwidth** (NVLink/InfiniBand) a primary architecture bottleneck.
 
 ### Multi-head Latent Attention (MLA) Integration
-The standard attention block in [DeepSeek-V3 / V4](file:///Users/om/play/ai-system-design-guide/01-foundations/03-attention-mechanisms.md#multi-head-latent-attention-mla) and equivalent modern architectures replaces the standard Q/K/V projections with low-rank latent compressions.
+The standard attention block in [DeepSeek-V3 / V4](03-attention-mechanisms.md#multi-head-latent-attention-mla) and equivalent modern architectures replaces the standard Q/K/V projections with low-rank latent compressions.
 - **Architectural Shift**: The "KV Cache" is now a compressed latent representation, changing the memory/compute ratio of the entire transformer block.
 
 ### Comparison of Choices

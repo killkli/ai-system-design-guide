@@ -1,3 +1,8 @@
+---
+title: "AI 系統設計面試常見陷阱"
+description: "候選人在 AI 系統設計面試中的常見錯誤、評估影響與避免方法。"
+---
+
 # AI 系統設計面試常見陷阱
 
 This chapter covers frequent mistakes candidates make in AI 系統設計 interviews, why they hurt your 評估, and how to avoid them.

@@ -1,3 +1,8 @@
+---
+title: "AI/ML 職位行為面試題"
+description: "AI/ML 職位行為面試題，評估候選人如何處理模糊問題、跨領域協作及應對 AI 系統獨有挑戰。"
+---
+
 # AI/ML 職位行為面試題
 
 Behavioral questions in AI roles assess how you approach ambiguous problems, collaborate across disciplines, and handle the unique challenges of AI systems. This chapter covers common questions and frameworks for strong answers.

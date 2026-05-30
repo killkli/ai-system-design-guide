@@ -1,3 +1,8 @@
+---
+title: "AI 系統設計白板演練"
+description: "AI 系統設計面試中的白板演練詳解，含問題陳述、結構成答題方法與區分優秀候選人的討論點。"
+---
+
 # AI 系統設計白板演練
 
 This chapter provides detailed walkthroughs of 系統設計 exercises commonly asked in AI-focused interviews. Each exercise includes the full problem statement, a structured solution approach, and discussion points that distinguish strong candidates.

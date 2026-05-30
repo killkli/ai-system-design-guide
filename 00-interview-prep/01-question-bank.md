@@ -1,3 +1,8 @@
+---
+title: "AI 系統設計面試題庫"
+description: "110+ AI 系統設計面試問題，按主題分類，含標準答案、追問方向與優秀候選人訊號。Updated through May 2026。"
+---
+
 # AI 系統設計面試題庫
 
 A topic-organized bank of 110+ AI 系統設計 interview questions with 標準答案, 追問方向, and 優秀候選人展現的訊號. Updated through May 2026.
@@ -1423,7 +1428,7 @@ result = evaluate(dataset, metrics=[faithfulness, answer_relevancy])
 
 **Strong answer:**
 
-**Hallucination types:**
+**Hallucination（幻覺） types:**
 1. **Factual:** Incorrect facts about the world
 2. **Faithfulness:** Claims not supported by provided 上下文
 3. **Fabrication:** Making up sources, citations, quotes
@@ -1454,7 +1459,7 @@ Always cite the source document for each claim.
 
 **Sample Answer:**
 
-"Hallucination is when the model generates content that is not 接地 in reality or the provided 上下文. I categorize it into three types:
+"Hallucination（幻覺） is when the model generates content that is not 接地 in reality or the provided 上下文. I categorize it into three types:
 
 1. **Factual 幻覺**: Incorrect facts about the real world
 2. **Faithfulness 幻覺**: Claims not supported by the provided 上下文 (most relevant for RAG（檢索增強生成）)
@@ -2797,7 +2802,7 @@ The key principle: Assume the 代理 will occasionally do something wrong. Desig
 
 **Strong answer:**
 
-"Hallucination detection depends on whether I have ground truth.
+"Hallucination（幻覺） detection depends on whether I have ground truth.
 
 **With ground truth (factual claims):**
 - Extract claims from the output
@@ -3965,7 +3970,7 @@ Error analysis is discovery. Automated 評估 are measurement. Discovery must pr
 |-----------|--------------|-----|
 | Intent classification | Correctness of routing | Compared to a human-labeled intent set |
 | Tool selection | Next-tool match | T-Eval-style: does the chosen tool match the ground-truth tool for that state? |
-| Tool argument formation | Hallucination rate | Are arguments actually present in the conversation 上下文, or fabricated? |
+| Tool argument formation | 幻覺 rate | Are arguments actually present in the conversation 上下文, or fabricated? |
 | Response drafting | Factual 接地 | Citation match against the 檢索 result |
 | Escalation decision | Calibration | When the 代理 escalates, did the human actually need to step in? |
 | Recovery | Quality of retry | After a tool failure, does the next action address the root cause or repeat the 錯誤? |

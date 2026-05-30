@@ -1,3 +1,8 @@
+---
+title: "AI 系統設計面試答題框架"
+description: "五個結構化答題框架：SPIDER（設計問題）、ETA（概念解釋）、權衡分析、Debugging、STAR-L（情境任務行動結果學習）。"
+---
+
 # AI 系統設計面試答題框架
 
 Five structured frameworks for AI 系統設計 interviews: SPIDER for design questions, ETA for concepts, tradeoff analysis, debugging, and STAR-L（情境、任務、行動、結果、學習） for behavioral.
