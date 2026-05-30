@@ -1,34 +1,34 @@
-# Context Engineering
+# 上下文工程
 
-Context engineering is the science of filling the LLM's finite "working memory" with the most valuable tokens. With context windows now reaching 1M+ tokens (Claude Sonnet 4.6, Gemini 3.1 Pro, GPT-5.5) and models gaining Extended Thinking, the focus has shifted from "fitting data" to "ranking relevance" and "managing compute budget."
+上下文工程是以最有的 Token 填補 LLM 有限「工作記憶體」的科學。隨著上下文視窗現在達到 100 萬+ Token（Claude Sonnet 4.6、Gemini 3.1 Pro、GPT-5.5），加上模型獲得延伸思考能力，重點已從「容納資料」轉向「排名相關性」和「管理計算預算」。
 
-## Table of Contents
+## 目錄
 
-- [The Long Context Paradigm (1M+ Tokens)](#long-context)
-- [Extended Thinking & Budget Tokens](#extended-thinking)
-- [Lost-in-the-Middle](#lost-in-the-middle)
-- [Context Budgeting & Token Awareness](#budgeting)
-- [Prompt Caching Economics](#prompt-caching)
-- [Contextual Compression (RAD-L)](#compression)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Long Context Paradigm (1M+ Tokens)
-
-Models like Gemini 3.1 Pro (1M), Claude Sonnet 4.6 (1M), Claude Opus 4.7 (1M), and GPT-5.5 (1M) have massive context windows.
-
-**Insight**: "Context is the new RAG."
-For datasets under 100,000 documents, it is often more accurate and faster to put the entire dataset in the context window than to use an external vector database. This is called **"In-Context RAG."**
+- [長上下文範式（100 萬+ Token）](#long-context)
+- [延伸思考與預算 Token](#extended-thinking)
+- [中間迷失](#lost-in-the-middle)
+- [上下文預算管理與 Token 感知](#budgeting)
+- [提示詞快取經濟學](#prompt-caching)
+- [上下文壓縮（RAD-L）](#compression)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Extended Thinking & Budget Tokens
+## 長上下文範式（100 萬+ Token）
 
-Several frontier models now offer **controllable internal reasoning** before generating a response:
+Gemini 3.1 Pro（100 萬）、Claude Sonnet 4.6（100 萬）、Claude Opus 4.7（100 萬）和 GPT-5.5（100 萬）等模型有著大規模上下文視窗。
 
-### Claude (Sonnet 4.6, Opus 4.7): Extended Thinking
+**洞察**：「上下文是新 RAG。」
+對於少於 100,000 份文件的資料集，將整個資料集放入上下文視窗通常比使用外部向量資料庫更準確、更快速。這稱為**「上下文內 RAG」**。
+
+---
+
+## 延伸思考與預算 Token
+
+多個前沿模型現在提供可控的內部推理，然後才生成回應：
+
+### Claude（Sonnet 4.6、Opus 4.7）：延伸思考
 
 ```python
 response = client.messages.create(
@@ -36,127 +36,129 @@ response = client.messages.create(
     max_tokens=16000,
     thinking={
         "type": "enabled",
-        "budget_tokens": 10000  # max internal reasoning tokens
+        "budget_tokens": 10000  # 最大內部推理 Token
     },
-    messages=[{"role": "user", "content": "Refactor this codebase to be async..."}]
+    messages=[{"role": "user", "content": "將此程式碼庫重構為非同步..."}]
 )
 
-# Response has two blocks:
-# 1. thinking block (visible for debug, not shown to user)
-# 2. text block (the actual answer)
+# 回應有兩個區塊：
+# 1. thinking 區塊（除錯可見，不顯示給使用者）
+# 2. text 區塊（實際答案）
 for block in response.content:
     if block.type == "thinking":
-        print("[THINKING]", block.thinking)
+        print("[思考中]", block.thinking)
     elif block.type == "text":
-        print("[ANSWER]", block.text)
+        print("[答案]", block.text)
 ```
 
-**Key parameters:**
-- `budget_tokens`: 1,024 → 100,000. Higher = better accuracy, higher cost.
-- Thinking tokens billed at standard rates. A 10K thinking budget = +$0.15 per request.
-- Streaming works — thinking blocks stream before text.
+**關鍵參數：**
+- `budget_tokens`：1,024 → 100,000。越高 = 準確率越好，成本越高。
+- 思考 Token 按標準費率計費。10K 思考預算 = 每次請求 +$0.15。
+- 支援串流——思考區塊在文字之前串流。
 
-### o3 (OpenAI) — Reasoning Effort
+### o3（OpenAI）——推理努力
 
 ```python
 response = client.chat.completions.create(
     model="o3",
     reasoning_effort="medium",  # "low" | "medium" | "high"
-    messages=[{"role": "user", "content": "Prove P=NP or disprove it."}]
+    messages=[{"role": "user", "content": "證明或反駁 P=NP。"}]
 )
-# Reasoning tokens are invisible — o3 never exposes its internal chain
+# 推理 Token 是不可見的——o3 不暴露其內部鏈
 ```
 
-**Effort levels vs cost (approx.):**
-| Effort | Speed | Cost multiplier | Best for |
-|--------|-------|-----------------|----------|
-| low | Fast | 1x | Simple logic, quick lookups |
-| medium | Medium | 3-5x | Coding, analysis |
-| high | Slow | 8-20x | PhD-level problems, ARC-AGI |
+**努力層級與成本（概略）：**
 
-### When to Enable Thinking / Reasoning
+| 努力 | 速度 | 成本倍數 | 最適場景 |
+|------|------|----------|----------|
+| low | 快速 | 1x | 簡單邏輯、快速查詢 |
+| medium | 中等 | 3-5x | 程式設計、分析 |
+| high | 慢 | 8-20x | 博士級問題、ARC-AGI |
 
-| Condition | Recommendation |
-|-----------|----------------|
-| Complex multi-step code refactoring | ✅ Enable (budget: 8K-20K) |
-| Simple Q&A / extraction | ❌ Disable — adds cost & latency |
-| STEM / math problems | ✅ Enable (o3-mini medium) |
-| High-volume chatbot | ❌ Disable — use standard mode |
-| Security-critical decision | ✅ Enable — extra reasoning catches edge cases |
+### 何時啟用思考 / 推理
 
-**Production pattern**: Use a complexity classifier to gate Extended Thinking. If query complexity score < 0.5, skip thinking mode entirely (saves 60-80% on reasoning-heavy workloads).
+| 條件 | 建議 |
+|------|------|
+| 複雜多步驟程式碼重構 | ✅ 啟用（預算：8K-20K） |
+| 簡單問答 / 提取 | ❌ 停用——增加成本和延遲 |
+| STEM / 數學問題 | ✅ 啟用（o3-mini medium） |
+| 高容量聊天機器人 | ❌ 停用——使用標準模式 |
+| 安全關鍵決策 | ✅ 啟用——額外推理捕捉邊緣案例 |
+
+**生產模式**：使用複雜度分類器來控制延伸思考。若查詢複雜度分數 < 0.5，完全跳過思考模式（在推理密集型工作負載上節省 60-80%）。
 
 ```python
 def smart_generate(query: str) -> str:
-    complexity = classifier.predict(query)  # 0-1 score
-    
+    complexity = classifier.predict(query)  # 0-1 分數
+
     if complexity > 0.7:
-        # Enable Extended Thinking for hard problems
+        # 為困難問題啟用延伸思考
         return claude_with_thinking(query, budget_tokens=8000)
     else:
-        # Standard fast mode for simple tasks
+        # 為簡單任務使用標準快速模式
         return claude_standard(query)
 ```
 
 ---
 
-## Lost-in-the-Middle
+## 中間迷失
 
-In 2023, models lost accuracy for information in the middle of the prompt.
-**Status**: Frontier models (Claude Sonnet 4.6, Claude Opus 4.7, Gemini 3.1 Pro, GPT-5.5) perform significantly better, but the **Attention Gradient** still exists.
-- **Best Practice**: Place critical instructions and gold-standard examples at the **very beginning** and **very end** of your prompt. Middle = raw data/knowledge chunks.
-- **Use chunk ordering**: Rerank retrieved documents so most relevant are first and last.
-
----
-
-## Context Budgeting & Token Awareness
-
-Every token costs money and increases TTFT (Time to First Token).
-
-| Component | Budget (Tokens) | Why? |
-|-----------|-----------------|------|
-| **System Prompt** | 500 - 1,000 | Core logic and persona. |
-| **History** | 2,000 - 5,000 | Conversational "State." |
-| **Data/Search** | 10k - 1M | Depends on task depth. |
-| **Output Reserve**| 1,000 - 4,000 | Must reserve space for reasoning. |
+2023 年，模型對提示詞中間資訊的準確率下降。
+**現狀**：前沿模型（Claude Sonnet 4.6、Claude Opus 4.7、Gemini 3.1 Pro、GPT-5.5）表現顯著更好，但**注意力梯度**仍然存在。
+- **最佳實踐**：將關鍵指令和黃金標準範例放在提示詞的**最開頭**和**最結尾**。中間 = 原始資料/知識區塊。
+- **使用區塊排序**：重新排序檢索文件，使最相關的在開頭和結尾。
 
 ---
 
-## Prompt Caching Economics
+## 上下文預算管理與 Token 感知
 
-Almost all major providers (OpenAI, DeepSeek, Anthropic, Google) support **Prefix Caching**.
+每個 Token 都花錢並增加 TTFT（首次生成 Token 時間）。
 
-- **The Crossover**: If you reuse a 100k token context (e.g., a codebase) for more than 2 requests, the caching discount effectively makes it cheaper than RAG.
-- **Cache Hits**: $0.05 / 1M tokens.
-- **Cache Misses**: $5.00 / 1M tokens.
-
-**The Architectural Choice**: Design your system to keep the "System Prompt + Base Knowledge" static to maintain a 100% cache hit rate.
-
----
-
-## Contextual Compression (RAD-L)
-
-For extremely long contexts (10M+), we use **Reasoning-Aware Deletion (RAD-L)**.
-- **How**: A tiny auxiliary model (0.1B) scans the text and removes "filler" words, common linguistic patterns, and irrelevant sections *before* the prompt is sent to the giant frontier model.
-- **Benefit**: Reduces prompt size by 20-50% with <1% drop in accuracy.
+| 元件 | 預算（Token） | 原因 |
+|------|-------------|------|
+| **系統提示詞** | 500 - 1,000 | 核心邏輯和人格。 |
+| **歷史** | 2,000 - 5,000 | 對話「狀態」。 |
+| **資料/搜尋** | 10k - 1M | 取決於任務深度。 |
+| **輸出保留** | 1,000 - 4,000 | 必須為推理預留空間。 |
 
 ---
 
-## Interview Questions
+## 提示詞快取經濟學
 
-### Q: When would you choose Long Context over RAG?
+幾乎所有主要提供商（OpenAI、DeepSeek、Anthropic、Google）都支持**前綴快取**。
 
-**Strong answer:**
-I choose Long Context when high-fidelity retrieval and cross-document reasoning are critical. RAG suffers from "Retrieval Gap"—if your vector search misses the relevant chunk, the model never sees it. Long Context (up to 2M tokens) provides 100% recall. Specifically, I'd use it for codebase analysis, legal document review, and multi-file financial auditing. I'd stick to RAG for dynamic web-scale data or billion-document datasets that exceed any context window.
+- **交叉點**：若您將 100k Token 上下文（例如程式碼庫）重複用於超過 2 次請求，快取折扣實際上使其比 RAG 更便宜。
+- **快取命中**：$0.05 / 1M Token。
+- **快取未命中**：$5.00 / 1M Token。
 
-### Q: How do you handle the high TTFT associated with million-token prompts?
-
-**Strong answer:**
-The primary solution is **Context Caching**. By caching the heavy document on the GPU cluster, the model doesn't have to "re-read" (prefill) the entire 1M tokens for every turn. The TTFT for a cached prompt is nearly the same as for a 1k token prompt. Additionally, for non-cached requests, I would use **Streaming Prefill**, where the model generates an initial summary or "Thought" while it is still processing the latter half of the massive context.
+**架構選擇**：設計您的系統，使「系統提示詞 + 基礎知識」保持靜態，以維持 100% 快取命中率。
 
 ---
 
-## References
+## 上下文壓縮（RAD-L）
+
+對於極長上下文（1,000 萬+），我們使用**推理感知刪除（RAD-L）**。
+- **原理**：一個小型輔助模型（0.1B）在文字傳送到大型前沿模型之前，掃描並移除「填充」詞、常見語言模式和無關區塊。
+- **效益**：在準確率下降 <1% 的情況下，將提示詞大小減少 20-50%。
+
+---
+
+## 面試題目
+
+### Q：什麼時候選擇長上下文而非 RAG？
+
+**理想回答：**
+當高保真檢索和跨文件推理至關重要時，我選擇長上下文。RAG 受「檢索差距」之苦——若您的向量搜尋錯過相關區塊，模型就永遠看不到它。長上下文（高達 200 萬 Token）提供 100% 召回率。具體來說，我會將其用於程式碼庫分析、法律文件審查和多文件財務審計。對於動態網路規模資料或超過任何上下文視窗的十億文件資料集，我會堅持使用 RAG。
+
+### Q：如何處理與百萬 Token 提示詞相關的高 TTFT？
+
+**理想回答：**
+主要解決方案是**上下文快取**。透過在 GPU 叢集上快取重型文件，模型不必為每輪「重讀」（前置處理）整個 100 萬 Token。快取提示詞的 TTFT 與 1k Token 提示詞几乎相同。此外，對於非快取請求，我會使用**串流前置處理**，模型在仍處理大量上下文後半部分的同時，生成初始摘要或「想法」。
+
+---
+
+## 參考文獻
+
 - Liu et al. "Lost in the Middle" (2023/2024 update)
 - Anthropic. "Extended Thinking: Technical Guide" (2025) — https://docs.anthropic.com/
 - OpenAI. "o3 and o3-mini System Card" (2025)
@@ -164,4 +166,4 @@ The primary solution is **Context Caching**. By caching the heavy document on th
 
 ---
 
-*Next: [Structured Generation](06-structured-generation.md)*
+*下一篇：[結構化生成](06-structured-generation.md)*
