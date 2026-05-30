@@ -1,79 +1,80 @@
-# PagedAttention
+# 分頁注意力
 
-PagedAttention is the foundational algorithm behind high-throughput serving engines (vLLM, SGLang, TensorRT-LLM). It solves the "Memory Fragmentation" problem that previously limited LLM scalability.
+分頁注意力是高吞吐量服務引擎（vLLM、SGLang、TensorRT-LLM）的基礎演算法。它解決了先前限制 LLM 可擴展性的「記憶體碎片」問題。
 
-## Table of Contents
+## 目錄
 
-- [The Contiguous Memory Problem](#contiguous-memory)
-- [How PagedAttention Works](#how-it-works)
-- [Managing Virtual Memory (Block Manager)](#block-manager)
-- [KV Cache Sharing (Copy-on-Write)](#sharing)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Contiguous Memory Problem
-
-Standard deep learning frameworks allocate memory in large, contiguous blocks. 
-For an LLM request, you might pre-allocate memory for a `max_sequence_length` of 8192 tokens.
-
-**The Waste:**
-1. **Internal Fragmentation**: If the user only generates 10 tokens, 99.9% of that reserved block is wasted.
-2. **External Fragmentation**: Memory is broken into gaps too small for a new "large block," even if total free memory is high.
+- [連續記憶體問題](#contiguous-memory)
+- [分頁注意力如何運作](#how-it-works)
+- [虛擬記憶體管理（區塊管理器）](#block-manager)
+- [KV 快取共享（寫入時複製）](#sharing)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## How PagedAttention Works (vLLM)
+## 連續記憶體問題
 
-PagedAttention draws inspiration from Virtual Memory in Operating Systems.
+標準深度學習框架以大型連續區塊配置記憶體。
+對於 LLM 請求，您可能需要為 `max_sequence_length` 為 8192 Token 預先配置記憶體。
 
-1. **Tokens to Blocks**: The KV cache for a request is broken into small, fixed-size **Blocks** (e.g., 16 tokens per block).
-2. **Logical vs. Physical**: The model thinks it's attending to a contiguous sequence (Logical memory), but the blocks are scattered throughout VRAM (Physical memory).
-3. **The Lookup Table**: A **Block Table** maps logic indices to physical addresses.
-
-**Primary Benefit**: Memory waste drops from ~60-80% down to **less than 4%**.
-
----
-
-## Managing Virtual Memory (Block Manager)
-
-Serving frameworks (vLLM, SGLang) act as "mini-OSs" for GPUs.
-
-- **Allocation**: When a new request starts, the Block Manager assigns it a set of empty physical blocks.
-- **Eviction**: If VRAM is full, the manager can "swap" inactive KV blocks to CPU RAM and bring them back when needed (Paged Swap).
+**浪費：**
+1. **內部碎片**：若使用者只生成 10 個 Token，99.9% 的預留區塊被浪費。
+2. **外部碎片**：記憶體碎片化為太小的縫隙，無法容納新的「大區塊」，即使總可用記憶體很高。
 
 ---
 
-## KV Cache Sharing (Copy-on-Write)
+## 分頁注意力如何運作（vLLM）
 
-PagedAttention enables effortless sharing of "Common Prefixes."
+分頁注意力從作業系統的虛擬記憶體獲得靈感。
 
-**The Scenario**: 100 users are chatting with the same 5,000-token system prompt.
-- **Traditional**: Store that 5,000-token KV cache 100 times (**500k tokens** in VRAM).
-- **PagedAttention**: Store it **once** via the Block Table and have all 100 users point to the same physical blocks.
-- **Copy-on-Write**: If a user generates a unique token, a new block is created just for them, while the shared blocks remain unchanged.
+1. **Token 到區塊**：請求的 KV 快取被拆分為小的、固定大小的**區塊**（例如每區塊 16 個 Token）。
+2. **邏輯對比實體**：模型以為它在 attend to 一個連續序列（邏輯記憶體），但區塊分散在 VRAM 各處（實體記憶體）。
+3. **查詢表**：**區塊表**將邏輯索引對應到實體位址。
 
----
-
-## Interview Questions
-
-### Q: Why does PagedAttention significantly increase throughput?
-
-**Strong answer:**
-PagedAttention increases throughput by allowing for much larger **batch sizes**. Because it eliminates internal and external memory fragmentation, we can pack many more requests into the same GPU VRAM. In traditional serving, we might only fit 4 requests because we have to "reserve" max-length blocks; with PagedAttention, we can fit 20-30 requests because we only use memory for the tokens that actually exist. Larger batches lead to better GPU utilization and significantly higher aggregate tokens per second.
-
-### Q: Explain the "Block Table" in the context of vLLM.
-
-**Strong answer:**
-The Block Table is a mapping structure that bridges the Gap between the model's expectation of contiguous data and the physical reality of scattered memory. Each entry in the table corresponds to a "Logical Block" of tokens. It stores the physical address of the GPU memory where that block's key and value tensors are stored. This allows the framework to dynamically allocate and free memory in small chunks, enabling advanced features like prefix sharing and efficient multi-threading.
+**主要優勢**：記憶體浪費從約 60-80% 降至**不到 4%**。
 
 ---
 
-## References
+## 虛擬記憶體管理（區塊管理器）
+
+服務框架（vLLM、SGLang）作為 GPU 的「迷你作業系統」。
+
+- **配置**：當新請求啟動時，區塊管理器為其分配一組空閒的實體區塊。
+- **驅逐**：若 VRAM 已滿，管理器可以將非活躍 KV 區塊「交換」到 CPU RAM，並在需要時將它們帶回（分頁交換）。
+
+---
+
+## KV 快取共享（寫入時複製）
+
+分頁注意力使得「共同前綴」的共享毫不費力。
+
+**場景**：100 名使用者使用相同的 5,000 Token 系統提示詞聊天。
+- **傳統方式**：將該 5,000 Token KV 快取儲存 100 次（VRAM 中 **500k Token**）。
+- **分頁注意力**：透過區塊表儲存**一次**，並讓所有 100 名使用者指向相同的實體區塊。
+- **寫入時複製**：若使用者生成一個獨特 Token，則僅為他們創建一個新區塊，而共享區塊保持不變。
+
+---
+
+## 面試題目
+
+### Q：為什麼分頁注意力能顯著提升吞吐量？
+
+**理想回答：**
+分頁注意力透過允許更大的**批次大小**來提升吞吐量。因為它消除了內部和外部記憶體碎片，我們可以在相同的 GPU VRAM 中容納更多請求。在傳統服務中，我們可能只能容納 4 個請求，因為我們必須「預留」最大長度區塊；有了分頁注意力，我們可以容納 20-30 個請求，因為我們只為實際存在的 Token 使用記憶體。更大批次帶來更好的 GPU 利用率，顯著提高每秒總 Token 數。
+
+### Q：解釋 vLLM 上下文中的「區塊表」。
+
+**理想回答：**
+區塊表是一種映射結構，橋接模型對連續資料的預期與分散記憶體的現實之間的鴻溝。表中的每個條目對應一個「邏輯區塊」的 Token。它儲存該區塊的鍵值張量所在的 GPU 記憶體實體位址。這使得框架能夠以小區塊動態配置和釋放記憶體，實現前綴共享和高效多執行緒等進階功能。
+
+---
+
+## 參考文獻
+
 - Kwon et al. "Efficient Memory Management for Large Language Model Serving with PagedAttention" (SOSP 2023)
 - vLLM Documentation. "PagedAttention Logic" (2024)
 
 ---
 
-*Next: [Serving Infrastructure](06-serving-infrastructure.md)*
+*下一篇：[服務基礎設施](06-serving-infrastructure.md)*
