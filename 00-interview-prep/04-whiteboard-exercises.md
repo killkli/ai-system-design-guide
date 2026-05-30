@@ -1,30 +1,30 @@
-# Whiteboard Exercises for AI System Design
+# AI 系統設計白板演練
 
-This chapter provides detailed walkthroughs of system design exercises commonly asked in AI-focused interviews. Each exercise includes the full problem statement, a structured solution approach, and discussion points that distinguish strong candidates.
+This chapter provides detailed walkthroughs of 系統設計 exercises commonly asked in AI-focused interviews. Each exercise includes the full problem statement, a structured solution approach, and discussion points that distinguish strong candidates.
 
 ## Table of Contents
 
-- [Exercise 1: Enterprise RAG System](#exercise-1-enterprise-rag-system)
+- [Exercise 1: Enterprise RAG（檢索增強生成） System](#exercise-1-enterprise-rag-system)
 - [Exercise 2: Customer Support Chatbot](#exercise-2-customer-support-chatbot)
 - [Exercise 3: Code Review Assistant](#exercise-3-code-review-assistant)
-- [Exercise 4: Document Processing Pipeline](#exercise-4-document-processing-pipeline)
+- [Exercise 4: Document Processing Pipeline](#exercise-4-文件-processing-管線)
 - [Exercise 5: Real-Time Content Moderation](#exercise-5-real-time-content-moderation)
-- [Exercise 6: Multi-Tenant AI Platform](#exercise-6-multi-tenant-ai-platform)
+- [Exercise 6: Multi-Tenant AI Platform](#exercise-6-多租戶-ai-platform)
 - [Exercise 7: Semantic Search at Scale](#exercise-7-semantic-search-at-scale)
 - [Tips for Whiteboard Exercises](#tips-for-whiteboard-exercises)
 
 ---
 
-## Exercise 1: Enterprise RAG System
+## Exercise 1: Enterprise RAG（檢索增強生成） System
 
 ### Problem Statement
 
-Design a RAG-based knowledge assistant for a large enterprise with the following requirements:
+Design a RAG（檢索增強生成）-based knowledge assistant for a large enterprise with the following requirements:
 
-- 10 million documents from multiple sources (SharePoint, Confluence, Google Drive, internal wikis)
+- 10 million 文件 from multiple sources (SharePoint, Confluence, Google Drive, internal wikis)
 - 50,000 employees with role-based access
 - Documents update continuously
-- Must respect document permissions at query time
+- Must respect 文件 permissions at query time
 - Sub-3 second response time for 95% of queries
 - Support for multiple languages (English, Spanish, Mandarin)
 
@@ -33,11 +33,11 @@ Design a RAG-based knowledge assistant for a large enterprise with the following
 | Phase | Time | Focus |
 |-------|------|-------|
 | Clarification | 3 min | Scope, priorities, constraints |
-| High-level architecture | 7 min | Components and data flow |
-| Data pipeline | 8 min | Ingestion, chunking, indexing |
-| Query pipeline | 8 min | Retrieval, generation, permissions |
+| High-level architecture | 7 min | Components and 資料 flow |
+| Data 管線 | 8 min | Ingestion, 分塊, 索引 |
+| Query 管線 | 8 min | Retrieval, 生成, permissions |
 | Reliability and scale | 5 min | Failure handling, scaling |
-| Evaluation | 4 min | Metrics and monitoring |
+| Evaluation | 4 min | Metrics and 監控 |
 
 ### Solution Walkthrough
 
@@ -222,7 +222,7 @@ def retrieve(query: str, user_id: str, top_k: int = 20) -> List[Chunk]:
     return results
 ```
 
-**3. Reranking:**
+**3. 重新排序:**
 ```
 Rerank top-20 to get top-5 with cross-encoder.
 Model: bge-reranker-v2-m3 (multilingual)
@@ -498,11 +498,11 @@ Strategy:
 
 ### Problem Statement
 
-Design a document processing pipeline for financial services:
+Design a 文件 processing 管線 for financial services:
 
-- Process 100,000 documents per day (invoices, contracts, forms)
-- Extract structured data with 99% accuracy
-- Handle PDFs, scanned documents, handwritten notes
+- Process 100,000 文件 per day (invoices, contracts, forms)
+- Extract structured 資料 with 99% accuracy
+- Handle PDFs, scanned 文件, handwritten notes
 - HIPAA/SOC2 compliance
 - Human review for low-confidence extractions
 
@@ -691,11 +691,11 @@ thresholds = {
 
 ### Problem Statement
 
-Design a multi-tenant AI platform (AI-as-a-Service):
+Design a 多租戶 AI platform (AI-as-a-Service):
 
 - Serve 500+ enterprise customers
-- Each customer has their own documents and models
-- Complete data isolation between tenants
+- Each customer has their own 文件 and models
+- Complete 資料 isolation between tenants
 - Per-tenant usage tracking and billing
 - Different pricing tiers with different capabilities
 - SOC2 compliance required
@@ -792,11 +792,11 @@ async def track_usage(tenant_id: str, operation: Usage):
 
 ### Problem Statement
 
-Design a semantic search system for an e-commerce site:
+Design a 語義檢索 system for an e-commerce site:
 
 - 50 million products
 - 100 million queries per day
-- P99 latency under 100ms
+- P99 延遲 under 100ms
 - Support filters (price, category, brand, ratings)
 - Personalization based on user history
 - Real-time inventory updates
@@ -906,8 +906,8 @@ Reindexing (description changes):
 ### Drawing Tips
 
 1. **Start with boxes and labels** before connecting with arrows
-2. **Use consistent notation**: rectangles for services, cylinders for databases, arrows for data flow
-3. **Label data on arrows**: what flows between components
+2. **Use consistent notation**: rectangles for services, cylinders for databases, arrows for 資料 flow
+3. **Label 資料 on arrows**: what flows between components
 4. **Leave space** for additions as you discuss
 
 ### Common Patterns to Know
@@ -916,7 +916,7 @@ Reindexing (description changes):
 |---------|-------------|---------|
 | Load balancer + service fleet | Any scaled service | LB → multiple boxes |
 | Queue + workers | Async processing | Queue → worker pool |
-| Cache layer | Read-heavy, latency-sensitive | Diamond before service |
+| Cache layer | Read-heavy, 延遲-sensitive | Diamond before service |
 | CDC/streaming | Real-time updates | Kafka/stream icon |
 | Sidecar | Cross-cutting concerns | Small box attached to service |
 
@@ -924,16 +924,16 @@ Reindexing (description changes):
 
 - "Before I design this, let me understand the scale..."
 - "The tradeoff here is..."
-- "In production, we would also need..."
+- "In 生產環境, we would also need..."
 - "One failure mode to consider is..."
-- "Let me walk you through the latency budget..."
-- "For evaluation, I would measure..."
+- "Let me walk you through the 延遲 budget..."
+- "For 評估, I would measure..."
 
 ### Time Management
 
 - Do not spend more than 5 minutes on clarification
 - Draw the complete high-level picture before deep diving
-- Leave time for reliability and evaluation
+- Leave time for reliability and 評估
 - Check in with the interviewer on focus areas
 
 ---
