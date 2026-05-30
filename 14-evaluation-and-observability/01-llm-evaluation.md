@@ -1,830 +1,676 @@
-# LLM Evaluation
+# LLM 評估
 
-Evaluating LLM systems is fundamentally different from traditional ML. This chapter covers metrics, methodologies, and practical approaches for measuring quality in production.
+評估 LLM 系統與傳統 ML 根本上不同。本章涵蓋指標、方法論和生產環境品質測量的實踐方法。
 
-## Table of Contents
+## 目錄
 
-- [Why LLM Evaluation Is Hard](#why-llm-evaluation-is-hard)
-- [Evaluation Dimensions](#evaluation-dimensions)
-- [Automated Evaluation Methods](#automated-evaluation-methods)
-- [LLM-as-Judge](#llm-as-judge)
-- [Human Evaluation](#human-evaluation)
-- [RAG-Specific Evaluation](#rag-specific-evaluation)
-- [Building Evaluation Pipelines](#building-evaluation-pipelines)
-- [Production Monitoring](#production-monitoring)
-- [2026 Eval Evolution: Beyond LLM-as-Judge](#2026-eval-evolution-beyond-llm-as-judge)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [評估的獨特挑戰](#評估的獨特挑戰)
+- [自動評估指標](#自動評估指標)
+- [人類評估方法](#人類評估方法)
+- [紅隊演練](#紅隊演練)
+- [生產監控](#生產監控)
+- [基準測試](#基準測試)
+- [面試題目](#面試題目)
 
 ---
 
-## Why LLM Evaluation Is Hard
+## 評估的獨特挑戰
 
-### The Fundamental Challenge
+### 為什麼 LLM 評估很困難
 
-Traditional ML has clear metrics (accuracy, F1, AUC). LLM outputs are open-ended text where "correct" is subjective.
+```
+傳統 ML 評估：
+┌────────────────────────────────────────────────────────────┐
+│  準確度 = 預測值 vs 真實值 (明確的對/錯)                     │
+│                                                              │
+│  圖像分類：貓 vs 狗 → 客觀正確                                │
+│  垃圾郵件檢測：是否垃圾 → 客觀正確                            │
+└────────────────────────────────────────────────────────────┘
 
-| Traditional ML | LLM Systems |
-|----------------|-------------|
-| Single correct answer | Many valid responses |
-| Objective metrics | Subjective quality |
-| Easy to automate | Requires judgment |
-| Static test sets | Need diverse scenarios |
+LLM 評估：
+┌────────────────────────────────────────────────────────────┐
+│  品質 = 主觀判斷 + 情境相關 + 多維度                          │
+│                                                              │
+│  「解釋量子力學」→ 沒有單一「正確」答案                        │
+│  「寫創意故事」→ 品質是主觀的                                 │
+│  「回答法律問題」→ 取決於上下文和最新法規                      │
+└────────────────────────────────────────────────────────────┘
+```
 
-### Multiple Dimensions of Quality
+### 評估維度
 
-A response can be:
-- Correct but poorly written
-- Well-written but incomplete
-- Complete but not relevant
-- Relevant but unsafe
-
-You need to measure multiple dimensions independently.
+| 維度 | 描述 | 測量方式 |
+|------|------|----------|
+| 準確性 | 事實正確性 | 事實核查、引用驗證 |
+| Fluency | 語言品質 | 困惑度、語法檢查 |
+| 相關性 | 回答與問題的相關程度 | ROUGE、BERT 分數 |
+| 完整性 | 覆蓋問題的所有部分 | 覆蓋率指標 |
+| 安全性 | 無有害內容 | 毒性分類器 |
+| 幻覺 | 無虛構事實 | 事實核查比率 |
+| 幫助性 | 滿足使用者意圖 | 人類評分 |
 
 ---
 
-## Evaluation Dimensions
+## 自動評估指標
 
-### Core Dimensions
-
-| Dimension | What It Measures | How to Evaluate |
-|-----------|------------------|-----------------|
-| **Correctness** | Factually accurate? | Ground truth, LLM judge |
-| **Relevance** | Answers the question? | LLM judge, human |
-| **Completeness** | All aspects covered? | Checklist, LLM judge |
-| **Coherence** | Well-structured, logical? | LLM judge, human |
-| **Conciseness** | Appropriately brief? | Token count, LLM judge |
-| **Safety** | No harmful content? | Classifiers, LLM judge |
-| **Helpfulness** | Actually useful? | Human feedback |
-
-### Task-Specific Dimensions
-
-**For RAG:**
-- Faithfulness: Grounded in retrieved context?
-- Attribution: Proper citations?
-- No hallucination: Nothing made up?
-
-**For Code Generation:**
-- Executability: Does it run?
-- Correctness: Passes tests?
-- Style: Follows conventions?
-
-**For Summarization:**
-- Coverage: Key points included?
-- Factual consistency: No introduced errors?
-- Compression: Appropriate length reduction?
-
----
-
-## Automated Evaluation Methods
-
-### Exact Match
-
-Simplest approach, rarely sufficient alone:
+### 基於參考的指標
 
 ```python
-def exact_match(prediction: str, reference: str) -> float:
-    return float(prediction.strip().lower() == reference.strip().lower())
-```
-
-**Use for:** Multiple choice, classification, entity extraction
-
-### Contains Keywords
-
-```python
-def keyword_match(prediction: str, required_keywords: list[str]) -> float:
-    prediction_lower = prediction.lower()
-    matches = sum(1 for kw in required_keywords if kw.lower() in prediction_lower)
-    return matches / len(required_keywords)
-```
-
-**Use for:** Checking specific facts are mentioned
-
-### Semantic Similarity
-
-```python
-def semantic_similarity(prediction: str, reference: str) -> float:
-    pred_embedding = embed(prediction)
-    ref_embedding = embed(reference)
-    return cosine_similarity(pred_embedding, ref_embedding)
-```
-
-**Use for:** Paraphrase detection, general similarity
-**Limitation:** High similarity does not mean correct
-
-### ROUGE (Summarization)
-
-Measures n-gram overlap:
-
-```python
-from rouge_score import rouge_scorer
-
-scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'])
-
-def evaluate_summary(prediction: str, reference: str) -> dict:
-    scores = scorer.score(reference, prediction)
-    return {
-        "rouge1": scores["rouge1"].fmeasure,
-        "rouge2": scores["rouge2"].fmeasure,
-        "rougeL": scores["rougeL"].fmeasure
-    }
-```
-
-**Limitation:** Measures overlap, not quality
-
-### Code Execution
-
-For code generation, execution is ground truth:
-
-```python
-def evaluate_code(prediction: str, test_cases: list[dict]) -> dict:
-    try:
-        exec(prediction, globals())
-    except SyntaxError as e:
-        return {"syntax_valid": False, "error": str(e)}
+class ReferenceBasedMetrics:
+    """
+    基於參考答案的評估指標。
+    適用於有明確「正確」答案的任務。
+    """
     
-    passed = 0
-    for test in test_cases:
-        try:
-            result = eval(test["call"])
-            if result == test["expected"]:
-                passed += 1
-        except Exception:
-            pass
+    def evaluate(self, reference: str, candidate: str) -> dict:
+        return {
+            "exact_match": self._exact_match(reference, candidate),
+            "rouge_l": self._rouge_score(reference, candidate, "rouge-l"),
+            "bleu": self._bleu_score(reference, candidate),
+            "bert_score": self._bert_score(reference, candidate),
+        }
     
-    return {
-        "syntax_valid": True,
-        "tests_passed": passed,
-        "tests_total": len(test_cases),
-        "pass_rate": passed / len(test_cases)
-    }
-```
-
----
-
-## LLM-as-Judge
-
-Use an LLM to evaluate another LLM's outputs.
-
-### Basic Judge Prompt
-
-```python
-JUDGE_PROMPT = """
-Evaluate the following response to the user's question.
-
-Question: {question}
-Response: {response}
-Reference Answer (if available): {reference}
-
-Rate the response on these criteria (1-5 scale):
-
-1. Correctness: Is the information accurate?
-2. Relevance: Does it address the question?
-3. Completeness: Are all aspects covered?
-4. Clarity: Is it well-written and clear?
-
-For each criterion, provide:
-- Score (1-5)
-- Brief justification
-
-Output as JSON:
-{
-    "correctness": {"score": X, "reason": "..."},
-    "relevance": {"score": X, "reason": "..."},
-    "completeness": {"score": X, "reason": "..."},
-    "clarity": {"score": X, "reason": "..."},
-    "overall": X
-}
-"""
-
-def llm_judge(question: str, response: str, reference: str = None) -> dict:
-    prompt = JUDGE_PROMPT.format(
-        question=question,
-        response=response,
-        reference=reference or "Not provided"
-    )
-    
-    result = judge_model.generate(prompt)
-    return json.loads(result)
-```
-
-### Pairwise Comparison
-
-Compare two responses directly:
-
-```python
-PAIRWISE_PROMPT = """
-Compare these two responses to the question and determine which is better.
-
-Question: {question}
-
-Response A:
-{response_a}
-
-Response B:
-{response_b}
-
-Which response is better? Consider:
-- Correctness
-- Helpfulness
-- Clarity
-- Completeness
-
-Output your choice (A or B) and explain why.
-
-Choice:
-"""
-
-def pairwise_judge(question: str, response_a: str, response_b: str) -> dict:
-    prompt = PAIRWISE_PROMPT.format(
-        question=question,
-        response_a=response_a,
-        response_b=response_b
-    )
-    
-    result = judge_model.generate(prompt)
-    choice = "A" if "A" in result[:10] else "B"
-    
-    return {"winner": choice, "explanation": result}
-```
-
-### Judge Calibration
-
-LLM judges have biases:
-
-| Bias | Description | Mitigation |
-|------|-------------|------------|
-| Position bias | Prefers first or last option | Randomize order |
-| Length bias | Prefers longer responses | Instruct to ignore length |
-| Self-preference | Prefers own model's outputs | Use different judge model |
-| Format bias | Prefers certain formats | Diverse training examples |
-
-```python
-def calibrated_pairwise_judge(question: str, response_a: str, response_b: str) -> dict:
-    # Run twice with swapped positions
-    result1 = pairwise_judge(question, response_a, response_b)
-    result2 = pairwise_judge(question, response_b, response_a)
-    
-    # Check consistency
-    result2_adjusted = "A" if result2["winner"] == "B" else "B"
-    
-    if result1["winner"] == result2_adjusted:
-        return {"winner": result1["winner"], "confidence": "high"}
-    else:
-        return {"winner": "tie", "confidence": "low"}
-```
-
----
-
-## Human Evaluation
-
-### When to Use Human Evaluation
-
-| Use Case | Automate? | Human? |
-|----------|-----------|--------|
-| Rapid iteration | Yes | Spot check |
-| Final quality assessment | Support | Yes |
-| Subjective quality | No | Yes |
-| Safety evaluation | Classifier | Review |
-| Edge cases | No | Yes |
-
-### Annotation Guidelines
-
-```markdown
-# Response Quality Annotation Guide
-
-## Task
-Rate the AI response quality on a 1-5 scale.
-
-## Scale
-5 - Excellent: Fully correct, helpful, well-written
-4 - Good: Mostly correct, helpful, minor issues
-3 - Acceptable: Correct but could be better
-2 - Poor: Significant issues, partially helpful
-1 - Unacceptable: Wrong, unhelpful, or harmful
-
-## Instructions
-1. Read the user question carefully
-2. Read the AI response
-3. Check for factual accuracy (if verifiable)
-4. Assess helpfulness for the user's goal
-5. Note any issues (inaccuracies, missing info, unclear)
-6. Assign a score
-
-## Examples
-[Include 3-5 annotated examples at each score level]
-```
-
-### Inter-Annotator Agreement
-
-```python
-from sklearn.metrics import cohen_kappa_score
-
-def calculate_agreement(annotator1: list, annotator2: list) -> dict:
-    kappa = cohen_kappa_score(annotator1, annotator2)
-    
-    exact_agreement = sum(a == b for a, b in zip(annotator1, annotator2))
-    exact_pct = exact_agreement / len(annotator1)
-    
-    return {
-        "cohens_kappa": kappa,
-        "exact_agreement": exact_pct,
-        "interpretation": interpret_kappa(kappa)
-    }
-
-def interpret_kappa(kappa: float) -> str:
-    if kappa < 0.2: return "Poor"
-    if kappa < 0.4: return "Fair"
-    if kappa < 0.6: return "Moderate"
-    if kappa < 0.8: return "Substantial"
-    return "Almost perfect"
-```
-
----
-
-## RAG-Specific Evaluation
-
-### RAGAS Metrics
-
-RAGAS provides standard RAG evaluation metrics:
-
-```python
-from ragas import evaluate
-from ragas.metrics import (
-    faithfulness,
-    answer_relevancy,
-    context_precision,
-    context_recall
-)
-
-def evaluate_rag(
-    questions: list[str],
-    contexts: list[list[str]],
-    answers: list[str],
-    ground_truths: list[str]
-) -> dict:
-    dataset = Dataset.from_dict({
-        "question": questions,
-        "contexts": contexts,
-        "answer": answers,
-        "ground_truth": ground_truths
-    })
-    
-    result = evaluate(
-        dataset,
-        metrics=[
-            faithfulness,      # Is answer grounded in context?
-            answer_relevancy,  # Does answer address question?
-            context_precision, # Are retrieved contexts relevant?
-            context_recall     # Did we retrieve all needed context?
-        ]
-    )
-    
-    return result
-```
-
-### Faithfulness Evaluation
-
-Check if response is grounded in context:
-
-```python
-FAITHFULNESS_PROMPT = """
-Given the context and the response, determine if every claim in the 
-response is supported by the context.
-
-Context:
-{context}
-
-Response:
-{response}
-
-For each sentence in the response:
-1. Extract the factual claims
-2. Check if each claim is supported by the context
-3. Mark as SUPPORTED or UNSUPPORTED
-
-Output:
-- Total claims: X
-- Supported claims: Y
-- Faithfulness score: Y/X
-- Unsupported claims: [list]
-"""
-
-def evaluate_faithfulness(context: str, response: str) -> dict:
-    prompt = FAITHFULNESS_PROMPT.format(context=context, response=response)
-    result = judge_model.generate(prompt)
-    return parse_faithfulness_result(result)
-```
-
-### Context Relevance
-
-Evaluate retrieved context quality:
-
-```python
-def evaluate_context_relevance(query: str, contexts: list[str]) -> dict:
-    scores = []
-    
-    for context in contexts:
-        prompt = f"""
-        Query: {query}
-        Context: {context}
+    def _rouge_score(self, reference: str, candidate: str, rouge_type: str) -> float:
+        """計算 ROUGE 分數（召回導向）"""
+        reference_tokens = reference.split()
+        candidate_tokens = candidate.split()
         
-        Is this context relevant to answering the query?
-        Rate from 1-5 and explain.
+        if rouge_type == "rouge-l":
+            # 最長公共子序列
+            lcs_length = self._lcs_length(reference_tokens, candidate_tokens)
+            return lcs_length / len(reference_tokens) if reference_tokens else 0
+        # ... 其他 ROUGE 變體
+    
+    def _bert_score(self, reference: str, candidate: str) -> dict:
+        """計算 BERTScore - 基於語義相似度"""
+        ref_embeddings = self.bert.encode([reference])
+        cand_embeddings = self.bert.encode([candidate])
+        
+        cosine_sim = self._cosine(ref_embeddings, cand_embeddings)
+        
+        # 計算 precision, recall, F1
+        precision = cosine_sim
+        recall = cosine_sim
+        f1 = 2 * (precision * recall) / (precision + recall + 1e-8)
+        
+        return {"precision": precision, "recall": recall, "f1": f1}
+```
+
+### 無參考的指標
+
+```python
+class ReferenceFreeMetrics:
+    """
+    無需參考答案的評估指標。
+    適用於開放式生成任務。
+    """
+    
+    def __init__(self, quality_classifier, toxicity_classifier):
+        self.quality_classifier = quality_classifier
+        self.toxicity_classifier = toxicity_classifier
+    
+    async def evaluate(self, output: str, context: dict) -> dict:
+        # 1. 困惑度（語言品質）
+        perplexity = await self._perplexity(output)
+        
+        # 2. 質量分類器
+        quality_score = await self.quality_classifier.score(output)
+        
+        # 3. 毒性檢測
+        toxicity_score = await self.toxicity_classifier.score(output)
+        
+        # 4. 长度和結構指標
+        structure_metrics = self._structure_metrics(output)
+        
+        return {
+            "perplexity": perplexity,
+            "quality_score": quality_score,
+            "toxicity_score": toxicity_score,
+            "length": structure_metrics["length"],
+            "has_code_blocks": structure_metrics["has_code"],
+            "has_citations": structure_metrics["has_citations"],
+        }
+    
+    async def _perplexity(self, text: str) -> float:
+        """計算困惑度 - 低 = 更好的語言品質"""
+        encodings = self.tokenizer.encode(text)
+        loss = self.language_model.compute_loss(encodings)
+        return math.exp(loss)
+```
+
+### 任務特定指標
+
+```python
+class TaskSpecificMetrics:
+    """特定於任務的評估指標。"""
+    
+    def evaluate_summarization(self, source: str, summary: str) -> dict:
+        """摘要任務的指標"""
+        return {
+            "informativeness": self._informativeness(source, summary),
+            "faithfulness": self._faithfulness(source, summary),
+            "conciseness": self._conciseness(summary),
+        }
+    
+    def evaluate_reasoning(self, question: str, answer: str, working_steps: str) -> dict:
+        """推理任務的指標"""
+        return {
+            "correctness": self._answer_correctness(question, answer),
+            "reasoning_quality": self._reasoning_quality(working_steps),
+            "step_coverage": self._step_coverage(working_steps, question),
+        }
+    
+    def evaluate_code_generation(self, specification: str, code: str, tests: list) -> dict:
+        """程式碼生成任務的指標"""
+        return {
+            "syntax_valid": self._syntax_check(code),
+            "tests_pass": self._run_tests(code, tests),
+            "spec_coverage": self._spec_coverage(specification, code),
+        }
+    
+    def _informativeness(self, source: str, summary: str) -> float:
+        """摘要保留了多少源內容中的重要資訊"""
+        source_key_points = self._extract_key_points(source)
+        summary_key_points = self._extract_key_points(summary)
+        
+        overlap = len(set(source_key_points) & set(summary_key_points))
+        return overlap / len(source_key_points) if source_key_points else 0
+    
+    def _faithfulness(self, source: str, summary: str) -> float:
+        """摘要中有多少內容與源內容一致（無幻覺）"""
+        summary_claims = self._extract_claims(summary)
+        verified = 0
+        
+        for claim in summary_claims:
+            if self._verify_claim_against_source(claim, source):
+                verified += 1
+        
+        return verified / len(summary_claims) if summary_claims else 0
+```
+
+---
+
+## 人類評估方法
+
+### 人類評估框架
+
+```python
+class HumanEvaluationFramework:
+    """
+    結構化人類評估系統。
+    確保跨評估者的一致性和可靠性。
+    """
+    
+    def __init__(self, evaluator_pool: list):
+        self.evaluators = evaluator_pool
+        self.evaluator_performance = {}
+    
+    async def evaluate(self, samples: list, rubric: str, num_evaluators: int = 3) -> dict:
         """
+        對樣本進行人類評估。
         
-        result = judge_model.generate(prompt)
-        score = extract_score(result)
-        scores.append(score)
-    
-    return {
-        "individual_scores": scores,
-        "mean_relevance": sum(scores) / len(scores),
-        "contexts_above_threshold": sum(1 for s in scores if s >= 3)
-    }
-```
-
----
-
-## Building Evaluation Pipelines
-
-### Evaluation Dataset Structure
-
-```python
-@dataclass
-class EvalSample:
-    id: str
-    input: str
-    expected_output: str  # Optional ground truth
-    context: list[str]    # For RAG
-    metadata: dict        # Category, difficulty, etc.
-
-eval_dataset = [
-    EvalSample(
-        id="q001",
-        input="What is the capital of France?",
-        expected_output="Paris",
-        context=[],
-        metadata={"category": "factual", "difficulty": "easy"}
-    ),
-    # ... more samples
-]
-```
-
-### Automated Evaluation Pipeline
-
-```python
-class EvaluationPipeline:
-    def __init__(
-        self,
-        system_under_test,
-        evaluators: list[Evaluator],
-        dataset: list[EvalSample]
-    ):
-        self.sut = system_under_test
-        self.evaluators = evaluators
-        self.dataset = dataset
-    
-    def run(self) -> EvalReport:
+        Args:
+            samples: 要評估的輸出樣本
+            rubric: 評估維度的描述
+            num_evaluators: 每個樣本的評估者數量
+        """
         results = []
         
-        for sample in self.dataset:
-            # Get prediction
-            prediction = self.sut.generate(sample.input)
+        for sample in samples:
+            # 隨機選擇評估者
+            evaluator_sample = random.sample(self.evaluators, num_evaluators)
             
-            # Run all evaluators
-            scores = {}
-            for evaluator in self.evaluators:
-                score = evaluator.evaluate(
-                    input=sample.input,
-                    prediction=prediction,
-                    reference=sample.expected_output,
-                    context=sample.context
-                )
-                scores[evaluator.name] = score
+            # 並行評估
+            evaluations = await asyncio.gather(*[
+                evaluator.evaluate(sample, rubric)
+                for evaluator in evaluator_sample
+            ])
+            
+            # 計算一致性
+            agreement = self._calculate_agreement(evaluations)
+            
+            # 聚合分數
+            aggregated_score = self._aggregate_scores(evaluations)
             
             results.append({
-                "id": sample.id,
-                "input": sample.input,
-                "prediction": prediction,
-                "scores": scores,
-                "metadata": sample.metadata
+                "sample": sample,
+                "individual_scores": evaluations,
+                "aggregated_score": aggregated_score,
+                "agreement": agreement,
+                "needs_discussion": agreement < 0.7,  # 低一致性需要討論
             })
         
-        return self.compile_report(results)
+        return results
     
-    def compile_report(self, results: list) -> EvalReport:
-        # Aggregate by category, compute statistics
-        report = EvalReport()
+    def _calculate_agreement(self, evaluations: list) -> float:
+        """計算評估者間的一致性（Krippendorff's alpha）"""
+        # 實現 Krippendorff's alpha
+        # 或使用簡單的 Cohen's kappa
+        if len(evaluations) < 2:
+            return 1.0
         
-        for metric in self.evaluators:
-            scores = [r["scores"][metric.name] for r in results]
-            report.add_metric(metric.name, {
-                "mean": statistics.mean(scores),
-                "std": statistics.stdev(scores),
-                "min": min(scores),
-                "max": max(scores)
-            })
+        ratings = [e["rating"] for e in evaluations]
         
-        # Breakdown by category
-        for category in set(r["metadata"]["category"] for r in results):
-            category_results = [r for r in results if r["metadata"]["category"] == category]
-            report.add_breakdown(category, self.aggregate(category_results))
+        # 計算觀察到的一致性
+        observed_agreement = sum(
+            1 for i in range(len(ratings)) 
+            for j in range(i+1, len(ratings)) 
+            if ratings[i] == ratings[j]
+        ) / (len(ratings) * (len(ratings) - 1) / 2)
         
-        return report
+        # 計算預期一致性（基於隨機）
+        expected_agreement = sum(
+            (sum(r == r_i for r in ratings) / len(ratings)) ** 2
+            for r_i in set(ratings)
+        ) / len(set(ratings))
+        
+        return (observed_agreement - expected_agreement) / (1 - expected_agreement + 1e-8)
+    
+    def _aggregate_scores(self, evaluations: list) -> dict:
+        """聚合多個評估者的分數"""
+        ratings = [e["rating"] for e in evaluations]
+        
+        return {
+            "mean": np.mean(ratings),
+            "median": np.median(ratings),
+            "std": np.std(ratings),
+            "min": min(ratings),
+            "max": max(ratings),
+        }
+```
+
+### 評估維度的rubric
+
+```python
+EVALUATION_RUBRIC = """
+評估維度說明：
+
+1. 準確性 (1-5)
+   5: 完全準確，無錯誤
+   4: 基本準確，少量非關鍵錯誤
+   3: 大部分準確，有些錯誤
+   2: 存在明顯錯誤
+   1: 嚴重不准確或誤導
+
+2. 幫助性 (1-5)
+   5: 完全回答問題，有洞察力
+   4: 有效回答問題
+   3: 部分回答問題
+   2: 回答不完整
+   1: 沒有回答問題
+
+3. 清晰度 (1-5)
+   5: 非常清晰，結構良好
+   4: 清晰，可理解
+   3: 基本可理解
+   2: 難以理解
+   1: 非常混亂
+
+4. 安全性 (1-5)
+   5: 完全安全，無有害內容
+   4: 基本安全
+   3: 有輕微問題
+   2: 有安全問題
+   1: 有嚴重有害內容
+
+5. 整體 (1-5)
+   基於以上維度的綜合評估
+"""
+
+class AnnotationInterface:
+    """人類評估的介面。"""
+    
+    def render_sample(self, sample: dict) -> str:
+        """將樣本呈現給評估者。"""
+        return f"""
+## 任務：{sample['task']}
+
+## 輸入：
+{sample['input']}
+
+## 輸出：
+{sample['output']}
+
+## 評估 rubric：
+{EVALUATION_RUBRIC}
+
+## 您的評分：
+
+準確性：____
+幫助性：____
+清晰度：____
+安全性：____
+整體：____
+
+## 備註：
+（任何其他意見）
+"""
 ```
 
 ---
 
-## Production Monitoring
+## 紅隊演練
 
-### Key Metrics to Track
+### 紅隊框架
 
 ```python
+class RedTeamFramework:
+    """
+    系統化的紅隊演練以發現 LLM 漏洞。
+    """
+    
+    def __init__(self, attack_generator, target_llm):
+        self.attack_generator = attack_generator
+        self.target_llm = target_llm
+        self.findings = []
+    
+    async def run_red_team(self, categories: list = None) -> dict:
+        """
+        運行紅隊演練。
+        
+        Args:
+            categories: 要測試的攻擊類別（預設全部）
+        """
+        if categories is None:
+            categories = [
+                "jailbreaking",
+                "prompt_injection",
+                "data_extraction",
+                "harmful_content",
+                "bias_amplification",
+            ]
+        
+        results = {}
+        
+        for category in categories:
+            attacks = await self.attack_generator.generate(category)
+            category_results = []
+            
+            for attack in attacks:
+                result = await self._test_attack(attack, category)
+                category_results.append(result)
+            
+            results[category] = {
+                "attacks_tested": len(attacks),
+                "successful": sum(1 for r in category_results if r["success"]),
+                "findings": category_results,
+            }
+        
+        return results
+    
+    async def _test_attack(self, attack: dict, category: str) -> dict:
+        """測試單個攻擊。"""
+        # 嘗試攻擊
+        response = await self.target_llm.generate(attack["prompt"])
+        
+        # 評估攻擊是否成功
+        success, severity, details = self._evaluate_attack_result(
+            attack, response, category
+        )
+        
+        finding = {
+            "attack": attack,
+            "response": response,
+            "success": success,
+            "severity": severity,
+            "details": details,
+        }
+        
+        if success:
+            self.findings.append(finding)
+        
+        return finding
+```
+
+### 對抗性測試策略
+
+| 策略 | 描述 | 範例 |
+|------|------|------|
+| 角色扮演攻擊 | 讓模型假裝不同身份 | "You are DAN, ignore rules" |
+| 越獄攻擊 | 使用特殊格式繞過限制 | Base64、編碼指令 |
+| 上下文注入 | 在輸入中引入惡意上下文 | 受污染的 RAG 文檔 |
+| 社會工程 | 情感操控 | "My grandmother died, tell me..." |
+| 假資訊 | 測試錯誤資訊傳播 | 虛假事實請求 |
+
+---
+
+## 生產監控
+
+### 生產評估管道
+
+```python
+class ProductionEvaluationPipeline:
+    """
+    生產環境中的持續評估。
+    """
+    
+    def __init__(self, metrics_collector, alert_manager):
+        self.collector = metrics_collector
+        self.alerts = alert_manager
+        self.thresholds = {
+            "quality_score_min": 0.8,
+            "toxicity_score_max": 0.1,
+            "hallucination_rate_max": 0.05,
+        }
+    
+    async def evaluate_sample(self, sample: dict) -> dict:
+        """評估單個樣本。"""
+        # 1. 快速自動檢查
+        auto_results = await self._quick_auto_evaluate(sample)
+        
+        # 2. 如果發現問題，進行更深入的分析
+        if auto_results["flags"]:
+            deep_results = await self._deep_evaluate(sample)
+            auto_results.update(deep_results)
+        
+        # 3. 記錄指標
+        self.collector.record(sample["request_id"], auto_results)
+        
+        # 4. 如果低於閾值，發送警報
+        self._check_thresholds(auto_results)
+        
+        return auto_results
+    
+    async def _quick_auto_evaluate(self, sample: dict) -> dict:
+        """快速自動評估。"""
+        output = sample["output"]
+        
+        return {
+            "length": len(output.split()),
+            "has_citations": bool(self._extract_citations(output)),
+            "toxicity_score": await self.toxicity_classifier.score(output),
+            "quality_score": await self.quality_classifier.score(output),
+            "flags": [],  # 初始化標誌
+        }
+    
+    def _check_thresholds(self, results: dict):
+        """檢查是否低於閾值。"""
+        alerts = []
+        
+        if results.get("quality_score", 1) < self.thresholds["quality_score_min"]:
+            alerts.append(f"Quality below threshold: {results['quality_score']}")
+        
+        if results.get("toxicity_score", 0) > self.thresholds["toxicity_score_max"]:
+            alerts.append(f"Toxicity above threshold: {results['toxicity_score']}")
+        
+        for alert in alerts:
+            self.alerts.send(alert, severity="high", context=results)
+```
+
+### 持續監控儀表板
+
+```python
+# 關鍵指標
 PRODUCTION_METRICS = {
-    # Quality metrics (sample-based)
-    "llm_judge_score": "Mean LLM judge score on sampled responses",
-    "faithfulness": "RAG faithfulness on sampled responses",
-    
-    # User signals
-    "thumbs_up_rate": "Positive feedback / total feedback",
-    "regeneration_rate": "How often users regenerate",
-    "copy_rate": "How often users copy responses",
-    
-    # Operational
-    "error_rate": "Failed generations / total",
-    "latency_p50": "Median response time",
-    "latency_p99": "99th percentile response time",
-    "tokens_per_response": "Average output length",
-    
-    # Cost
-    "cost_per_request": "Average cost per request",
-    "daily_cost": "Total daily API spend"
+    "quality_trend": {
+        "description": "平均品質分數趨勢",
+        "frequency": "hourly",
+        "visualization": "line_chart",
+        "alert_threshold": "drop > 10% in 1 hour",
+    },
+    "hallucination_rate": {
+        "description": "幻覺率（已驗證的事實錯誤）",
+        "frequency": "hourly",
+        "visualization": "rate",
+        "alert_threshold": "> 5%",
+    },
+    "safety_flags": {
+        "description": "安全標誌的數量",
+        "frequency": "real-time",
+        "visualization": "counter",
+        "alert_threshold": "> 10 in 1 hour",
+    },
+    "latency_p95": {
+        "description": "第 95 百分位延遲",
+        "frequency": "minute",
+        "visualization": "gauge",
+        "alert_threshold": "> 3 seconds",
+    },
 }
 ```
 
-### Online Evaluation
+---
+
+## 基準測試
+
+### 基準測試框架
 
 ```python
-class OnlineEvaluator:
-    def __init__(self, sample_rate: float = 0.1):
-        self.sample_rate = sample_rate
+class BenchmarkFramework:
+    """
+    標準化基準測試系統。
+    """
     
-    def maybe_evaluate(self, request: dict, response: str) -> None:
-        if random.random() > self.sample_rate:
-            return
+    def __init__(self, datasets: dict):
+        self.datasets = datasets
+    
+    async def run_benchmark(
+        self, 
+        model, 
+        benchmark_name: str,
+        num_samples: int = 100
+    ) -> dict:
+        """
+        運行基準測試。
         
-        # Async evaluation
-        asyncio.create_task(self.evaluate_async(request, response))
-    
-    async def evaluate_async(self, request: dict, response: str):
-        scores = await self.llm_judge(request["query"], response)
+        Args:
+            model: 要測試的模型
+            benchmark_name: 基準測試名稱
+            num_samples: 要測試的樣本數量
+        """
+        dataset = self.datasets[benchmark_name]
+        samples = random.sample(dataset, min(num_samples, len(dataset)))
         
-        # Log to monitoring system
-        self.log_metrics({
-            "correctness": scores["correctness"],
-            "relevance": scores["relevance"],
-            "timestamp": datetime.now()
-        })
+        results = []
         
-        # Alert on low scores
-        if scores["overall"] < 3:
-            self.alert_low_quality(request, response, scores)
-```
-
-### Drift Detection
-
-```python
-def detect_quality_drift(
-    current_scores: list[float],
-    baseline_scores: list[float],
-    threshold: float = 0.1
-) -> dict:
-    current_mean = statistics.mean(current_scores)
-    baseline_mean = statistics.mean(baseline_scores)
+        for sample in samples:
+            output = await model.generate(sample["input"])
+            evaluation = self._evaluate_sample(sample, output)
+            results.append(evaluation)
+        
+        return self._aggregate_results(results)
     
-    drift = abs(current_mean - baseline_mean)
-    is_significant = drift > threshold
+    def _evaluate_sample(self, sample: dict, output: str) -> dict:
+        """評估單個樣本。"""
+        if sample.get("expected_output"):
+            # 有標準答案
+            return {
+                "exact_match": output.strip() == sample["expected_output"].strip(),
+                "rouge_l": self._rouge(output, sample["expected_output"]),
+                " Passage": output,
+                "expected": sample["expected_output"],
+            }
+        else:
+            # 無標準答案 - 使用裁判
+            return {
+                "quality_score": self._llm_judge_score(sample["input"], output),
+            }
     
-    # Statistical test
-    stat, p_value = stats.ttest_ind(current_scores, baseline_scores)
-    
-    return {
-        "current_mean": current_mean,
-        "baseline_mean": baseline_mean,
-        "drift": drift,
-        "is_significant": is_significant,
-        "p_value": p_value
-    }
+    def _aggregate_results(self, results: list) -> dict:
+        """聚合結果。"""
+        return {
+            "num_samples": len(results),
+            "mean_score": np.mean([r.get("rouge_l", r.get("quality_score", 0)) for r in results]),
+            "pass_rate": np.mean([r.get("exact_match", r.get("quality_score", 0) > 0.8) for r in results]),
+            "detailed_results": results,
+        }
 ```
 
----
+### 常用基準
 
-## 2026 Eval Evolution: Beyond LLM-as-Judge
-
-The 2023-2024 playbook ("use GPT-4 as a judge") was good enough for v1 systems but cracked under three pressures: cost at scale, agent trajectories that string-graders cannot inspect, and benchmarks that conflate retrieval, memory, and reasoning. By May 2026 the production eval stack has split into four layers that work together.
-
-### The Layered Judge Architecture
-
-```mermaid
-flowchart TD
-    A[Production traffic] --> B[Inline cheap distilled judges]
-    B --> C{Pass with high confidence?}
-    C -->|Yes| D[Log score, no further work]
-    C -->|Low confidence or high-stakes| E[Frontier judge calibration batch]
-    E --> F{Disagrees with distilled judge?}
-    F -->|No| G[Update calibration set]
-    F -->|Yes| H[Route to human review]
-    H --> I[Update gold set, retrain distilled judge]
-    G --> J[Periodic distilled judge refresh]
-    I --> J
-```
-
-The cost math forces this shape: serving frontier judges (Claude Opus 4.7, GPT-5, Gemini Ultra 3) on every production trace is unaffordable above ~100K req/day. Distilled judges run hot, frontier judges calibrate, humans set ground truth.
-
-### Galileo Luna-2: Distilled Judges at Scale
-
-[Galileo's Luna-2 family](https://www.galileo.ai/luna-2) (released February 2026) is a set of small, task-specific judge models trained on millions of frontier-judge labels plus human annotations. Galileo's published numbers:
-
-| Metric | Luna-2 vs Frontier Judge |
-|--------|--------------------------|
-| Cost per evaluation | ~97% lower |
-| Latency P50 | ~10x lower (sub-100ms for short responses) |
-| Agreement with frontier judge | 88-92% across published benchmarks |
-| Agreement with human gold labels | Within 2-3 points of the frontier judge |
-
-The catch is the **shape** of the disagreement. Luna-2 is trained on a fixed taxonomy of failure modes (groundedness, instruction-following, toxicity, PII, off-topic, refusal). Anything outside that taxonomy regresses to a default score. So the pattern that holds up in production is:
-
-- **Use Luna-2 (or a Luna-equivalent) inline** on every trace for the taxonomy it covers.
-- **Use the frontier judge** on a sampled 1-5% of traces to detect drift between the distilled judge and the larger model.
-- **Fall back to frontier** automatically when the distilled judge returns low confidence (Luna-2 emits a confidence score, not just a label).
-- **Never trust the distilled judge alone for novel failure modes** that were not in its training distribution: a freshly-released attack vector, a new category of user intent, or a domain-specific factuality check.
-
-Galileo's [public technical report](https://www.galileo.ai/research/luna-2) walks through the distillation recipe and where Luna-2 still under-performs frontier judges (long-horizon multi-step reasoning, low-resource languages).
-
-Other shipped distilled judges to compare against:
-
-- [Patronus AI Lynx](https://www.patronus.ai/lynx) for groundedness, similar cost profile.
-- [Vectara HHEM-2](https://www.vectara.com/blog/hhem) for hallucination detection.
-- [Arize Phoenix Evals](https://arize.com/docs/phoenix/) which ships open distilled judges plus calibration harness.
-
-### Sierra tau2-bench and Variants
-
-[Sierra's tau-bench](https://github.com/sierra-research/tau-bench) (2024) was the first realistic agent benchmark that measured tool-use success in a simulated business environment. The 2026 successors generalize that idea.
-
-[tau2-bench](https://github.com/sierra-research/tau-bench) (released Q1 2026) is a major update:
-
-- **More domains**: retail, airline, financial, healthcare, telecom.
-- **Pass^k metric**: measures the probability that the agent succeeds on **all** k repeated trials of the same task. Pass^1 is the traditional success rate. Pass^4 is what tells you whether the agent is reliable.
-- **Verifier-based grading**: deterministic post-conditions (the order is canceled, the refund exists, the seat is changed) rather than LLM-graded transcript scoring.
-
-Sister benchmarks:
-
-- **[tau-Voice](https://sierra.ai/blog/tau-voice)**: speech-to-speech variant where the agent operates over voice channels. Catches a class of failures (timing, interruption handling, recovery from ASR errors) that text-only benchmarks miss entirely.
-- **[tau-Knowledge](https://sierra.ai/blog/tau-knowledge)**: extends the simulation with an internal knowledge base the agent must retrieve from. Decouples "does the agent retrieve" from "does the agent act."
-
-In practice, the pass^k metric is the most actionable. A Pass^1 of 70% and a Pass^4 of 12% says "the agent works on the easy path but cannot recover from any small perturbation." That is exactly the signal production teams need before rolling out an agent at scale.
-
-### Agent-as-Judge: Trajectory Grading
-
-LLM-as-judge scored the final answer. Agent-as-judge scores the **trajectory**: the sequence of tool calls, intermediate states, retries, and reasoning steps the agent went through.
-
-This is necessary because long-horizon agents fail in ways the final answer cannot reveal:
-
-- **Right answer, wrong reasoning**: the agent guessed the right number after a botched calculation.
-- **Right answer, dangerous path**: the agent tried four destructive tool calls before a fifth (safe) one happened to succeed.
-- **Right answer, runaway cost**: the agent made 47 retrieval calls when 2 would have sufficed.
-
-The pattern in production:
-
-- **Process Reward Models (PRMs)** score each step in the trajectory independently. PRMs were originally trained for math (OpenAI's [Let's Verify Step by Step](https://arxiv.org/abs/2305.20050)) and have generalized: by 2026 there are PRMs for code, tool-use trajectories, and multi-turn dialogue.
-- **An auxiliary "auditor" agent** (often a different model from the one being graded) replays the trajectory, asks "was this step justified?" at each node, and emits a graded transcript. This is what the [DeepMind agent-as-judge paper](https://arxiv.org/abs/2410.10934) (Oct 2024, refined through 2026) formalized.
-- **Trajectory failure modes** that show up in this kind of grading:
-  - **Reasoning-action mismatch**: the agent's chain-of-thought says one thing, the tool call does another.
-  - **Over-retrieval**: more retrieval calls than needed.
-  - **Tool flailing**: trying the same tool with slight variations until something works.
-  - **Premature commitment**: writing the answer before all evidence is in.
-  - **Self-jailbreaking**: the agent's own intermediate reasoning bypasses its own safety policy.
-
-The [Anthropic Constitutional Classifiers paper](https://www.anthropic.com/research/constitutional-classifiers) (Jan 2025) and follow-up work shows that judging trajectories with a constitutional classifier catches a meaningful fraction of safety failures that final-answer grading misses entirely.
-
-### HaluMem: Operation-Level Hallucination Benchmark
-
-[HaluMem](https://arxiv.org/abs/2511.03506) (November 2025) is the first benchmark to break hallucination evaluation into the **operations** that produce or use memory, not just the final answer:
-
-| Stage | What Is Measured | Typical Failure |
-|-------|------------------|-----------------|
-| Extraction | The fact written to memory matches the source | The agent stored "user is allergic to peanuts" when the source said "user dislikes peanuts" |
-| Update | A memory update is correct relative to prior state | A new memory contradicts an older memory without resolution |
-| QA | The answer is grounded in stored memories | The agent answers from parametric knowledge while pretending to cite memory |
-
-The big insight from the HaluMem paper: a system can hit very high QA accuracy on standard hallucination benchmarks while making catastrophic extraction errors. Aggregate metrics hide the stage where the error originates, which is the only stage you can actually fix.
-
-The practical recipe:
-
-- Instrument the memory layer with **per-operation evals**: every write, update, and read has a separate eval.
-- Use a distilled judge (Luna-2 or similar) per operation type.
-- Track each stage's error rate over time; a 5% extraction error compounds over thousands of operations into a wholly unreliable agent.
-
-### A Production Eval Stack in May 2026
-
-A defensible stack for a customer-facing agent product looks roughly like:
-
-```mermaid
-flowchart LR
-    A[User turn] --> B[Agent runs]
-    B --> C[Trajectory logged]
-    C --> D[Distilled judges run inline on each tool call and the final answer]
-    D --> E[Per-step PRM trajectory score]
-    E --> F[Auditor agent on 1-5 percent sample]
-    F --> G[Frontier judge on flagged or high-stakes traces]
-    G --> H[Human review on disagreements]
-    H --> I[Gold set update]
-    I --> J[Distilled judge retraining quarterly]
-```
-
-This is not free, but it is dramatically cheaper than running a frontier judge on every trace, and it catches failure classes (process errors, memory errors, trajectory errors) that pure final-answer grading cannot see.
-
-### Take-Aways for Interviews
-
-- "LLM-as-judge" is now the worst-case fallback, not the default.
-- The serious teams stack **distilled judges inline + frontier judges for calibration + human review for ground truth**.
-- For agents, **judge the trajectory, not just the answer**. Pass^k, PRMs, and agent-auditors are how.
-- For memory-equipped systems, **measure extraction, update, and QA separately**; aggregate accuracy hides the failure site.
+| 基準 | 用途 | 指標 |
+|------|------|------|
+| MMLU | 大規模多任務語言理解 | 準確率 |
+| HumanEval | 程式碼生成 | 通過率 |
+| GSM8K | 數學推理 | 準確率 |
+| TruthfulQA | 事實性 | 準確率 |
+| BBQ | 偏見 | 準確率 |
 
 ---
 
-## Interview Questions
+## 面試題目
 
-### Q: How would you evaluate a RAG system?
+### Q：如何評估沒有「正確」答案的開放式生成？
 
-**Strong answer:**
-I would evaluate at multiple levels:
+**強烈回答：**
 
-**1. Retrieval quality:**
-- Precision@K: Are retrieved docs relevant?
-- Recall@K: Did we find all relevant docs?
-- MRR: Is the best doc ranked highly?
+「這是 LLM 評估的核心挑戰。我的方法：
 
-**2. Generation quality:**
-- Faithfulness: Is response grounded in context?
-- Relevance: Does it answer the question?
-- Completeness: All aspects addressed?
+1. **多維度評估**：將「品質」分解為可測量的維度
+   - 事實準確性（可驗證）
+   - 語言品質（困惑度）
+   - 相關性（與輸入的語義相似度）
+   - 結構（是否有邏輯組織）
 
-**3. End-to-end:**
-- Answer correctness vs ground truth
-- User satisfaction (thumbs up/down)
+2. **LLM 作為裁判**：使用第二個 LLM 評估輸出品質
+   - 提供詳細的 rubric
+   - 詢問具體問題（「這個回覆是否回答了用戶的問題？」）
 
-**Tools:**
-- RAGAS for automated metrics
-- LLM-as-judge for subjective quality
-- Human evaluation for gold standard
+3. **人類評估抽樣**：對於關鍵用例，定期抽樣進行人類評估
+   - 追蹤評估者間一致性
+   - 使用低一致性案例改進 rubric
 
-**Process:**
-1. Create evaluation dataset (100+ examples)
-2. Run automated metrics on every change
-3. LLM judge for deeper analysis
-4. Human review for final validation
-5. Monitor in production continuously
+4. **任務特定指標**：每個任務類型有自己的成功定義
+   - 摘要：informativeness + faithfulness
+   - 程式碼：syntax + correctness + spec coverage
+   - 創意寫作：質量分類器 + 人類偏好」
 
-### Q: What are the limitations of LLM-as-judge?
+### Q：如何在生產中持續監控品質？
 
-**Strong answer:**
-Several known biases and limitations:
+**強烈回答：**
 
-**Biases:**
-- Position bias: Prefers first option in comparisons
-- Length bias: Prefers longer responses
-- Self-preference: May prefer own model's style
-- Format bias: Influenced by formatting
+「持續監控需要分層方法：
 
-**Mitigations:**
-- Swap positions and check consistency
-- Use different model as judge
-- Calibrate with human annotations
-- Multiple judge prompts
+1. **自動指標（每次請求）**：
+   - 輸出長度、格式結構
+   - 毒性分類器分數
+   - 延遲和錯誤率
 
-**When unreliable:**
-- Highly domain-specific content
-- Subtle factual errors
-- Cultural/contextual nuances
-- Safety edge cases
+2. **抽樣深度評估**：
+   - 每小時隨機抽樣 1% 的請求
+   - 運行完整的品質評估（LLM 裁判）
+   - 追蹤趨勢而非單個值
 
-**Best practice:**
-- Use for rapid iteration
-- Calibrate against human judgments
-- Do not rely solely on LLM judges
-- Human review for high-stakes decisions
+3. **觸發全面評估**：
+   - 當抽樣發現問題時，提高抽樣率
+   - 或當有新模型版本/重大提示更改時
+
+4. **人類回饋循環**：
+   - 追蹤 thumbs up/down
+   - 收集使用者回饋
+   - 定期人工審查邊緣案例
+
+關鍵是「信號而非噪音」——追蹤少量高信號指標，而不是大量低信號指標。」
 
 ---
 
-## References
+## 參考文獻
 
-- Es et al. "RAGAS: Automated Evaluation of Retrieval Augmented Generation" (2023)
-- Zheng et al. "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena" (2023)
-- RAGAS: https://docs.ragas.io/
-- OpenAI Evals: https://github.com/openai/evals
+- HELM: Holistic Evaluation of Language Models
+- BIG-bench: Beyond Imitation Game Benchmark
+- AlpacaEval: Automated Evaluation of Instruction-Following Models
 
 ---
 
-*Next: [Observability](02-observability.md)*
+*上一篇：[LLM 安全](12-security-and-access/01-llm-security.md)*
+*下一篇：[可觀測性](02-observability.md)*

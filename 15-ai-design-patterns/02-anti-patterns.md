@@ -1,571 +1,320 @@
-# AI Anti-Patterns
+# 反模式
 
-Recognizing what NOT to do is as important as knowing best practices. This chapter catalogs common mistakes in AI system design.
+本章記錄常見的 AI 系統錯誤模式和如何避免它們。
 
-## Table of Contents
+## 目錄
 
-- [Architecture Anti-Patterns](#architecture-anti-patterns)
-- [RAG Anti-Patterns](#rag-anti-patterns)
-- [Agent Anti-Patterns](#agent-anti-patterns)
-- [Prompting Anti-Patterns](#prompting-anti-patterns)
-- [Evaluation Anti-Patterns](#evaluation-anti-patterns)
-- [Production Anti-Patterns](#production-anti-patterns)
-- [Interview Questions](#interview-questions)
+- [常見反模式](#常見反模式)
+- [架構反模式](#架構反模式)
+- [提示反模式](#提示反模式)
+- [評估反模式](#評估反模式)
+- [面試題目](#面試題目)
 
 ---
 
-## Architecture Anti-Patterns
+## 常見反模式
 
-### The God Prompt
+### 反模式：無限制上下文
 
-**Problem:** Single massive prompt trying to do everything.
+**問題：** 將所有可用內容放入上下文，期望模型會忽略不相關的部分。
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  問題：                                                   │
+│  「模型很聰明，它會弄清楚什麼是相關的」                      │
+│                                                              │
+│  現實：                                                     │
+│  - 模型偏向上下文的開頭和結尾                               │
+│  - 無關內容稀釋相關資訊                                     │
+│  - 令牌成本飆升                                            │
+│  - 品質實際下降                                            │
+└────────────────────────────────────────────────────────────┘
+```
+
+**解決方案：**
+- 在放入上下文之前進行檢索和過濾
+- 使用重排名確保最相關的文檔在頂部
+- 設定合理的上下文大小限制
+
+---
+
+### 反模式：單一提示適用所有情況
+
+**問題：** 使用相同的提示適用於所有查詢類型。
 
 ```python
-# ANTI-PATTERN: God Prompt
+# 不好：單一提示
 SYSTEM_PROMPT = """
-You are a helpful assistant. You can:
-1. Answer questions about our products
-2. Help with technical support
-3. Process refunds
-4. Schedule appointments
-5. Translate languages
-6. Write code
-7. Analyze data
-8. Generate reports
-... [continues for 5000 tokens]
+你是一個有用的助手。回答所有問題。
 """
+
+# 好：針對性提示
+SYSTEM_PROMPTS = {
+    "technical": "你是一個技術專家。使用精確的術語...",
+    "creative": "你是一個創意作家。使用生動的語言...",
+    "customer_support": "你是一個客服代表。保持專業和友好..."
+}
 ```
 
-**Why it fails:**
-- Context consumed by instructions, not user content
-- Model struggles with conflicting instructions
-- Impossible to optimize for all cases
-- Updates affect everything
-
-**Solution:**
-```python
-# PATTERN: Specialized components
-class QueryRouter:
-    async def route(self, query: str) -> str:
-        intent = await self.classify_intent(query)
-        handler = self.handlers[intent]
-        return await handler.process(query)
-```
+**何時避免：**
+- 異質查詢類型（技術、創意、客服）
+- 不同的品質要求
+- 需要不同的領域知識
 
 ---
 
-### Single Provider Dependency
+## 架構反模式
 
-**Problem:** Entire system depends on one LLM provider.
+### 反模式：在循環中無限制地調用 LLM
+
+**問題：** 允許智慧體無限期地調用 LLM，沒有退出條件。
 
 ```python
-# ANTI-PATTERN: Single provider
-async def generate(prompt: str) -> str:
-    return await openai.chat.completions.create(...)
+# 不好：可能永遠運行
+while True:
+    response = await llm.generate(prompt)
+    if response.is_complete:
+        break
+    prompt += response  # 沒有最大迭代限制
 ```
 
-**Why it fails:**
-- Provider outage = complete system failure
-- Rate limits affect all traffic
-- No price negotiation leverage
-- Locked into one model family
+**解決方案：**
+- 設定最大迭代次數
+- 添加令牌預算限制
+- 實現明確的停止條件
 
-**Solution:**
 ```python
-# PATTERN: Multi-provider with failover
-class LLMClient:
-    def __init__(self):
-        self.providers = [OpenAI(), Anthropic(), Google()]
+# 好：有界限的循環
+MAX_ITERATIONS = 10
+MAX_TOKENS = 50000
+
+for i in range(MAX_ITERATIONS):
+    response = await llm.generate(prompt)
+    total_tokens += count_tokens(response)
     
-    async def generate(self, prompt: str) -> str:
-        for provider in self.providers:
-            try:
-                return await provider.generate(prompt)
-            except ProviderError:
-                continue
-        raise AllProvidersFailedError()
+    if response.is_complete or total_tokens > MAX_TOKENS:
+        break
 ```
 
 ---
 
-### Premature Fine-Tuning
+### 反模式：忽略錯誤處理
 
-**Problem:** Fine-tuning before exhausting simpler approaches.
-
-**Why it fails:**
-- Expensive and time-consuming
-- Requires quality training data (often unavailable)
-- Hard to update and maintain
-- Often unnecessary
-
-**Decision flow:**
-```
-Try prompting first
-    ↓ (not working)
-Try few-shot examples
-    ↓ (not working)
-Try RAG for knowledge
-    ↓ (not working)
-Consider fine-tuning (with 500+ examples)
-```
-
----
-
-## RAG Anti-Patterns
-
-### Retrieve Everything
-
-**Problem:** Retrieving too many documents regardless of relevance.
+**問題：** 假設 LLM 調用總是會成功。
 
 ```python
-# ANTI-PATTERN: Retrieve everything
-results = vector_db.search(query, top_k=50)
-context = "\n".join([r.text for r in results])
-```
-
-**Why it fails:**
-- Noise drowns out signal
-- Exceeds context limits
-- Wastes tokens on irrelevant content
-- "Lost in the middle" effect
-
-**Solution:**
-```python
-# PATTERN: Quality over quantity
-results = vector_db.search(query, top_k=20)
-reranked = await reranker.rerank(query, results)
-context = "\n".join([r.text for r in reranked[:5] if r.score > 0.7])
-```
-
----
-
-### No Chunking Strategy
-
-**Problem:** Arbitrary or no chunking of documents.
-
-```python
-# ANTI-PATTERN: Fixed-size blind chunking
-chunks = [text[i:i+1000] for i in range(0, len(text), 1000)]
-```
-
-**Why it fails:**
-- Breaks mid-sentence, mid-paragraph
-- Loses semantic coherence
-- Separates related information
-- Poor retrieval quality
-
-**Solution:**
-```python
-# PATTERN: Semantic-aware chunking
-chunks = semantic_chunker.chunk(
-    text,
-    chunk_size=500,
-    overlap=100,
-    respect_boundaries=["paragraph", "section"]
-)
-```
-
----
-
-### Ignoring Metadata
-
-**Problem:** Treating all documents as equal text.
-
-```python
-# ANTI-PATTERN: Ignore metadata
-embedding = embed(document.text)
-vector_db.insert(embedding, {"text": document.text})
-```
-
-**Why it fails:**
-- Cannot filter by date, source, type
-- No access control per document
-- Cannot weight recent vs old
-- Loses valuable context
-
-**Solution:**
-```python
-# PATTERN: Rich metadata
-vector_db.insert(embedding, {
-    "text": document.text,
-    "source": document.source,
-    "date": document.date,
-    "access_level": document.access_level,
-    "document_type": document.type,
-    "section": document.section
-})
-
-# Filter query
-results = vector_db.search(
-    query,
-    filter={"date": {"$gte": "2024-01-01"}, "access_level": user.level}
-)
-```
-
----
-
-## Agent Anti-Patterns
-
-### Infinite Loop Risk
-
-**Problem:** No termination conditions for agents.
-
-```python
-# ANTI-PATTERN: No limits
-while not done:
-    action = await agent.decide_action()
-    result = await execute(action)
-    done = agent.check_done(result)
-```
-
-**Why it fails:**
-- Agents can loop forever
-- Costs spiral out of control
-- Never returns to user
-- Resource exhaustion
-
-**Solution:**
-```python
-# PATTERN: Multiple termination conditions
-MAX_STEPS = 20
-MAX_COST = 10.0
-MAX_TIME = 300  # seconds
-
-for step in range(MAX_STEPS):
-    if cost_tracker.total > MAX_COST:
-        return "Cost limit reached"
-    if time.time() - start > MAX_TIME:
-        return "Time limit reached"
-    
-    action = await agent.decide_action()
-    result = await execute(action)
-    
-    if agent.check_done(result):
-        return result
-    
-return "Step limit reached"
-```
-
----
-
-### Unsafe Tool Access
-
-**Problem:** Giving agents unrestricted tool access.
-
-```python
-# ANTI-PATTERN: Full access
-tools = [
-    delete_file,
-    execute_shell_command,
-    send_email,
-    database_query  # unrestricted!
-]
-```
-
-**Why it fails:**
-- Agent can delete critical files
-- Can exfiltrate data
-- Can execute malicious commands
-- No audit trail
-
-**Solution:**
-```python
-# PATTERN: Scoped, validated tools
-tools = [
-    ScopedFileTool(allowed_dirs=["/tmp/agent"]),
-    RestrictedShellTool(allowed_commands=["ls", "cat"]),
-    EmailTool(requires_confirmation=True),
-    ReadOnlyDatabaseTool(allowed_tables=["products"])
-]
-```
-
----
-
-### Agent Without Memory
-
-**Problem:** Agent restarts from scratch every turn.
-
-```python
-# ANTI-PATTERN: Stateless agent
-async def handle_message(message: str) -> str:
-    return await agent.run(message)  # No context
-```
-
-**Why it fails:**
-- Cannot do multi-turn tasks
-- Repeats same mistakes
-- Cannot learn from experience
-- Poor user experience
-
-**Solution:**
-```python
-# PATTERN: Persistent memory
-async def handle_message(session_id: str, message: str) -> str:
-    memory = await memory_store.get(session_id)
-    response = await agent.run(message, memory=memory)
-    await memory_store.update(session_id, memory)
-    return response
-```
-
----
-
-## Prompting Anti-Patterns
-
-### Vague Instructions
-
-**Problem:** Ambiguous prompts expecting specific behavior.
-
-```python
-# ANTI-PATTERN: Vague
-prompt = "Help the user with their request."
-```
-
-**Why it fails:**
-- "Help" is undefined
-- No format specified
-- No boundaries
-- Inconsistent behavior
-
-**Solution:**
-```python
-# PATTERN: Specific and structured
-prompt = """
-You are a customer support agent for TechCorp.
-
-Your role:
-- Answer questions about our products
-- Help troubleshoot issues
-- Escalate to human when unsure
-
-Response format:
-1. Acknowledge the issue
-2. Provide a solution or ask clarifying questions
-3. Offer next steps
-
-Do NOT:
-- Make promises about refunds (escalate instead)
-- Provide legal or medical advice
-- Share internal company information
-"""
-```
-
----
-
-### No Output Format
-
-**Problem:** Expecting structured output without specifying format.
-
-```python
-# ANTI-PATTERN: Hope for structure
-prompt = "Extract the person's name, date, and location from this text."
+# 不好：沒有錯誤處理
 response = await llm.generate(prompt)
-# Response: "The person is John, he was there on March 5th in NYC"
-# Now try to parse that...
+return response
 ```
 
-**Solution:**
-```python
-# PATTERN: Explicit format
-prompt = """
-Extract information and return as JSON:
-{
-    "name": "string",
-    "date": "YYYY-MM-DD",
-    "location": "string"
-}
-
-Text: ...
-"""
-# Or use structured output APIs
-response = await llm.generate(prompt, response_format={"type": "json_object"})
-```
-
----
-
-## Evaluation Anti-Patterns
-
-### Vibes-Based Evaluation
-
-**Problem:** "It looks good to me" as the evaluation method.
+**解決方案：**
+- 實現重試邏輯（指數退避）
+- 為不同錯誤類型提供回退
+- 監控錯誤率並設置警報
 
 ```python
-# ANTI-PATTERN: Manual spot-checking
-for i in range(5):
-    response = await generate(test_prompts[i])
-    print(response)  # Developer looks at it
-# "Looks good, ship it!"
-```
-
-**Why it fails:**
-- Not reproducible
-- Cherry-picked examples
-- No baseline comparison
-- Misses edge cases
-
-**Solution:**
-```python
-# PATTERN: Systematic evaluation
-eval_dataset = load_eval_set()  # 100+ examples
-results = []
-
-for example in eval_dataset:
-    response = await generate(example["input"])
-    score = await evaluate(response, example["expected"])
-    results.append(score)
-
-metrics = {
-    "accuracy": sum(results) / len(results),
-    "failures": [e for e, r in zip(eval_dataset, results) if r < 0.5]
-}
+# 好：錯誤處理
+async def generate_with_fallback(prompt: str) -> str:
+    for attempt in range(3):
+        try:
+            return await llm.generate(prompt)
+        except RateLimitError:
+            await asyncio.sleep(2 ** attempt)
+        except ValidationError:
+            raise  # 不重試
+    return await fallback_model.generate(prompt)
 ```
 
 ---
 
-### Training on Test Set
+### 反模式：串行檢索和生成
 
-**Problem:** Using evaluation data for development decisions.
+**問題：** 等待檢索完成後才開始生成。
 
 ```python
-# ANTI-PATTERN: Overfitting to eval
-for iteration in range(100):
-    accuracy = evaluate_on_test_set()  # Same set every time
-    tweak_prompt_based_on_failures(test_set)  # Optimizing for test set
+# 不好：串行
+docs = await retrieve(query)  # 等待完成
+response = await generate(query, docs)  # 然後開始
 ```
 
-**Why it fails:**
-- Overfits to specific examples
-- Real-world performance differs
-- No true measure of generalization
-
-**Solution:**
-```python
-# PATTERN: Proper data splits
-dev_set = load_dev_set()      # For iteration
-test_set = load_test_set()    # Final evaluation only
-
-# Iterate on dev set
-for iteration in range(100):
-    accuracy = evaluate(dev_set)
-    improve_based_on(dev_set)
-
-# Final evaluation on untouched test set
-final_accuracy = evaluate(test_set)
-```
-
----
-
-## Production Anti-Patterns
-
-### No Rate Limiting
-
-**Problem:** Unlimited LLM calls per user.
+**解決方案：**
+- 預取下一個查詢的可能結果
+- 流水線化檢索和生成
+- 使用非阻塞操作
 
 ```python
-# ANTI-PATTERN: Open access
-@app.route("/generate")
-async def generate():
-    return await llm.generate(request.prompt)  # No limits!
-```
-
-**Why it fails:**
-- Single user can exhaust budget
-- Denial of service risk
-- Cost surprises
-- No fair usage
-
-**Solution:**
-```python
-# PATTERN: Rate limiting
-@app.route("/generate")
-@rate_limit(requests_per_minute=10, requests_per_day=100)
-@cost_limit(max_cost_per_day=1.0)
-async def generate():
-    return await llm.generate(request.prompt)
-```
-
----
-
-### No Caching
-
-**Problem:** Every identical request hits the LLM.
-
-```python
-# ANTI-PATTERN: No cache
-async def answer_faq(question: str) -> str:
-    return await llm.generate(question)  # Same FAQ, same cost every time
-```
-
-**Why it fails:**
-- Wasted money on identical queries
-- Unnecessary latency
-- Inconsistent answers to same question
-
-**Solution:**
-```python
-# PATTERN: Semantic caching
-async def answer_faq(question: str) -> str:
-    cached = await cache.get_similar(question, threshold=0.95)
-    if cached:
-        return cached.response
+# 好：並行
+async def pipelined_query(query):
+    # 啟動檢索
+    docs_task = retrieve(query)
     
-    response = await llm.generate(question)
-    await cache.set(question, response)
-    return response
+    # 同時準備提示
+    prompt_task = prepare_prompt(query)
+    
+    # 等待兩者完成
+    docs, prompt = await asyncio.gather(docs_task, prompt_task)
+    
+    return await generate(prompt, docs)
 ```
 
 ---
 
-## Interview Questions
+## 提示反模式
 
-### Q: What is the biggest anti-pattern you see in LLM applications?
+### 反模式：過於冗長的提示
 
-**Strong answer:**
+**問題：** 提示包含過多指令，稀釋了重要資訊。
 
-"The most damaging is the 'God Prompt' anti-pattern: a single massive prompt trying to handle every scenario.
+```python
+# 不好：過度說明
+prompt = """
+你是一個專業的客服代表。
+你為一家名為 XYZ 的公司工作。
+公司成立於 2010 年。
+總部位於紐約。
+產品包括 A、B、C。
+你應該專業、友好、準確、及時、恭敬、有禮貌...
+（100 行後...）
+回答這個問題：我的訂單在哪裡？
+"""
+```
 
-**Why it is common:** It seems simpler to start with one prompt and add instructions as needs arise.
+**解決方案：**
+- 保持提示簡潔
+- 只包含相關指令
+- 使用結構化格式
 
-**Why it fails:**
-- Context consumed by instructions, not user content
-- Conflicting instructions confuse the model
-- Cannot optimize for different use cases
-- Changes have unpredictable side effects
-
-**The fix:** Route to specialized handlers. Each handler has a focused prompt optimized for one task. The router itself can be simple (keyword-based) or smart (LLM-based for complex cases).
-
-This applies beyond prompts. The general principle is: decompose complexity into specialized components rather than cramming everything into one monolith."
-
-### Q: How do you avoid agent runaway costs?
-
-**Strong answer:**
-
-"Multiple limits at different levels:
-
-**Per-request limits:**
-- Maximum steps (e.g., 20)
-- Maximum tokens (e.g., 50K)
-- Maximum time (e.g., 5 minutes)
-
-**Per-session limits:**
-- Daily token budget
-- Daily cost cap
-
-**Per-user limits:**
-- Rate limiting (requests per minute/hour/day)
-- Cost attribution and caps
-
-**Monitoring:**
-- Real-time cost tracking
-- Alerts for anomalies (single request > $1)
-- Circuit breaker if costs spike
-
-**Architecture:**
-- Cascade from cheap to expensive models
-- Cache common operations
-- Batch similar requests
-
-The key is assuming the agent will try to run forever. Build in hard stops at every level. I have seen agents run up $1000 bills in minutes without proper limits."
+```python
+# 好：精確
+prompt = """
+角色：專業客服
+任務：訂單狀態查詢
+要求：簡潔、準確
+---
+客戶問題：我的訂單在哪裡？
+"""
+```
 
 ---
 
-*Previous: [Design Patterns](01-design-patterns.md)*
+### 反模式：缺乏負面例子
+
+**問題：** 只說明做什麼，不說明不做什麼。
+
+```python
+# 不好：只有正面
+prompt = """
+回答問題時要準確。
+"""
+
+# 好：正面和負面
+prompt = """
+要做：
+- 只基於提供的上下文回答
+- 引用具體的文檔部分
+- 承認不確定的情況
+
+不要做：
+- 猜測或編造資訊
+- 引用你不知道的來源
+- 忽視矛盾的上下文
+"""
+```
+
+---
+
+### 反模式：不一致的輸出格式
+
+**問題：** 允許 LLM 任意選擇輸出格式。
+
+```python
+# 不好：自由格式
+prompt = "解釋量子力學" → "量子力學是..."
+# 或 "根據文檔..."
+
+# 好：結構化格式
+prompt = "以 JSON 格式回答：{question: string, answer: string, confidence: float}"
+```
+
+**解決方案：**
+- 使用輸出模式/架構
+- 使用解析友好的格式
+- 驗證輸出結構
+
+---
+
+## 評估反模式
+
+### 反模式：只使用 BLEU 分數
+
+**問題：** 僅使用 BLEU 評估生成品質。
+
+**為什麼這是問題：**
+- BLEU 基於 n-gram 重疊，不捕獲語義
+- 不適合開放式生成
+- 對錶達方式過度敏感
+
+**解決方案：**
+- 使用多種指標（BLEU、ROUGE、BERT 分數）
+- 包含品質評估（LLM 作為裁判）
+- 進行人類評估
+
+---
+
+### 反模式：只在測試集上評估
+
+**問題：** 僅在固定的測試集上測試，忽略生產性能。
+
+**解決方案：**
+- 在訓練/測試分割上評估
+- 監控生產中的品質（抽樣）
+- 追蹤漂移
+
+---
+
+## 面試題目
+
+### Q：什麼是最常見的 LLM 系統錯誤？
+
+**強烈回答：**
+
+「最常見的錯誤是：
+
+1. **忽略非確定性**：人們假設相同輸入總是產生相同輸出。實際上，溫度、隨機種子等都會影響輸出。生產系統需要處理這種變異性。
+
+2. **無限制的上下文**：將所有內容放入上下文是一個常見錯誤。模型無法有效處理過長的上下文，而且成本會飆升。
+
+3. **缺乏錯誤處理**：假設 LLM 調用總是會成功。實際上，速率限制、超時、提供商故障都很常見。
+
+4. **只依賴 BLEU 分數**：BLEU 對生成任務來說是很差的指標，特別是開放式生成。
+
+5. **單一提示適用所有情況**：不同的查詢類型需要不同的提示策略。」
+
+### Q：如何防止「prompt 注入」？
+
+**強烈回答：**
+
+「Prompt 注入是透過使用者輸入引入惡意指令。主要預防措施：
+
+1. **輸入驗證**：掃描常見的注入模式（如 'ignore previous'）
+
+2. **上下文隔離**：確保來自外部來源的內容不能修改系統指令。使用隔離標記區分用戶輸入和系統指令。
+
+3. **輸出監控**：檢查模型輸出是否包含異常模式
+
+4. **LLM 裁判**：使用第二個模型檢測操縱意圖
+
+5. **深度防禦**：沒有單一技術足夠，但多層防禦使攻擊難以成功。」
+
+---
+
+## 參考文獻
+
+- Anthropic 安全最佳實踐
+- OWASP LLM Top 10
+- Prompt 注入攻擊類型
+
+---
+
+*上一篇：[設計模式](01-design-patterns.md)*

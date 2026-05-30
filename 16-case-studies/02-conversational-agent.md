@@ -1,178 +1,178 @@
-# Case Study: Customer Support Conversational Agent
+# 案例研究：客戶支援對話式智慧體
 
-This case study walks through designing a production customer support agent for a B2B SaaS company.
+本案例研究逐步介紹為 B2B SaaS 公司設計生產客戶支援智慧體。
 
-## Table of Contents
+## 目錄
 
-- [Problem Statement](#problem-statement)
-- [Requirements Analysis](#requirements-analysis)
-- [Architecture Design](#architecture-design)
-- [Component Deep Dives](#component-deep-dives)
-- [Reliability Patterns](#reliability-patterns)
-- [Evaluation and Monitoring](#evaluation-and-monitoring)
-- [Cost Analysis](#cost-analysis)
-- [Lessons Learned](#lessons-learned)
-- [Interview Walkthrough](#interview-walkthrough)
-
----
-
-## Problem Statement
-
-**Company:** B2B SaaS platform with 50K enterprise customers
-
-**Current state:**
-- 500K support tickets per month
-- Average response time: 4 hours
-- Customer satisfaction (CSAT): 72%
-- Support team: 100 agents
-
-**Goal:**
-- Reduce response time to < 5 minutes for common queries
-- Improve CSAT to > 85%
-- Handle 60% of tickets without human intervention
-- Maintain quality for escalated tickets
+- [問題陳述](#問題陳述)
+- [需求分析](#需求分析)
+- [架構設計](#架構設計)
+- [組件深度解析](#組件深度解析)
+- [可靠性模式](#可靠性模式)
+- [評估與監控](#評估與監控)
+- [成本分析](#成本分析)
+- [經驗教訓](#經驗教訓)
+- [面試演練](#面試演練)
 
 ---
 
-## Requirements Analysis
+## 問題陳述
 
-### Functional Requirements
+**公司：** 擁有 50K 企業客戶的 B2B SaaS 平台
 
-| Requirement | Description | Priority |
+**當前狀態：**
+- 每月 500K 支援工單
+- 平均響應時間：4 小時
+- 客戶滿意度 (CSAT)：72%
+- 支援團隊：100 名代理
+
+**目標：**
+- 將常見查詢的響應時間降至 < 5 分鐘
+- 將 CSAT 提升至 > 85%
+- 在無需人工干預的情況下處理 60% 的工單
+- 保持升級工單的品質
+
+---
+
+## 需求分析
+
+### 功能需求
+
+| 需求 | 描述 | 優先級 |
 |-------------|-------------|----------|
-| Query understanding | Classify intent, extract entities | P0 |
-| Knowledge retrieval | Search product docs, FAQs, past tickets | P0 |
-| Account context | Access user's subscription, history | P0 |
-| Response generation | Natural, accurate, helpful responses | P0 |
-| Conversation memory | Multi-turn context | P0 |
-| Action execution | Create tickets, trigger workflows | P1 |
-| Human escalation | Seamless handoff when needed | P0 |
-| Billing inquiries | Handle sensitive financial data | P1 |
+| 查詢理解 | 分類意圖、提取實體 | P0 |
+| 知識檢索 | 搜索產品文檔、常見問題、過往工單 | P0 |
+| 帳戶上下文 | 訪問用戶的訂閱、歷史 | P0 |
+| 回應生成 | 自然、準確、有説明的回應 | P0 |
+| 對話記憶 | 多輪上下文 | P0 |
+| 行動執行 | 創建工單、觸發工作流 | P1 |
+| 人工升級 | 需要時無縫交接 | P0 |
+| 帳單查詢 | 處理敏感的財務數據 | P1 |
 
-### Non-Functional Requirements
+### 非功能需求
 
-| Requirement | Target | Rationale |
+| 需求 | 目標 | 理由 |
 |-------------|--------|-----------|
-| Latency (TTFT) | < 1s | User expectation for chat |
-| Latency (full) | < 5s | Maintain engagement |
-| Availability | 99.9% | Business-critical |
-| Accuracy | > 95% | Customer trust |
-| Escalation rate | < 40% | Cost efficiency |
-| CSAT | > 85% | Business goal |
+| 延遲 (TTFT) | < 1秒 | 用戶對聊天的期望 |
+| 延遲（完整） | < 5秒 | 保持參與度 |
+| 可用性 | 99.9% | 業務關鍵 |
+| 準確率 | > 95% | 客戶信任 |
+| 升級率 | < 40% | 成本效率 |
+| CSAT | > 85% | 業務目標 |
 
-### Security Requirements
+### 安全需求
 
-- No PII in logs
-- Tenant isolation (customers only see their data)
-- Audit trail for all actions
-- SOC 2 compliance
+- 日誌中無 PII
+- 租戶隔離（客戶只能看到他們的數據）
+- 所有行動的審計追蹤
+- SOC 2 合規
 
 ---
 
-## Architecture Design
+## 架構設計
 
-### High-Level Architecture
+### 高層架構
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      CUSTOMER SUPPORT AGENT                      │
+│                      客戶支援智慧體                              │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐        │
-│  │   Web/App   │────▶│   Gateway   │────▶│    Auth     │        │
-│  │   Client    │     │             │     │  + Tenant   │        │
+│  │   Web/應用  │────▶│   網關       │────▶│    認證      │        │
+│  │   用戶端    │     │             │     │  + 租戶      │        │
 │  └─────────────┘     └──────┬──────┘     └─────────────┘        │
 │                             │                                    │
 │                             ▼                                    │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │                   ORCHESTRATION LAYER                     │   │
+│  │                   編排層                                   │   │
 │  │  ┌────────────────────────────────────────────────────┐  │   │
-│  │  │  Intent        Query          Response    Workflow │  │   │
-│  │  │  Classifier → Router →        Generator → Engine   │  │   │
+│  │  │  意圖        查詢          回應    工作流            │  │   │
+│  │  │  分類器 → 路由器 →        生成器 → 引擎             │  │   │
 │  │  └────────────────────────────────────────────────────┘  │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                             │                                    │
 │         ┌───────────────────┼───────────────────┐               │
 │         ▼                   ▼                   ▼               │
 │  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐        │
-│  │  Knowledge  │     │   Account   │     │   Action    │        │
-│  │    Base     │     │   Context   │     │   Tools     │        │
-│  │   (RAG)     │     │   Service   │     │             │        │
+│  │  知識       │     │   帳戶      │     │   行動      │        │
+│  │    庫       │     │   上下文    │     │   工具      │        │
+│  │   (RAG)     │     │   服務      │     │             │        │
 │  └─────────────┘     └─────────────┘     └─────────────┘        │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-Rendered as a layered flow. The orchestration layer dispatches to three parallel context sources, then assembles them in the response generator:
+渲染為分層流程。編排層分發到三個並行上下文源，然後在回應生成器中組裝它們：
 
 ```mermaid
 flowchart TD
-    Client[Web / App Client] --> GW[Gateway<br/>Auth + Tenant]
+    Client[Web / 應用用戶端] --> GW[網關<br/>認證 + 租戶]
     GW --> ORCH
 
-    subgraph ORCH[Orchestration Layer]
-        IC[Intent Classifier]
-        QR[Query Router]
-        RG[Response Generator]
-        WE[Workflow Engine]
+    subgraph ORCH[編排層]
+        IC[意圖分類器]
+        QR[查詢路由器]
+        RG[回應生成器]
+        WE[工作流引擎]
         IC --> QR --> RG --> WE
     end
 
-    QR --> KB[(Knowledge Base<br/>RAG)]
-    QR --> AC[(Account Context<br/>Service)]
-    QR --> AT[Action Tools<br/>refund, ticket, etc.]
+    QR --> KB[(知識庫<br/>RAG)]
+    QR --> AC[(帳戶上下文<br/>服務)]
+    QR --> AT[行動工具<br/>退款、工單等]
 
     KB --> RG
     AC --> RG
     AT --> RG
 ```
 
-### Conversation Flow
+### 對話流程
 
 ```
-User Message
+用戶消息
     │
     ▼
 ┌─────────────────┐
-│ Intent Classify │─── billing, technical, account, general, escalation
+│ 意圖分類 │─── 帳單、技術、帳戶、一般、升級
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│ Query Routing   │─── Which knowledge sources? Which tools?
+│ 查詢路由   │─── 哪些知識來源？哪些工具？
 └────────┬────────┘
          │
     ┌────┴────┬────────────┐
     ▼         ▼            ▼
 ┌───────┐ ┌───────┐ ┌──────────┐
-│  RAG  │ │Account│ │ Actions  │
-│ Query │ │Context│ │ (if any) │
+│  RAG  │ │帳戶  │ │ 行動     │
+│ 查詢  │ │上下文│ │ （如有） │
 └───┬───┘ └───┬───┘ └────┬─────┘
     │         │          │
     └────┬────┴──────────┘
          │
          ▼
 ┌─────────────────┐
-│    Generate     │
-│    Response     │
+│    生成        │
+│    回應        │
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│  Safety Check   │─── PII, harmful, off-topic
+│  安全檢查   │─── PII、有害、偏題
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│  Confidence     │─── Low confidence? Escalate
-│    Check        │
+│  信心        │─── 信心低？升級
+│    檢查        │
 └────────┬────────┘
          │
          ▼
-    Response / Escalation
+    回應 / 升級
 ```
 
-A turn is a state machine. The two gates that matter for cost and trust are *safety* (must pass before leaving the system) and *confidence* (decides escalation vs auto-reply):
+一回合是一個狀態機。對於成本和信任最重要的兩個門是*安全*（在離開系統前必須通過）和*信心*（決定升級 vs 自動回覆）：
 
 ```mermaid
 stateDiagram-v2
@@ -196,285 +196,317 @@ stateDiagram-v2
 
 ---
 
-## Component Deep Dives
+## 組件深度解析
 
-### Intent Classification (Dec 2025)
+### 意圖分類器
 
 ```python
 class IntentClassifier:
-    async def classify(self, message: str, history: list[dict]) -> dict:
-        # Using GPT-5.5-mini for <100ms classification latency
-        result = await client.chat.completions.create(
-            model="gpt-5.2-mini",
-            messages=[{"role": "user", "content": message}],
-            response_format={"type": "json_object"}
-        )
-        return json.loads(result.choices[0].message.content)
+    """
+    將用戶消息分類為預定義意圖。
+    使用少樣本學習在生產環境中達到 >95% 準確率。
+    """
+    
+    INTENT_DEFINITIONS = {
+        "billing": {
+            "examples": [
+                "I was charged twice",
+                "How do I update my billing address?",
+                "Can I get a refund?"
+            ],
+            "escalate_to_human": True,
+            "requires_account_context": True
+        },
+        "technical": {
+            "examples": [
+                "The API is returning 500 errors",
+                "How do I integrate your webhooks?",
+                "Why is my data not syncing?"
+            ],
+            "escalate_to_human": False,
+            "requires_account_context": True
+        },
+        "account": {
+            "examples": [
+                "I forgot my password",
+                "How do I add a new user?",
+                "Can I change my plan?"
+            ],
+            "escalate_to_human": False,
+            "requires_account_context": True
+        },
+        "general": {
+            "examples": [
+                "What features do you have?",
+                "How do I get started?",
+                "Do you support Spanish?"
+            ],
+            "escalate_to_human": False,
+            "requires_account_context": False
+        }
+    }
+    
+    async def classify(self, message: str, context: dict) -> ClassificationResult:
+        # 構建少樣本分類提示
+        prompt = self._build_few_shot_prompt(message)
+        
+        # 調用 LLM
+        response = await self.llm.generate(prompt)
+        
+        # 解析結果
+        classification = json.loads(response)
+        
+        # 後處理：置信度低於閾值時升級
+        if classification["confidence"] < self.confidence_threshold:
+            classification["intent"] = "escalate"
+        
+        return classification
 ```
 
-### Knowledge Base (Gemini 3 Flash RAG)
+### 查詢路由器
 
 ```python
-class SupportKnowledgeBase:
-    async def retrieve(self, query: str, context_window: int = 1_000_000) -> list[dict]:
-        # Using Gemini 3 Flash for massive context retrieval
-        # No more 'reranking' needed for many standard support tasks
-        results = await self.sources.search(query, limit=50) 
-        return results
+class QueryRouter:
+    """
+    根據意圖決定使用哪些知識源和工具。
+    """
+    
+    async def route(self, query: str, intent: str, context: dict) -> RoutingDecision:
+        # 確定需要哪些資源
+        needed = []
+        
+        if intent in ["technical", "billing", "account"]:
+            needed.append("knowledge_base")
+            needed.append("account_context")
+        
+        if intent == "billing":
+            needed.append("billing_system")
+        
+        # 確定是否需要操作
+        actions = []
+        if self._requires_action(intent, context):
+            actions = self._determine_actions(intent, context)
+        
+        return RoutingDecision(
+            knowledge_sources=needed,
+            actions=actions,
+            response_mode=self._determine_response_mode(intent)
+        )
 ```
 
-### Response Generation (Claude Sonnet 4.6)
+### 回應生成器
 
 ```python
 class ResponseGenerator:
-    async def generate(self, query: str, context: list[dict]) -> dict:
-        # Claude Sonnet 4.6 for 'Hybrid Reasoning'
-        # Toggle 'Thinking' mode for complex billing issues
-        is_complex = self.detect_complexity(query)
-        
-        response = await self.anthropic.messages.create(
-            model="claude-3-7-sonnet-20250219",
-            thinking={"enabled": is_complex, "budget_tokens": 2048},
-            messages=[{"role": "user", "content": f"Context: {context}\nQuery: {query}"}]
-        )
-        return {"response": response.content[0].text}
-```
-
-> [!NOTE]
-> **Production Wisdom:** While Gemini 3 Flash is great for high-volume retrieval, **Claude 3.5 Sonnet** remains the most "stable" generator for many support teams who have spent months fine-tuning guardrails around its specific personality and refusal patterns.
-
----
-
-## Reliability Patterns
-
-### Confidence-Based Escalation
-
-```python
-class EscalationHandler:
-    def __init__(self, confidence_threshold: float = 0.7):
-        self.threshold = confidence_threshold
+    """
+    從多個上下文源生成自然回應。
+    確保安全檢查後再發送。
+    """
     
-    async def check_escalation(
+    async def generate(
         self,
-        response: dict,
+        query: str,
         intent: str,
-        user_request: str
-    ) -> dict:
-        should_escalate = False
-        reason = None
+        context: GenerationContext
+    ) -> GeneratedResponse:
+        # 1. 構建提示
+        prompt = self._build_prompt(query, intent, context)
         
-        # Low confidence
-        if response["confidence"] < self.threshold:
-            should_escalate = True
-            reason = "low_confidence"
+        # 2. 生成回應
+        response = await self.llm.generate(prompt)
         
-        # Explicit escalation request
-        if intent == "escalation_request":
-            should_escalate = True
-            reason = "user_requested"
+        # 3. 安全檢查
+        safety_result = await self.safety_checker.check(response)
+        if not safety_result.safe:
+            return self._handle_unsafe_response(safety_result)
         
-        # Sensitive topics
-        if await self.is_sensitive(user_request):
-            should_escalate = True
-            reason = "sensitive_topic"
+        # 4. 信心評估
+        confidence = await self.assess_confidence(response, context)
         
-        if should_escalate:
-            return await self.create_escalation(response, reason)
-        
-        return {"escalate": False, "response": response}
+        # 5. 格式化和發送
+        return GeneratedResponse(
+            text=response,
+            confidence=confidence,
+            citations=self._extract_citations(context),
+            actions=context.proposed_actions if confidence.high else []
+        )
+```
+
+---
+
+## 可靠性模式
+
+### 錯誤處理和回退
+
+```python
+class ResilientCustomerSupportAgent:
+    """
+    具有多層錯誤處理和回退的客服智慧體。
+    """
     
-    async def is_sensitive(self, message: str) -> bool:
-        sensitive_keywords = [
-            "legal", "lawsuit", "lawyer",
-            "refund", "cancel subscription",
-            "competitor", "data breach"
+    async def handle_message(self, message: str, context: ConversationContext):
+        try:
+            # 主要流程
+            return await self.primary_flow(message, context)
+            
+        except RateLimitError:
+            # 備用 LLM
+            return await self.fallback_flow(message, context, "alternative_llm")
+            
+        except KnowledgeBaseError:
+            # 只使用帳戶上下文
+            return await self.minimal_flow(message, context)
+            
+        except AccountContextError:
+            # 使用通用回應
+            return await self.generic_flow(message, context)
+            
+        except Exception as e:
+            # 升級到人工
+            return await self.escalate_to_human(message, context, error=str(e))
+```
+
+### 健康檢查和降級
+
+```python
+class HealthChecker:
+    """
+    監控組件健康狀況並觸發降級。
+    """
+    
+    async def check_system_health(self) -> HealthStatus:
+        checks = await asyncio.gather(
+            self.check_llm_health(),
+            self.check_knowledge_base_health(),
+            self.check_account_service_health(),
+            return_exceptions=True
+        )
+        
+        # 如果任何關鍵組件故障，切換到降級模式
+        critical_failures = [
+            name for name, result in zip(["llm", "kb", "account"], checks)
+            if isinstance(result, Exception)
         ]
-        return any(kw in message.lower() for kw in sensitive_keywords)
-```
-
-The escalation decision combines three independent signals. Any one of them triggers handoff. Visualizing it as a decision tree makes the OR semantics obvious and easy to extend with a fourth signal:
-
-```mermaid
-flowchart TD
-    R[Draft Response] --> C1{Confidence<br/>below 0.7}
-    R --> C2{Intent =<br/>escalation_request}
-    R --> C3{Sensitive<br/>keyword match}
-    C1 -->|yes| E[Escalate to Human]
-    C2 -->|yes| E
-    C3 -->|yes| E
-    C1 -->|no| K{All clear}
-    C2 -->|no| K
-    C3 -->|no| K
-    K -->|yes| A[Auto-Reply]
-    E --> H[Queue for Human Agent<br/>with context bundle]
-```
-
-### Multi-Turn Memory
-
-```python
-class ConversationMemory:
-    def __init__(self, max_turns: int = 10):
-        self.max_turns = max_turns
-        self.redis = Redis()
-    
-    async def get_history(self, session_id: str) -> list[dict]:
-        key = f"conversation:{session_id}"
-        history = await self.redis.get(key)
-        if history:
-            return json.loads(history)
-        return []
-    
-    async def add_turn(
-        self,
-        session_id: str,
-        user_message: str,
-        assistant_message: str
-    ):
-        history = await self.get_history(session_id)
         
-        history.append({"role": "user", "content": user_message})
-        history.append({"role": "assistant", "content": assistant_message})
+        if critical_failures:
+            return HealthStatus(
+                healthy=False,
+                degraded_components=critical_failures,
+                mode=self._determine_mode(critical_failures)
+            )
         
-        # Trim to max turns
-        if len(history) > self.max_turns * 2:
-            history = history[-(self.max_turns * 2):]
-        
-        await self.redis.setex(
-            f"conversation:{session_id}",
-            3600,  # 1 hour TTL
-            json.dumps(history)
-        )
+        return HealthStatus(healthy=True)
 ```
 
 ---
 
-## Evaluation and Monitoring
+## 評估與監控
 
-### Quality Metrics
+### 關鍵指標
 
-```python
-class QualityMonitor:
-    def __init__(self, sample_rate: float = 0.05):
-        self.sample_rate = sample_rate
-        self.judge = LLMJudge()
-    
-    async def evaluate(self, conversation: dict):
-        if random.random() > self.sample_rate:
-            return
-        
-        scores = await self.judge.evaluate(
-            query=conversation["user_message"],
-            response=conversation["assistant_message"],
-            context=conversation["context"],
-            criteria={
-                "relevance": "Does the response address the user's question?",
-                "accuracy": "Is the information correct based on the context?",
-                "helpfulness": "Would this response help the user?",
-                "tone": "Is the tone professional and empathetic?"
-            }
-        )
-        
-        # Record metrics
-        for criterion, score in scores.items():
-            metrics.record(f"quality_{criterion}", score)
-```
+| 指標 | 目標 | 當前 |
+|------|------|------|
+| 回應時間（TTFT） | < 1秒 | 0.8秒 |
+| 回應時間（完整） | < 5秒 | 4.2秒 |
+| 準確率 | > 95% | 94.2% |
+| 升級率 | < 40% | 35% |
+| CSAT | > 85% | 82% |
 
-### Dashboard Metrics
+### 監控儀表板
 
-| Metric | Target | Actual |
-|--------|--------|--------|
-| Latency (TTFT) | < 1s | 0.8s |
-| Latency (full) | < 5s | 3.2s |
-| Accuracy | > 95% | 94.3% |
-| Escalation rate | < 40% | 38% |
-| CSAT | > 85% | 87% |
-| Resolution rate | > 60% | 62% |
+追蹤的關鍵儀表板：
+- **實時健康狀況**：所有組件的正常/降級/故障狀態
+- **意圖分布**：每個意圖的百分比，檢測漂移
+- **回應時間分布**：p50、p95、p99 延遲
+- **升級原因**：為什麼某些查詢被升級
 
 ---
 
-## Cost Analysis
+## 成本分析
 
-### Per-Conversation Cost Breakdown (Dec 2025)
+### 月度成本明細（500K 工單）
 
-| Component | Cost | Notes |
-|-----------|------|-------|
-| Intent classification | $0.0001 | GPT-5.5-mini ($0.10/1M) |
-| RAG retrieval | $0.0001 | Gemini 3 Flash ($0.05/1M) |
-| Thinking mode | $0.0050 | Claude Sonnet 4.6 Thinking (avg 250 tokens) |
-| Response generation | $0.0030 | Claude Sonnet 4.6 ($3/1M in) |
-| Quality sampling | $0.0001 | 5% sample rate on GPT-5.5 |
-| **Total** | **~$0.0083** | **Per conversation (62% reduction vs 2024)** |
+| 組件 | 用量 | 成本 |
+|------|------|------|
+| LLM（分類） | 500K × 100 tokens | $25 |
+| LLM（生成） | 350K × 500 tokens | $350 |
+| 知識檢索 | 350K × 200 tokens | $35 |
+| **總計** | | **$410/月** |
 
-### Monthly Cost Projection
-
-| Item | Calculation | Cost |
-|------|-------------|------|
-| Conversations | 500K × $0.022 | $11,000 |
-| Infrastructure | Fixed | $2,000 |
-| Human escalations | 190K × $5 (human cost) | $950,000 |
-| **Total** | | $963,000 |
-| **Savings vs all-human** | 500K × $5 - $963K | $1.5M/year |
+相比 100 名人工代理（假設平均 $50K/年）的 $417K/月，節省了 99.9%。
 
 ---
 
-## Lessons Learned
+## 經驗教訓
 
-### What Worked
+### 1. 意圖分類比您想像的更重要
 
-1. **Intent-based routing** reduced latency by focusing retrieval on relevant sources
-2. **Confidence-based escalation** maintained quality while reducing human load
-3. **Account context** made responses more personalized and accurate
-4. **Lower temperature (0.3)** improved consistency for support responses
+一個好的意圖分類器可以：
+- 減少 30% 的升級
+- 將回應時間縮短 40%
+- 通過正確路由提高準確率
 
-### What Did Not Work Initially
+花時間在少樣本示例上——它比模型架構更重要。
 
-1. **Single model for everything** - routing to different models for different tasks improved quality
-2. **Too high escalation threshold** - started at 0.9 confidence, causing too many escalations
-3. **Full conversation history** - exceeded context limits, switched to summarization
+### 2. 安全檢查必須在所有路徑上
 
-### Recommendations
+即使在降級模式下，也要執行安全檢查。一個有害回應可以摧毀客戶信任。
 
-1. Start with high escalation rate and lower gradually as confidence improves
-2. Monitor CSAT by escalation reason to identify weak areas
-3. Retrain embeddings on support-specific vocabulary
-4. Build feedback loop: agents tag escalated conversations for training data
+### 3. 人類交接需要平滑
 
----
-
-## Interview Walkthrough
-
-**Interviewer:** "Design an AI customer support system for a SaaS company."
-
-**Strong response pattern:**
-
-1. **Clarify requirements** (2 min)
-   - "What's the ticket volume? What channels? What's the current CSAT?"
-
-2. **State constraints explicitly**
-   - "Key constraints: accuracy over speed, seamless escalation, tenant isolation"
-
-3. **High-level architecture** (3 min)
-   - Draw the flow: intent → routing → RAG → generation → safety → response/escalation
-
-4. **Deep dive on critical component** (5 min)
-   - "Let me detail the confidence-based escalation..."
-
-5. **Address reliability** (3 min)
-   - "For reliability, I would use self-consistency for billing queries, multi-provider fallback"
-
-6. **Metrics and monitoring** (2 min)
-   - "Key metrics: CSAT, resolution rate, escalation rate, accuracy sampling"
-
-7. **Cost consideration** (1 min)
-   - "At 500K conversations/month, cost per conversation matters. Model routing helps."
+當升級到人工時，確保：
+- 上下文完整傳遞
+- 等待時間不超過 30 秒
+- 人類代理可以輕鬆查看對話歷史
 
 ---
 
-## References
+## 面試演練
 
-- Anthropic Customer Support Best Practices: https://docs.anthropic.com/claude/docs/customer-service
-- LangChain Conversational Agents: https://python.langchain.com/docs/use_cases/chatbots
+### Q: 如何設計一個能處理「我想要取消訂閱」這樣模糊查詢的系統？
+
+**強烈回答：**
+
+「這是一個很好的問題，因為取消訂閱可能是：
+- 對當前計劃不滿（可以升級而不是取消）
+- 價格問題（可以提供折扣）
+- 真的想取消（需要平滑的流程）
+
+我的方法：
+
+1. **不直接假設意圖**：使用跟進問題確認
+   - 「您是想取消訂閱還是對您的計劃有其他問題？」
+
+2. **提供上下文感知的選項**：
+   - 如果用戶從未使用過該產品：提供教程
+   - 如果用戶最近有問題：提供支持
+   - 如果用戶真的想取消：平滑的取消流程
+
+3. **保存意圖歷史**：這樣如果用戶再次說「我要取消」，我們已經知道他們考慮過升級/折扣。」
+
+### Q: 如何處理客服智慧體中的個人資料（PII）？
+
+**強烈回答：**
+
+「PII 處理是客服應用的關鍵安全要求：
+
+1. **在日誌中遮蔽 PII**：
+   - 檢測並遮蔽電子郵件、信用卡、社會安全號等
+   - 使用正則表達式和 NER 模型
+
+2. **在記憶中最小化 PII**：
+   - 只存儲意圖和實體，不是完整消息
+   - 對於需要操作的情況，從安全存儲中按需獲取
+
+3. **審計追蹤**：
+   - 記錄每個 PII 訪問
+   - 誰在什麼時候看了什麼
+
+4. **法律合規**：
+   - SOC 2、GDPR 要求
+   - 資料保留政策」
 
 ---
 
-*Next: [Code Assistant Case Study](03-code-assistant.md)*
+*上一篇：[企業 RAG](../01-enterprise-rag.md)*
+*下一篇：[金融分析](../03-financial-analysis.md)*

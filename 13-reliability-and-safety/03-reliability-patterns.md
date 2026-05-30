@@ -1,47 +1,47 @@
-# Reliability Patterns
+# 可靠性模式
 
-Production LLM systems need robust reliability patterns beyond basic retry logic. This chapter covers advanced patterns for building resilient AI applications.
+生產 LLM 系統需要超越基本重試邏輯的穩健可靠性模式。本章涵蓋構建彈性 AI 應用程式的高級模式。
 
-## Table of Contents
+## 目錄
 
-- [Reliability Challenges](#reliability-challenges)
-- [Retry Patterns](#retry-patterns)
-- [Circuit Breaker](#circuit-breaker)
-- [Bulkhead Pattern](#bulkhead-pattern)
-- [Timeout Strategies](#timeout-strategies)
-- [Graceful Degradation](#graceful-degradation)
-- [Multi-Provider Failover](#multi-provider-failover)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [可靠性挑戰](#可靠性挑戰)
+- [重試模式](#重試模式)
+- [熔斷器](#熔斷器)
+- [隔離模式](#隔離模式)
+- [超時策略](#超時策略)
+- [優雅降級](#優雅降級)
+- [多提供商故障轉移](#多提供商故障轉移)
+- [面試題目](#面試題目)
+- [參考文獻](#參考文獻)
 
 ---
 
-## Reliability Challenges
+## 可靠性挑戰
 
-### LLM-Specific Failure Modes
+### LLM 特定的失敗模式
 
-| Failure Mode | Cause | Impact |
+| 失敗模式 | 原因 | 影響 |
 |--------------|-------|--------|
-| Rate limiting | Quota exceeded | Request rejection |
-| Timeouts | Long generation, network issues | Slow/failed responses |
-| Provider outage | Infrastructure issues | Complete failure |
-| Quality degradation | Model updates, load | Worse outputs |
-| Context overflow | Input too large | Request failure |
-| Malformed output | Generation errors | Parsing failures |
+| 速率限制 | 超過配額 | 請求被拒絕 |
+| 超時 | 生成時間長、網路問題 | 緩慢/失敗的響應 |
+| 提供商故障 | 基礎設施問題 | 完全失敗 |
+| 品質下降 | 模型更新、負載 | 更差的輸出 |
+| 上下文溢出 | 輸入過大 | 請求失敗 |
+| 格式錯誤輸出 | 生成錯誤 | 解析失敗 |
 
-### Reliability Targets
+### 可靠性目標
 
-| Tier | Availability | Latency p99 | Examples |
+| 等級 | 可用性 | 延遲 p99 | 範例 |
 |------|--------------|-------------|----------|
-| Critical | 99.99% | < 3s | Payment processing |
-| Standard | 99.9% | < 10s | Customer support |
-| Best effort | 99% | < 30s | Background tasks |
+| 關鍵 | 99.99% | < 3秒 | 支付處理 |
+| 標準 | 99.9% | < 10秒 | 客戶支援 |
+| 最大努力 | 99% | < 30秒 | 後台任務 |
 
 ---
 
-## Retry Patterns
+## 重試模式
 
-### Exponential Backoff with Jitter
+### 帶抖動的指數退避
 
 ```python
 import random
@@ -70,7 +70,7 @@ class RetryConfig:
             self.base_delay * (self.exponential_base ** attempt),
             self.max_delay
         )
-        # Add jitter to prevent thundering herd
+        # 添加抖動以防止雷鳴 herd
         jitter_range = delay * self.jitter
         delay += random.uniform(-jitter_range, jitter_range)
         return max(0, delay)
@@ -98,7 +98,7 @@ async def retry_with_backoff(
     raise last_exception
 ```
 
-### Retryable vs Non-Retryable Errors
+### 可重試 vs 不可重試錯誤
 
 ```python
 class LLMRetryPolicy:
@@ -125,7 +125,7 @@ class LLMRetryPolicy:
     
     @classmethod
     def get_retry_after(cls, error: Exception) -> float | None:
-        # Some rate limit errors include retry-after header
+        # 某些速率限制錯誤包含 retry-after 標頭
         if hasattr(error, "retry_after"):
             return error.retry_after
         return None
@@ -133,9 +133,9 @@ class LLMRetryPolicy:
 
 ---
 
-## Circuit Breaker
+## 熔斷器
 
-### Implementation
+### 實現
 
 ```python
 from enum import Enum
@@ -143,16 +143,16 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 class CircuitState(Enum):
-    CLOSED = "closed"      # Normal operation
-    OPEN = "open"          # Failing, reject requests
-    HALF_OPEN = "half_open"  # Testing recovery
+    CLOSED = "closed"      # 正常操作
+    OPEN = "open"          # 故障中，拒絕請求
+    HALF_OPEN = "half_open"  # 測試恢復
 
 @dataclass
 class CircuitBreakerConfig:
     failure_threshold: int = 5
     recovery_timeout: timedelta = timedelta(seconds=30)
     half_open_max_calls: int = 3
-    success_threshold: int = 2  # Successes needed to close
+    success_threshold: int = 2  # 關閉所需的成功次數
 
 class CircuitBreaker:
     def __init__(self, name: str, config: CircuitBreakerConfig):
@@ -169,14 +169,14 @@ class CircuitBreaker:
             return True
         
         if self.state == CircuitState.OPEN:
-            # Check if recovery timeout has passed
+            # 檢查恢復超時是否已過
             if self._recovery_timeout_elapsed():
                 self._transition_to_half_open()
                 return True
             return False
         
         if self.state == CircuitState.HALF_OPEN:
-            # Allow limited calls in half-open state
+            # 在半開狀態允許有限呼叫
             return self.half_open_calls < self.config.half_open_max_calls
         
         return False
@@ -218,7 +218,7 @@ class CircuitBreaker:
         return datetime.now() - self.last_failure_time >= self.config.recovery_timeout
 ```
 
-### Usage with LLM Client
+### 與 LLM 客戶端一起使用
 
 ```python
 class ResilientLLMClient:
@@ -232,7 +232,7 @@ class ResilientLLMClient:
         cb = self.circuit_breakers[provider]
         
         if not cb.can_execute():
-            raise CircuitOpenError(f"Circuit breaker open for {provider}")
+            raise CircuitOpenError(f"熔斷器為 {provider} 開啟")
         
         try:
             result = await self._call_provider(provider, prompt)
@@ -245,9 +245,9 @@ class ResilientLLMClient:
 
 ---
 
-## Bulkhead Pattern
+## 隔離模式
 
-### Isolating Resources
+### 隔離資源
 
 ```python
 import asyncio
@@ -255,7 +255,7 @@ from contextlib import asynccontextmanager
 
 class Bulkhead:
     """
-    Isolate resources to prevent cascade failures.
+    隔離資源以防止級聯故障。
     """
     
     def __init__(
@@ -270,14 +270,14 @@ class Bulkhead:
     
     @asynccontextmanager
     async def acquire(self, timeout: float = 30.0):
-        # Check queue capacity
+        # 檢查佇列容量
         if not self.queue_semaphore.locked():
             await self.queue_semaphore.acquire()
         else:
-            raise BulkheadFullError(f"Bulkhead {self.name} queue full")
+            raise BulkheadFullError(f"隔離區 {self.name} 佇列已滿")
         
         try:
-            # Wait for execution slot
+            # 等待執行槽位
             acquired = await asyncio.wait_for(
                 self.semaphore.acquire(),
                 timeout=timeout
@@ -290,12 +290,12 @@ class Bulkhead:
                 self.semaphore.release()
         except asyncio.TimeoutError:
             self.queue_semaphore.release()
-            raise BulkheadTimeoutError(f"Bulkhead {self.name} timeout")
+            raise BulkheadTimeoutError(f"隔離區 {self.name} 超時")
 
 
 class BulkheadedLLMClient:
     def __init__(self):
-        # Separate bulkheads for different workloads
+        # 為不同工作負載分離隔離區
         self.bulkheads = {
             "realtime": Bulkhead("realtime", max_concurrent=50),
             "batch": Bulkhead("batch", max_concurrent=200),
@@ -315,9 +315,9 @@ class BulkheadedLLMClient:
 
 ---
 
-## Timeout Strategies
+## 超時策略
 
-### Layered Timeouts
+### 分層超時
 
 ```python
 class TimeoutConfig:
@@ -344,16 +344,16 @@ class TimeoutManager:
             )
         except asyncio.TimeoutError:
             raise LLMTimeoutError(
-                f"Request timed out after {self.config.total_timeout}s"
+                f"請求超時，耗時 {self.config.total_timeout} 秒"
             )
 ```
 
-### Adaptive Timeouts
+### 自適應超時
 
 ```python
 class AdaptiveTimeout:
     """
-    Adjust timeouts based on observed latency.
+    基於觀察到的延遲調整超時。
     """
     
     def __init__(
@@ -372,17 +372,17 @@ class AdaptiveTimeout:
     def record_latency(self, latency: float):
         self.latencies.append(latency)
         
-        # Keep last 1000 observations
+        # 保持最近 1000 個觀察
         if len(self.latencies) > 1000:
             self.latencies = self.latencies[-1000:]
         
-        # Update timeout to percentile + buffer
+        # 更新超時為百分位 + 緩衝
         if len(self.latencies) >= 10:
             sorted_latencies = sorted(self.latencies)
             idx = int(len(sorted_latencies) * self.percentile)
             p99_latency = sorted_latencies[idx]
             
-            # Add 20% buffer
+            # 添加 20% 緩衝
             new_timeout = p99_latency * 1.2
             self.current_timeout = max(
                 self.min_timeout,
@@ -395,17 +395,17 @@ class AdaptiveTimeout:
 
 ---
 
-## Graceful Degradation
+## 優雅降級
 
-### Degradation Levels
+### 降級級別
 
 ```python
 class DegradationLevel(Enum):
-    FULL = "full"           # All features
-    REDUCED = "reduced"     # Fewer features
-    MINIMAL = "minimal"     # Core only
-    CACHED = "cached"       # Cached responses only
-    OFFLINE = "offline"     # Error message
+    FULL = "full"           # 所有功能
+    REDUCED = "reduced"     # 較少功能
+    MINIMAL = "minimal"     # 僅核心
+    CACHED = "cached"       # 僅緩存響應
+    OFFLINE = "offline"     # 錯誤消息
 
 class GracefulDegrader:
     def __init__(self):
@@ -419,45 +419,45 @@ class GracefulDegrader:
             return await self.full_pipeline(query)
         
         elif level == DegradationLevel.REDUCED:
-            # Skip expensive operations
+            # 跳過昂貴操作
             return await self.reduced_pipeline(query)
         
         elif level == DegradationLevel.MINIMAL:
-            # Simpler model, no retrieval
+            # 簡單模型，無檢索
             return await self.minimal_pipeline(query)
         
         elif level == DegradationLevel.CACHED:
-            # Only return cached responses
+            # 僅返回緩存響應
             cached = await self.cache.get_similar(query)
             if cached:
                 return cached
-            return "I'm experiencing issues. Please try again later."
+            return "我遇到問題了。請稍後再試。"
         
         else:
-            return "Service temporarily unavailable."
+            return "服務暫時不可用。"
     
     async def full_pipeline(self, query: str) -> str:
-        # RAG + frontier model + ensemble verification
+        # RAG + 前沿模型 + 集成驗證
         context = await self.retrieve(query)
         response = await self.generate(query, context, model="gpt-4o")
         verified = await self.verify(response)
         return verified
     
     async def reduced_pipeline(self, query: str) -> str:
-        # RAG + smaller model, no verification
+        # RAG + 較小模型，無驗證
         context = await self.retrieve(query)
         return await self.generate(query, context, model="gpt-4o-mini")
     
     async def minimal_pipeline(self, query: str) -> str:
-        # Direct generation with smallest model
+        # 使用最小模型直接生成
         return await self.generate(query, None, model="gpt-4o-mini")
 ```
 
 ---
 
-## Multi-Provider Failover
+## 多提供商故障轉移
 
-### Provider Manager
+### 提供商管理器
 
 ```python
 class ProviderManager:
@@ -481,7 +481,7 @@ class ProviderManager:
                 result = await provider.generate(request)
                 return result
             except RetryableError as e:
-                # Mark unhealthy but continue to next provider
+                # 標記為不健康但繼續下一個提供商
                 self.health[provider_name] = False
                 asyncio.create_task(
                     self._health_check_later(provider_name)
@@ -491,109 +491,70 @@ class ProviderManager:
         raise AllProvidersUnavailableError()
     
     async def _health_check_later(self, provider_name: str):
-        await asyncio.sleep(30)  # Wait before retrying
+        await asyncio.sleep(30)  # 等待後重試
         try:
             await self.providers[provider_name].health_check()
             self.health[provider_name] = True
         except:
-            # Schedule another check
+            # 安排另一個檢查
             asyncio.create_task(self._health_check_later(provider_name))
 ```
 
-### Request Hedging
+---
 
-```python
-class HedgedRequest:
-    """
-    Send parallel requests to multiple providers, use first response.
-    """
-    
-    def __init__(self, providers: list, hedge_delay: float = 2.0):
-        self.providers = providers
-        self.hedge_delay = hedge_delay
-    
-    async def generate(self, request: dict) -> str:
-        # Start primary request
-        tasks = [asyncio.create_task(self.providers[0].generate(request))]
-        
-        try:
-            # Wait for primary with hedge delay
-            result = await asyncio.wait_for(tasks[0], timeout=self.hedge_delay)
-            return result
-        except asyncio.TimeoutError:
-            # Primary slow, start hedged requests
-            for provider in self.providers[1:]:
-                tasks.append(asyncio.create_task(provider.generate(request)))
-            
-            # Return first successful result
-            done, pending = await asyncio.wait(
-                tasks,
-                return_when=asyncio.FIRST_COMPLETED
-            )
-            
-            # Cancel pending
-            for task in pending:
-                task.cancel()
-            
-            # Get result from completed task
-            for task in done:
-                if task.exception() is None:
-                    return task.result()
-            
-            # All failed
-            raise AllProvidersFailedError()
-```
+## 面試題目
+
+### Q：如何處理 LLM 提供商的速率限制？
+
+**強烈回答：**
+
+「處理速率限制需要多層方法：
+
+1. **預防**：實施速率限制，防止請求達到限制
+   - 客戶端速率限制
+   - 佇列管理
+   - 請求去重
+
+2. **檢測**：識別何時接近限制
+   - 監控使用量與限制的比率
+   - 追蹤 429 響應
+
+3. **響應**：當達到限制時
+   - 指數退避（使用 jitter 防止叢集效應）
+   - 切換到備用提供商
+   - 緩存響應用於重複查詢
+
+4. **長期策略**：
+   - 請求定價以鼓勵節儉使用
+   - 模型路由到更便宜的模型
+   - 回退到更簡單的流程」
+
+### Q：什麼是熔斷器模式？何時使用？
+
+**強烈回答：**
+
+「熔斷器模式防止級聯故障。當服務持續失敗時，熔斷器「打開」並立即拒絕請求，而不是讓它們排队等待並最終也失敗。
+
+工作原理：
+- **關閉**：正常操作，記錄失敗
+- **打開**：快速失敗，拒絕所有請求
+- **半開**：測試恢復，允許有限請求
+
+何時使用：
+- 當您的服務依賴多個外部 LLM 提供商時
+- 當單一提供商的問題不應影響其他提供商時
+- 當您需要保護下游系統免受上游故障影響時
+
+對於 LLM，我為每個提供商維護一個熔斷器，並在熔斷器打開時自動切換到備用。」
 
 ---
 
-## Interview Questions
+## 參考文獻
 
-### Q: How do you design for high availability in LLM systems?
-
-**Strong answer:**
-
-"I use multiple layers of reliability:
-
-**Retry with backoff:** Exponential backoff with jitter for transient failures. Important to distinguish retryable (rate limits, timeouts) from non-retryable (auth, bad request) errors.
-
-**Circuit breaker:** If a provider fails repeatedly, stop trying for a cooldown period. This prevents wasting latency on a dead provider and gives it time to recover.
-
-**Multi-provider failover:** Never depend on a single provider. I configure primary/secondary/tertiary with automatic failover. Each provider has its own circuit breaker.
-
-**Graceful degradation:** Define what happens when no providers are available. Better to return a degraded response (simpler model, cached result) than to fail completely.
-
-**Bulkheading:** Isolate different workloads. A batch processing surge should not take down real-time queries.
-
-The key insight is assuming failure. LLM APIs are less reliable than traditional APIs. Design as if the provider will go down, because it will."
-
-### Q: What is the difference between circuit breaker and retry?
-
-**Strong answer:**
-
-"They solve different problems:
-
-**Retry** handles transient failures. If a single request fails, try again. It assumes failures are independent and the next attempt may succeed.
-
-**Circuit breaker** handles systemic failures. If many requests are failing, stop trying entirely. It assumes the downstream system is unhealthy and repeated attempts waste resources and slow recovery.
-
-**How they work together:**
-1. Request fails → retry with backoff (attempt 1, 2, 3)
-2. If all retries fail → circuit breaker records failure
-3. After N failures → circuit opens, rejects requests immediately
-4. After timeout → circuit half-opens, allows limited test requests
-5. If tests succeed → circuit closes, normal operation resumes
-
-Without circuit breaker: during an outage, every request waits through all retries before failing. Latency spikes, resources exhausted.
-
-With circuit breaker: after detecting the outage, requests fail fast. System remains responsive, can fail over to alternatives."
+- Circuit Breaker Pattern: Martin Fowler
+- AWS Architecture: Reliability Patterns
+- Azure: Retry and Circuit Breaker patterns
 
 ---
 
-## References
-
-- Microsoft Resilience Patterns: https://learn.microsoft.com/en-us/azure/architecture/patterns/
-- Netflix Hystrix: https://github.com/Netflix/Hystrix
-
----
-
-*Previous: [Ensemble Methods](02-ensemble-methods.md)*
+*上一篇：[集成方法](02-ensemble-methods.md)*
