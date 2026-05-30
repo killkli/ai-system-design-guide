@@ -1,83 +1,84 @@
-# Tree-of-Thought (ToT)
+# 思維樹（ToT）
 
-Tree-of-Thought (ToT) is an advanced prompting architecture where a model explores multiple reasoning paths, evaluates them, and "backtracks" if a path leads to a dead end. It is the blueprint behind modern autonomous research agents.
+思維樹（Tree-of-Thought，ToT）是一種進階提示詞架構，模型在這裡探索多條推理路徑、評估它們，並在路徑走向死胡同時「回溯」。這是現代自主研究代理的藍圖。
 
-## Table of Contents
+## 目錄
 
-- [The Tree vs. The Chain](#tree-vs-chain)
-- [The ToT Loop: Propose, Evaluate, Search](#tot-loop)
-- [Self-Correction & Backtracking](#self-correction)
-- [MCTS and Search-as-Service](#mcts)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Tree vs. The Chain
-
-While **Chain-of-Thought** is linear (one path), **Tree-of-Thought** allows for branching.
-
-| Feature | Chain-of-Thought | Tree-of-Thought |
-|---------|------------------|-----------------|
-| **Topology** | Linear (1 path) | Branching (Multiple paths) |
-| **Logic** | Sequential | Parallel + Evaluative |
-| **Self-Correction**| Low (Commitment bias) | High (Backtracking) |
-| **Use Case** | Math, Simple Logic | Puzzle Solving, Coding Architecture, Strategic Planning |
+- [樹與鏈](#tree-vs-chain)
+- [ToT 迴圈：提議、評估、搜尋](#tot-loop)
+- [自我修正與回溯](#self-correction)
+- [MCTS 與搜尋即服務](#mcts)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## The ToT Loop: Propose, Evaluate, Search
+## 樹與鏈
 
-A ToT system consists of three modules:
-1. **Thought Proposer**: Generates 3-5 potential "next steps" for a problem.
-2. **State Evaluator**: Grades each step (e.g., "Good", "Maybe", "Impossible").
-3. **Search Algorithm**: (BFS or DFS) to decide which branch to explore next.
+**思維鏈**是線性的（一條路徑），而**思維樹**允許分支。
+
+| 特徵 | 思維鏈 | 思維樹 |
+|------|--------|--------|
+| **拓撲** | 線性（1 條路徑） | 分支（多條路徑） |
+| **邏輯** | 依序 | 平行 + 評估式 |
+| **自我修正** | 低（承諾偏誤） | 高（回溯） |
+| **使用場景** | 數學、簡單邏輯 | 謎題解決、程式架構、策略規劃 |
+
+---
+
+## ToT 迴圈：提議、評估、搜尋
+
+ToT 系統由三個模組組成：
+1. **思維提議者**：為問題生成 3-5 個潛在「下一步」。
+2. **狀態評估器**：為每個步驟評分（例如「好」、「可能」、「不可能」）。
+3. **搜尋演算法**：（BFS 或 DFS）決定下一步探索哪個分支。
 
 ```python
-# The ToT logic (Simplified):
-For each branch:
+# ToT 邏輯（簡化版）：
+for each branch:
    Score = Evaluate(branch)
-   If Score < Threshold:
-      Prune branch (Backtrack)
-   Else:
+   if Score < Threshold:
+      Prune branch (回溯)
+   else:
       Continue exploring
 ```
 
 ---
 
-## Self-Correction & Backtracking
+## 自我修正與回溯
 
-ToT is specifically designed to overcome **Hallucination Cascades**. 
-In a linear chain, if the model makes a mistake in Step 1, every subsequent step is likely wrong. In ToT, the "Evaluator" (which can be a different model or a rule-based check) catches the error at Step 1 and forces the model to try a different starting point.
-
----
-
-## MCTS and Search-as-Service
-
-ToT has evolved into **Monte Carlo Tree Search (MCTS)** for LLMs.
-- **Search-time Compute Scaling**: Instead of one large prompt, we use 100 small prompts to "search" for the best answer.
-- **RAD-T (Reasoning-as-Data-Tree)**: Specialized "Searcher" models (Gemini 3.1 Pro Deep Think, GPT-5.5 extended thinking, Claude Opus 4.7) are natively trained to manage these branches.
+ToT 專門設計用來克服**幻覺級聯**。
+在線性鏈中，若模型在第 1 步犯錯，每個後續步驟都可能錯誤。在 ToT 中，「評估器」（可以是不同模型或基於規則的檢查）在第 1 步捕捉錯誤，強制模型嘗試不同的起點。
 
 ---
 
-## Interview Questions
+## MCTS 與搜尋即服務
 
-### Q: When is ToT significantly better than simple CoT?
-
-**Strong answer:**
-ToT is superior when the problem has a "large search space" and requires "global consistency." For example, in a complex software refactor, a single Chain-of-Thought might start well but hit a constraint conflict 10 steps later. With ToT, the model can propose 3 different refactoring patterns, evaluate the impact of each on the codebase, and discard patterns that lead to circular dependencies before it writes any code.
-
-### Q: What is the main drawback of Tree-of-Thought in a consumer-facing app?
-
-**Strong answer:**
-The primary drawback is **Exponential Cost and Latency**. Exploring 3 branches to a depth of 5 can require 15-20 individual LLM calls. In a consumer app, this could result in a 30-second delay and a $0.50 cost for a single query. The standard mitigation is a "Hybrid Model": use ToT for high-stakes offline tasks (like generating golden datasets or security audits) and distill those results into a fast, linear model for real-time interaction.
+ToT 已演進為 LLM 的**蒙地卡羅樹搜尋（MCTS）**。
+- **搜尋時間計算擴展**：不是一個大提示詞，而是使用 100 個小提示詞來「搜尋」最佳答案。
+- **RAD-T（推理即資料樹）**：專業「搜尋者」模型（Gemini 3.1 Pro Deep Think、具延伸思考的 GPT-5.5、Claude Opus 4.7）原生訓練來管理這些分支。
 
 ---
 
-## References
+## 面試題目
+
+### Q：ToT 何時比簡單 CoT 顯著更好？
+
+**理想回答：**
+ToT 在問題有「大型搜尋空間」且需要「全局一致性」時更優。例如，在複雜的軟體重構中，單一思維鏈可能開始良好但在 10 步後遇到約束衝突。有了 ToT，模型可以提議 3 種不同的重構模式，評估每種對程式碼庫的影響，並在寫入任何程式碼之前丟棄導致循環依賴的模式。
+
+### Q：在消費者面向的應用中，思維樹的主要缺點是什麼？
+
+**理想回答：**
+主要缺點是**指數級成本和延遲**。探索 3 個分支到深度 5 可能需要 15-20 次個別 LLM 呼叫。在消費者應用中，這可能導致 30 秒延遲和單次查詢 $0.50 成本。標準緩解是「混合模型」：將 ToT 用於高風險離線任務（如生成黃金資料集或安全審計），並將結果蒸餾成快速、線性模型以供即時互動。
+
+---
+
+## 參考文獻
+
 - Yao et al. "Tree of Thoughts: Deliberate Problem Solving with Large Language Models" (2023)
-- Silver et al. "Mastering the Game of Go without Human Knowledge" (MCTS inspiration)
+- Silver et al. "Mastering the Game of Go without Human Knowledge" (MCTS 靈感)
 
 ---
 
-*Next: [Context Engineering](05-context-engineering.md)*
+*下一篇：[上下文工程](05-context-engineering.md)*
