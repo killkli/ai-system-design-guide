@@ -1,100 +1,107 @@
-# RLHF and DPO (Alignment)
+# RLHF 與 DPO（對齊）
 
-Alignment is the process of ensuring an LLM's behavior matches human values and instructions. The field has moved from traditional RLHF to more efficient and scalable methods like DPO and Online RL.
+對齊是確保 LLM 行為符合人類價值觀與指令的過程。該領域已從傳統 RLHF 演進至更高效、可擴展的方法（如 DPO 與 Online RL）。
 
-## Table of Contents
+## 目錄
 
-- [The Alignment Problem](#the-alignment-problem)
-- [RLHF: The Foundation](#rlhf-foundation)
-- [DPO: Direct Preference Optimization](#dpo)
-- [Online Alignment](#online-alignment)
-- [Alignment for Reasoning Models](#alignment-for-reasoning)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Alignment Problem
-
-Pretrained models are "knowledgeable but uncontrolled." They may:
-1. Generate harmful content (Safety).
-2. Fail to follow instructions (Instruction Following).
-3. Hallucinate wildly (Factuality).
-
-Alignment creates "Reward Models" and "Policy Updates" to steer the model.
+- [對齊問題](#對齊問題)
+- [RLHF：基礎](#rlhf基礎)
+- [DPO：直接偏好優化](#dpo直接偏好優化)
+- [線上對齊](#線上對齊)
+- [推理模型的對齊](#推理模型的對齊)
+- [面試問題](#面試問題)
+- [參考資料](#參考資料)
 
 ---
 
-## RLHF: The Foundation
+## 對齊問題
 
-Reinforcement Learning from Human Feedback (RLHF) involves three steps:
-1. **SFT**: Supervised Fine-Tuning.
-2. **Reward Model (RM)**: Train a model on `(Prompt, Winning_Response, Losing_Response)` to predict human scores.
-3. **PPO (Proximal Policy Optimization)**: Use the RM to provide a "reward signal" to the LLM via Reinforcement Learning.
+預訓練模型「有知識但不受控」。它們可能：
+1. 生成有害內容（安全性）。
+2. 未能服從指令（指令遵循）。
+3. 大量產生幻覺（事實性）。
 
-**Nuance**: Traditional RLHF is now considered too complex/unstable for most teams due to the overhead of training a separate Reward Model and the instability of PPO.
-
----
-
-## DPO: Direct Preference Optimization
-
-DPO is the industry standard. It eliminates the Reward Model.
-
-### How it Works:
-DPO uses the LLM itself as the Reward Model by mathematically deriving the optimal policy directly from preference data.
-- **Goal**: Maximize the probability of the "winning" response and minimize the "losing" response, relative to a fixed "reference model."
-
-### The Multi-Stage Alignment Pattern:
-1. **Base SFT**: 5k-10k high-quality samples.
-2. **DPO Step 1**: Alignment for instruction following.
-3. **DPO Step 2**: Alignment for safety and specific tone.
+對齊創建「獎勵模型」與「策略更新」來引導模型。
 
 ---
 
-## Online Alignment
+## RLHF：基礎
 
-**The Problem with Offline DPO**: It only learns from static data. If the model improves beyond that data, it hits a ceiling.
+從人類反饋中進行強化學習（RLHF）涉及三個步驟：
 
-**The Solution: Online DPO (or RLOO)**:
-1. The model generates 4-8 responses to a prompt.
-2. A **Judge Model** (e.g., GPT-5.5, Claude Opus 4.7) or a **Rule-based Reward** (e.g., Code Execution) ranks them in real-time.
-3. The model updates its policy immediately based on this "Online" feedback.
+1. **SFT**：監督微調。
+2. **獎勵模型（RM）**：在`(提示、獲勝回應、失敗回應)`上訓練模型，以預測人類分數。
+3. **PPO（近端策略優化）**：使用 RM 透過強化學習為 LLM 提供「獎勵信號」。
 
----
-
-## Alignment for Reasoning Models (o1/DeepSeek-R1 style)
-
-Aligning "Thinking" models requires a shift from **Response Preference** to **Process Preference**.
-
-| Feature | Standard Alignment | Reasoning Alignment |
-|---------|-------------------|---------------------|
-| Reward Target | The final answer | The **Chain of Thought (CoT)** |
-| Reward Signal | Helpful/Safe | **Correctness + Conciseness** |
-| Method | Human Ranking | Rule-based (e.g., "Did the code run?") |
-
-**Principal-level Nuance**: "Verification-based RL" is the secret to today's frontier models. Instead of humans saying what is better, we use hard verifiable outcomes (Math answers, Code test cases) as the reward signal.
+**細節**：傳統 RLHF 現在因訓練單獨獎勵模型的開銷與 PPO 的不穩定性，被認為對大多數團隊過於複雜/不穩定。
 
 ---
 
-## Interview Questions
+## DPO：直接偏好優化
 
-### Q: Why is DPO often preferred over RLHF/PPO?
+DPO 是產業標準。它消滅了獎勵模型。
 
-**Strong answer:**
-DPO is preferred primarily due to its simplicity and stability. PPO requires maintaining four models in memory (Policy, Reference, Value, and Reward), which is extremely VRAM-intensive. Furthermore, PPO is notoriously sensitive to hyperparameters and often suffers from "reward hacking" or sudden collapse. DPO treats alignment as a simple classification problem on preference pairs, making it much more robust, easier to tune, and significantly cheaper to run.
+### 如何運作：
 
-### Q: What is the risk of "Alignment Tax"?
+DPO 使用 LLM 本身作為獎勵模型，透過數學推導直接從偏好資料中得出最優策略。
+- **目標**：相對於固定「參考模型」，最大化「獲勝」回應的機率並最小化「失敗」回應的機率。
 
-**Strong answer:**
-The "Alignment Tax" refers to the decline in a model's raw capabilities (e.g., coding, creative writing, or logical reasoning) after it is aligned for safety or specific personas. Because the model is being forced to prioritize safety or adherence to a specific style, it may become "too cautious" or lose the nuance it learned during pretraining. Modern techniques like **Steerable Alignment** and **DPO-with-KL-penalty** aim to minimize this by ensuring the model's policy doesn't drift too far from the original pretrained distribution.
+### 多階段對齊模式：
+
+1. **基底 SFT**：5k-10k 高品質樣本。
+2. **DPO 第一步**：對齊指令遵循。
+3. **DPO 第二步**：對齊安全性與特定語氣。
 
 ---
 
-## References
+## 線上對齊
+
+**離線 DPO 的問題**：只能從靜態資料學習。如果模型已超越該資料，它會撞到天花板。
+
+**解決方案：線上 DPO（或 RLOO）**：
+
+1. 模型為提示生成 4-8 個回應。
+2. **裁判模型**（如 GPT-5.5、Claude Opus 4.7）或**基於規則的獎勵**（如代碼執行）即時排名。
+3. 模型基於此「線上」回饋立即更新策略。
+
+---
+
+## 推理模型的對齊
+
+對齊「思維」模型需要從**回應偏好**轉向**過程偏好**。
+
+| 特徵 | 標準對齊 | 推理對齊 |
+|---------|-------------------|----------------|
+| 獎勵目標 | 最終答案 | **思維鏈（CoT）** |
+| 獎勵信號 | 有幫助/安全 | **正確性 + 簡潔性** |
+| 方法 | 人類排名 | 基於規則（如「代碼運行了嗎？」） |
+
+**原則細節**：「基於驗證的 RL」是當今前沿模型的秘密。與其讓人類說哪個更好，不如使用硬可驗證結果（數學答案、代碼測試案例）作為獎勵信號。
+
+---
+
+## 面試問題
+
+### Q：為什麼 DPO 比 RLHF/PPO 更受青睞？
+
+**最佳答案：**
+
+DPO 主要因其簡單性與穩定性而受到青睞。PPO 需要在記憶體中維護四個模型（策略、參考、價值、獎勵），這在 VRAM 上極為耗費。此外，PPO 以對超參數極度敏感著稱，常遭受「獎勵破解」或突然崩潰。DPO 將對齊視為偏好配對上的簡單分類問題，使其更加穩健、更易於調整，且運行成本顯著較低。
+
+### Q：「對齊稅」的風險是什麼？
+
+**最佳答案：**
+
+「對齊稅」指的是模型在為安全或特定人物設定對齊後，其原始能力（如編碼、創意寫作或邏輯推理）下降。由於模型被迫優先考慮安全性或特定風格，它可能變得「過於謹慎」或失去在預訓練中學到的細微差別。**可轉向對齊（Steerable Alignment）**與**DPO-with-KL-penalty**等現代技術旨在通過確保模型策略不會偏離原始預訓練分布太遠來最小化此問題。
+
+---
+
+## 參考資料
+
 - Rafailov et al. "Direct Preference Optimization: Your Language Model is Secretly a Reward Model" (2023)
 - Schulman et al. "Proximal Policy Optimization Algorithms" (2017)
 - OpenAI. "Learning to Reason with LLMs" (2024)
 
 ---
 
-*Next: [Knowledge Distillation](05-knowledge-distillation.md)*
+*下一篇：[知識蒸餾](05-knowledge-distillation.md)*
