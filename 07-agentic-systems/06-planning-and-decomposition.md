@@ -1,90 +1,91 @@
-# Planning and Decomposition
+# 規劃與分解
 
-Planning is the "System 2" component that allows agents to solve multi-stage problems without "wandering." Production agents have moved from simple "Chain-of-Thought" to **Recursive Decomposition** and **Tree Search**, with reasoning-native models (Claude Opus 4.7, GPT-5.5 extended thinking, DeepSeek-R2) doing the heavy planning internally.
+規劃是「系統二」元件，讓代理能夠解決多階段問題而不會「遊蕩」。生產代理已從簡單的「思維鏈」演進至**遞迴分解**與**樹狀搜尋**，推理原生模型（Claude Opus 4.7、GPT-5.5 延伸思考、DeepSeek-R2）在內部執行重型規劃。
 
-## Table of Contents
+## 目錄
 
-- [The Planning Spectrum](#spectrum)
-- [Static vs. Dynamic Planning](#static-vs-dynamic)
-- [Chain-of-Thought (CoT) and o1 Reasoning](#cot)
-- [Recursive Task Decomposition](#decomposition)
-- [Tree Search (MCTS) for Agent Paths](#mcts)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Planning Spectrum
-
-| Method | Strategy | Complexity | Best For |
-|--------|----------|------------|----------|
-| **Linear** | One step at a time | Low | Simple tools |
-| **Branching** | If-Then-Else logic | Medium | Conditional flows |
-| **Hierarchical** | Master-Plan -> Sub-Plans | High | Software engineering |
-| **Search-Based** | Try multiple paths internally | Max | Scientific Research |
+- [規劃光譜](#spectrum)
+- [靜態 vs. 動態規劃](#static-vs-dynamic)
+- [思維鏈（CoT）與 o1 推理](#cot)
+- [遞迴任務分解](#decomposition)
+- [樹狀搜尋（MCTS）用於代理路徑](#mcts)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Static vs. Dynamic Planning
+## 規劃光譜
 
-### Static (Plan-and-Solve)
-The agent writes a 10-step plan and follows it strictly.
-- **Pros**: High performance, easy to parallelize.
-- **Cons**: Brittle. If step 2 fails, steps 3-10 are useless.
-
-### Dynamic (Adaptive)
-The agent writes a plan, but **Re-evaluates** after every tool call.
-- **Best practice**: Use **Checkpointed Planning**. The agent is forced to "Commit" its progress to a state store after every major sub-goal to allow for recovery and "Backtracking" if the plan fails.
+| 方法 | 策略 | 複雜度 | 最適合 |
+|------|------|--------|--------|
+| **線性** | 一次一步 | 低 | 簡單工具 |
+| **分支** | If-Then-Else 邏輯 | 中 | 條件流程 |
+| **階層** | 主計畫 → 子計畫 | 高 | 軟體工程 |
+| **搜尋型** | 在內部嘗試多條路徑 | 最高 | 科學研究 |
 
 ---
 
-## CoT and o1 Reasoning
+## 靜態 vs. 動態規劃
 
-The model's internal "Thinking" window (Inference scaling) acts as a **Hidden Planner**.
-- Instead of using a separate "Planner LLM," we use a reasoning model (Claude Opus 4.7, GPT-5.5 extended thinking, DeepSeek-R2) to generate a "Mental Draft."
-- This draft is translated into a **Task DAG (Directed Acyclic Graph)** that the orchestrator executes.
+### 靜態（規劃即解決）
+代理撰寫 10 步計畫並嚴格遵循。
+- **優點**：高效能、易平行化。
+- **缺點**：脆弱。若步驟 2 失敗，步驟 3-10 就沒用了。
 
----
-
-## Recursive Task Decomposition
-
-For massive tasks (e.g., "Build a full-stack app"), we use **Sub-Agent Spawning**.
-1. **Master Agent**: Decomposes "Project" into "Frontend," "Backend," and "DB."
-2. **Sub-Agents**: Each receives a "Sub-Goal" and performs its own decomposition.
-3. **Consolidation**: The Master Agent merges the results.
-
-**Critical Nuance**: Each sub-agent is given a **Minimal Context** (only what it needs) to prevent token bloat and hallucination.
+### 動態（自適應）
+代理撰寫計畫，但**在每個工具呼叫後重新評估**。
+- **最佳實踐**：使用**檢查點規劃**。代理在每個主要子目標後被迫將「進度」提交至狀態存放區，以便在計畫失敗時復原與「回溯」。
 
 ---
 
-## Tree Search (MCTS)
+## CoT 與 o1 推理
 
-For high-stakes decisions, we use **Monte Carlo Tree Search (MCTS)** within the agent loop.
-- The agent "Simulates" 10 possible tool calls.
-- A **Reward Model** (or a separate LLM prompt) scores each simulation.
-- The agent follows the path with the highest reward.
-
----
-
-## Interview Questions
-
-### Q: How do you prevent an agent from "Infinite Recursion" during task decomposition?
-
-**Strong answer:**
-We implement **Decomposition Depth Limits** (usually 3 levels) and **Granularity Checks**. Before spawning a sub-agent, we ask the Supervisor model: "Is this task small enough to be solved by a single tool call?" If yes, we execute. If no, we decompose. We also use a **Global Controller** that tracks the total "Agent Count" to prevent a recursive bomb (fork bomb) that could drain the API budget.
-
-### Q: Why is "Plan Revision" often more expensive than "Plan Generation"?
-
-**Strong answer:**
-Plan generation is a "Fresh Start." Plan revision requires **Context Re-evaluation**—the model must understand what was *already done*, why the *previous step failed*, and how to fix it without undoing previous successes. This requires a much higher "Reasoning Density." In production, we often use a larger model (e.g., Sonnet 3.7 or o1) for the **Revision** step, while using a smaller model for the initial plan generation.
+模型的內部「思考」視窗（推理擴展）作為**隱藏規劃者**。
+- 我們不使用单独的「規劃 LLM」，而是使用推理模型（Claude Opus 4.7、GPT-5.5 延伸思考、DeepSeek-R2）產生「心智草稿」。
+- 該草稿被翻譯為**任務 DAG（有向無環圖）**，由編排者執行。
 
 ---
 
-## References
-- Silver et al. "Mastering the game of Go with deep neural networks and tree search" (Applied to LLMs, 2024/2025)
-- Wang et al. "Self-Consistency Improves Chain of Thought Reasoning" (2022/2025 update)
-- LangGraph. "Multi-Agent Planning Patterns" (2025)
+## 遞迴任務分解
+
+對於大規模任務（例如「構建全端應用」），我們使用**子代理生成**。
+1. **主代理**：將「專案」分解為「前端」、「後端」與「資料庫」。
+2. **子代理**：每個接收一個「子目標」並執行自己的分解。
+3. **整合**：主代理合併結果。
+
+**關鍵細微差別**：每個子代理被給予**最小上下文**（僅所需內容），以防止 token 膨脹與幻覺。
 
 ---
 
-*Next: [Error Handling and Recovery](07-error-handling-and-recovery.md)*
+## 樹狀搜尋（MCTS）用於代理路徑
+
+對於高風險決策，我們在代理迴圈中使用**蒙地卡羅樹搜尋（MCTS）**。
+- 代理「模擬」10 個可能的工具呼叫。
+- **獎勵模型**（或单独 LLM 提示）為每個模擬評分。
+- 代理遵循具有最高獎勵的路徑。
+
+---
+
+## 面試問題
+
+### Q：如何在任務分解期間防止代理「無限遞迴」？
+
+**理想回答：**
+我們實施**分解深度限制**（通常為 3 層）與**粒度檢查**。在生成子代理前，我們詢問監督者模型：「這個任務小到可以由單一工具呼叫解決了嗎？」如果是，就執行。如果不是，就分解。我們還使用**全域控制器**追蹤總「代理數量」，以防止可能耗盡 API 預算的遞迴炸彈（fork bomb）。
+
+### Q：為什麼「計畫修訂」通常比「計畫生成」更昂貴？
+
+**理想回答：**
+計畫生成是「重新開始」。計畫修訂需要**上下文重新評估**——模型必須理解*已經做了什麼*、*之前的步驟為何失敗*，以及如何在不撤銷先前成功的情況下修復它。這需要更高的「推理密度」。在生產中，我們通常對**修訂**步驟使用較大的模型（例如 Sonnet 3.7 或 o1），而對初始計畫生成使用較小的模型。
+
+---
+
+## 參考文獻
+
+- Silver et al. 《深度神經網路與樹狀搜尋掌握圍棋》（應用於 LLM，2024/2025）
+- Wang et al. 《自我一致性改善思維鏈推理》（2022/2025 更新）
+- LangGraph. 《多代理規劃模式》（2025）
+
+---
+
+*下一篇：[錯誤處理與恢復](07-error-handling-and-recovery.md)*
