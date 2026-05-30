@@ -1,29 +1,29 @@
-# Microsoft Agent Framework, CrewAI, and the Agent SDK Landscape
+# Microsoft Agent Framework、CrewAI 和代理 SDK 景觀
 
-The multi-agent framework landscape consolidated significantly over the past year. Microsoft **retired AutoGen** and merged it with Semantic Kernel into the unified **Microsoft Agent Framework** (RC 1.0, February 2026; GA targeted Q2 2026). CrewAI matured to v1.13 with enterprise-grade features and reported use by 60%+ of Fortune 500 companies. Meanwhile, every major AI lab shipped its own agent SDK: Anthropic's Claude Agent SDK, OpenAI's Agents SDK, and Google's ADK.
+在過去一年中，多代理框架景觀顯著整合。Microsoft **讓 AutoGen 退役**並將其與 Semantic Kernel 合併為統一的 **Microsoft Agent Framework**（2026 年 2 月 RC 1.0；GA 目標 2026 年 Q2）。CrewAI 成熟到 v1.13 並具有企業級功能，報告稱 60%+ 的財富 500 強公司使用它。同時，每個主要 AI 實驗室都發布了自己的代理 SDK：Anthropic 的 Claude Agent SDK、OpenAI 的 Agents SDK 和 Google 的 ADK。
 
-## Table of Contents
+## 目錄
 
-- [CrewAI: The Manager Perspective](#crewai)
-- [Microsoft Agent Framework (AutoGen's Successor)](#microsoft-agent-framework)
-- [The Agent SDK Landscape](#agent-sdk-landscape)
-- [Swarms and Peer-to-Peer Communication](#swarms)
-- [Framework Comparison Matrix](#comparison)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [CrewAI：管理者視角](#crewai)
+- [Microsoft Agent Framework（AutoGen 的後續版本）](#microsoft-agent-framework)
+- [代理 SDK 景觀](#agent-sdk-landscape)
+- [Swarms 和點對點通訊](#swarms)
+- [框架比較矩陣](#comparison)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## CrewAI: The Manager Perspective
+## CrewAI：管理者視角
 
-CrewAI is built around the concept of a **Process**.
-- **Role-Based Agents**: You define a "Researcher," a "Writer," and a "Manager."
-- **Tasks**: Explicit goals with specific outputs.
-- **Process Orchestration**: Sequential, Hierarchical, or Consensual (Consensus-based).
+CrewAI 圍繞**流程**概念構建。
+- **基於角色的代理**：您定義一個「研究者」、「作者」和「管理者」。
+- **任務**：具有特定輸出的明確目標。
+- **流程編排**：順序、階層或共識（基於共識）。
 
 ### CrewAI Flows
 
-CrewAI **Flows** add a **state-machine layer** on top of the classic Crew pattern:
+CrewAI **Flows** 在經典 Crew 模式之上新增了**狀態機層**：
 
 ```python
 from crewai.flow.flow import Flow, listen, start
@@ -31,165 +31,166 @@ from crewai.flow.flow import Flow, listen, start
 class ContentFlow(Flow):
     @start()
     def research_topic(self):
-        # Returns research output
+        # 返回研究輸出
         return research_crew.kickoff({"topic": self.state["topic"]})
     
     @listen(research_topic)
     def write_article(self, research):
-        # Triggered after research completes
+        # 研究完成後觸發
         return writing_crew.kickoff({"research": research})
     
     @listen(write_article)
     def publish(self, article):
-        # Final step
+        # 最後一步
         return publisher.publish(article)
 ```
 
-### CrewAI v1.13 highlights
+### CrewAI v1.13 重點
 
-CrewAI v1.13 marks a turning point toward enterprise production readiness:
+CrewAI v1.13 標誌著向企業生產就緒的轉折點：
 
-- **Enterprise SSO**: Single Sign-On fully documented for enterprise deployments
-- **RBAC Improvements**: Role-Based Access Control with a full permissions reference matrix
-- **GPT-5 Compatibility**: Fixes for OpenAI's GPT-5 and newer o-series models that dropped support for the `stop` parameter
-- **A2A Task Execution**: Agent-to-Agent dynamic task delegation in a structured, deterministic manner
-- **NVIDIA NemoClaw Integration**: Infrastructure-level policy enforcement for secure enterprise deployment
-- **RuntimeState RootModel**: Unified state serialization for complex workflows
+- **企業 SSO**：企業部署的單一登入完整文件化
+- **RBAC 改進**：具有完整許可權參考矩陣的的角色型存取控制
+- **GPT-5 相容性**：針對 OpenAI 的 GPT-5 和較新的放棄 `stop` 參數支援的 o 系列模型的修復
+- **A2A 任務執行**：以結構化、確定性方式進行代理間動態任務委派
+- **NVIDIA NemoClaw 整合**：企業安全部署的基礎設施層級策略執行
+- **RuntimeState RootModel**：複雜工作流程的統一狀態序列化
 
-**Use cases**: CrewAI + Flows is the best framework for **business process automation** (content pipelines, data analysis workflows) where the structure is well-defined. CrewAI reports powering roughly 2 billion agentic executions.
+**使用案例**：CrewAI + Flows 是**業務流程自動化**（內容管線、資料分析工作流程，結構定義良好）的最佳框架。CrewAI 報告支援約 20 億次代理執行。
 
-> *Verified May 2026. Source: docs.crewai.com/en/changelog*
+> *已驗證 2026 年 5 月。來源：docs.crewai.com/en/changelog*
 
 ---
 
-## Microsoft Agent Framework (AutoGen's Successor)
+## Microsoft Agent Framework（AutoGen 的後續版本）
 
-### The Merger: AutoGen + Semantic Kernel = Agent Framework
+### 合併：AutoGen + Semantic Kernel = Agent Framework
 
-Microsoft retired AutoGen as a standalone product in late 2025 and merged it with Semantic Kernel into the unified **Microsoft Agent Framework**. Release Candidate 1.0 shipped in February 2026, with GA targeted for Q2 2026.
+Microsoft 在 2025 年底讓 AutoGen 作為獨立產品退役，並將其與 Semantic Kernel 合併為統一的 **Microsoft Agent Framework**。候選版本 1.0 於 2026 年 2 月發布，GA 目標為 2026 年 Q2。
 
-**What the merger combines:**
-- **From AutoGen**: Simple abstractions for single- and multi-agent conversation patterns (group chat, round-robin, handoffs)
-- **From Semantic Kernel**: Enterprise-grade session management, type safety, filters, telemetry, and extensive model/embedding support
+**合併內容：**
+- **來自 AutoGen**：單代理和多代理對話模式（群組聊天、輪流、移交）的簡單抽象
+- **來自 Semantic Kernel**：企業級會話管理、型別安全、過濾器、遙測和廣泛的模型/嵌入支援
 
-### Migration Path
+### 遷移路徑
 
-AutoGen continues to receive bug fixes and security patches, but **new features go exclusively into the Agent Framework**. Microsoft provides an official migration guide. If starting a new project, use the Agent Framework directly.
+AutoGen 繼續接收錯誤修正和安全修補，但**新功能僅進入 Agent Framework**。Microsoft 提供了官方遷移指南。如果開始新專案，直接使用 Agent Framework。
 
-### Key Capabilities
+### 關鍵能力
 
 ```python
-# Microsoft Agent Framework: Graph-based workflow
+# Microsoft Agent Framework：基於圖形的工作流程
 from agent_framework import Agent, Workflow, HandoffStep
 
-planner = Agent("Planner", model="gpt-5.5", system_message="Decompose tasks.")
-executor = Agent("Executor", model="gpt-5.5-mini", system_message="Execute sub-tasks.")
+planner = Agent("Planner", model="gpt-5.5", system_message="分解任務。")
+executor = Agent("Executor", model="gpt-5.5-mini", system_message="執行子任務。")
 
 workflow = Workflow(
     steps=[
         HandoffStep(from_agent=planner, to_agent=executor),
     ],
-    state_management="session",  # Built-in session persistence
+    state_management="session",  # 內建會話持久性
 )
 ```
 
-**Framework highlights:**
-- **Unified .NET and Python**: Same programming model across both languages
-- **Graph-based Workflows**: Sequential, concurrent, handoff, and group chat patterns with explicit control
-- **State Management**: Robust session-based persistence for long-running and human-in-the-loop scenarios
-- **MCP Support**: Native Model Context Protocol integration for tool access
-- **Multi-provider**: Supports OpenAI, Azure OpenAI, Anthropic, Google, and local models
+**框架重點：**
+- **統一 .NET 和 Python**：跨兩種語言的相同程式設計模型
+- **基於圖形的工作流程**：具有明確控制的順序、並發、移交和群組聊天模式
+- **狀態管理**：對長期和人在迴路中場景的強大基於會話的持久性
+- **MCP 支援**：用於工具存取的原生 Model Context Protocol 整合
+- **多提供者**：支援 OpenAI、Azure OpenAI、Anthropic、Google 和本地模型
 
-> *Verified May 2026. Source: learn.microsoft.com/en-us/agent-framework*
+> *已驗證 2026 年 5 月。來源：learn.microsoft.com/en-us/agent-framework*
 
 ---
 
-## The Agent SDK Landscape
+## 代理 SDK 景觀
 
-Every major AI lab now ships its own agent framework. The landscape as of May 2026:
+每個主要 AI 實驗室現在都發布了自己的代理框架。截至 2026 年 5 月的景觀：
 
-### Claude Agent SDK (Anthropic)
+### Claude Agent SDK（Anthropic）
 
-The Claude Agent SDK (renamed from Claude Code SDK) provides the same tools, agent loop, and context management that power Claude Code, available as a library in Python and TypeScript.
+Claude Agent SDK（從 Claude Code SDK 重新命名）提供與為 Claude Code 提供支援的相同工具、代理迴圈和上下文管理，作為 Python 和 TypeScript 中的函式庫提供。
 
-- **Built-in tools**: File reading, command execution, code editing — agents work immediately without custom tool implementation
-- **Supervisor pattern**: Hierarchical agent trees with delegation
-- **Deployment**: Supports AWS Bedrock, Google Vertex AI, and Azure
-- **As of May 2026**: Python v0.1.48+, TypeScript v0.2.71+
+- **內建工具**：檔案讀取、命令執行、程式碼編輯 — 代理無需自訂工具實現即可立即工作
+- **Supervisor 模式**：具有委派的階層代理樹
+- **部署**：支援 AWS Bedrock、Google Vertex AI 和 Azure
+- **截至 2026 年 5 月**：Python v0.1.48+、TypeScript v0.2.71+
 
 ### OpenAI Agents SDK
 
-OpenAI's lightweight framework for multi-agent workflows using native Python/TypeScript constructs:
+OpenAI 的輕量級框架，使用原生 Python/TypeScript 構造進行多代理工作流程：
 
-- **Handoff-based**: Agents delegate to each other using `Handoff(TargetAgent)` — no central supervisor needed
-- **Guardrails**: Built-in input validation and safety checks
-- **MCP integration**: Native MCP server tool support
-- **Realtime agents**: Voice agent support with gpt-realtime-1.5
+- **基於移交**：代理使用 `Handoff(TargetAgent)` 相互委派 — 無需中央監督者
+- **防護欄**：內建輸入驗證和安全檢查
+- **MCP 整合**：原生 MCP 伺服器工具支援
+- **即時代理**：使用 gpt-realtime-1.5 的語音代理支援
 
-### Google Agent Development Kit (ADK)
+### Google Agent Development Kit（ADK）
 
-Google's framework optimized for the Google ecosystem but model-agnostic:
+Google 的框架針對 Google 生態系統進行了優化，但模型無關：
 
-- **Multi-language**: Python, TypeScript, Java, Go (all at 1.0+ as of May 2026)
-- **A2A native**: Built-in Agent-to-Agent protocol support for cross-vendor orchestration
-- **Vertex AI integration**: Deploy to Agent Engine Runtime for managed hosting
-- **Graph-based**: Agent workflows modeled as directed graphs
+- **多語言**：Python、TypeScript、Java、Go（截至 2026 年 5 月全部為 1.0+）
+- **A2A 原生**：用於跨廠商編排的內建代理對代理協定支援
+- **Vertex AI 整合**：部署到 Agent Engine Runtime 以進行託管託管
+- **基於圖形**：代理工作流程建模為有向圖
 
-> *Verified May 2026.*
-
----
-
-## Swarms and P2P
-
-Both frameworks (and the broader SDK landscape) have adopted **Swarm Patterns**.
-- **The Handoff**: Instead of a central supervisor, agents "Hand off" the conversation to the most relevant expert.
-- **Example**: A "Sales Agent" realizes the user is asking a technical question and hands off the thread to the "Support Agent."
+> *已驗證 2026 年 5 月。*
 
 ---
 
-## Framework Comparison Matrix
+## Swarms 和 P2P
 
-| Feature | CrewAI | MS Agent Framework | LangGraph | Claude Agent SDK | OpenAI Agents SDK | Google ADK |
+兩個框架（以及更廣泛的 SDK 景觀）都採用了 **Swarm 模式**。
+- **移交**：不是中央監督者，代理「移交」對話到最相關的專家。
+- **範例**：「銷售代理」意識到使用者正在問技術問題，並將執行緒移交給「支援代理」。
+
+---
+
+## 框架比較矩陣
+
+| 功能 | CrewAI | MS Agent Framework | LangGraph | Claude Agent SDK | OpenAI Agents SDK | Google ADK |
 |---------|--------|-------------------|-----------|-----------------|-------------------|------------|
-| **Core Abstraction** | Task/Process/Flow | Workflow/Agent | State/Graph | Supervisor/Tools | Handoff/Agent | Agent Graph |
-| **Architecture** | Declarative + State Machine | Graph Workflows | Imperative DAG | Hierarchical Tree | Swarm Handoffs | Directed Graph |
-| **Ease of Use** | High | Medium | Low | Medium | High | Medium |
-| **Control** | Low-Medium | Medium-High | High | Medium | Low-Medium | Medium-High |
-| **Best For** | Business Automations | Enterprise .NET/Python | Complex Orchestration | Coding/Tool Agents | Quick Multi-Agent | Google Cloud AI |
-| **Multi-Language** | Python | .NET + Python | Python | Python + TS | Python + TS | Python, TS, Java, Go |
-| **MCP Support** | Yes | Yes | Via tools | Native | Yes | Yes |
-| **A2A Support** | Via extension | Planned | Via tools | No (direct) | No (direct) | Native |
+| **核心抽象** | Task/Process/Flow | Workflow/Agent | State/Graph | Supervisor/Tools | Handoff/Agent | Agent Graph |
+| **架構** | 宣告式 + 狀態機 | 圖形工作流程 | 命令式 DAG | 階層樹 | Swarm 移交 | 有向圖 |
+| **易用性** | 高 | 中 | 低 | 中 | 高 | 中 |
+| **控制** | 低-中 | 中-高 | 高 | 中 | 低-中 | 中-高 |
+| **最適合** | 業務自動化 | 企業 .NET/Python | 複雜編排 | 程式設計/工具代理 | 快速多代理 | Google Cloud AI |
+| **多語言** | Python | .NET + Python | Python | Python + TS | Python + TS | Python, TS, Java, Go |
+| **MCP 支援** | 是 | 是 | 透過工具 | 原生 | 是 | 是 |
+| **A2A 支援** | 透過擴展 | 計劃中 | 透過工具 | 否（直接） | 否（直接） | 原生 |
 
 ---
 
-## Interview Questions
+## 面試題目
 
-### Q: When would you use CrewAI instead of LangGraph?
+### Q：何時會選擇 CrewAI 而非 LangGraph？
 
-**Strong answer:**
-**Speed vs. Precision**. I use **CrewAI** when I need to stand up a team of agents for a standard process (like content generation or data analysis) very quickly. It provides high-level abstractions for "Planning" and "Cooperation" out of the box. I switch to **LangGraph** when I need **Granular Control** over every state transition, multi-turn human-in-the-loop triggers, or complex error-recovery logic that doesn't fit into the "Role-playing team" metaphor.
+**強烈回答：**
+**速度對比精確度**。當我需要非常快速地建立一個代理團隊來處理標準流程（如內容生成或資料分析）時，我使用 **CrewAI**。它為「規劃」和「合作」提供了現成的高階抽象。當我需要**細粒度控制**每個狀態轉換、多輪人在迴路觸發或不符合「角色扮演團隊」隱喻的複雜錯誤恢復邏輯時，我切換到 **LangGraph**。
 
-### Q: Microsoft retired AutoGen in favor of the Agent Framework. How does this affect existing AutoGen deployments?
+### Q：Microsoft 讓 AutoGen 退役以支持 Agent Framework。這如何影響現有 AutoGen 部署？
 
-**Strong answer:**
-AutoGen continues to receive bug fixes and security patches, so existing deployments are not immediately broken. However, **all new feature development** is in the Agent Framework. The migration path is well-documented: AutoGen's `AssistantAgent` maps to the Agent Framework's `Agent` class, `GroupChat` maps to the new `Workflow` patterns, and Semantic Kernel's enterprise features (session management, telemetry, filters) are now available natively. The key benefit of migrating is **unified .NET and Python support** and **graph-based workflows** that give explicit control over multi-agent execution paths. For new projects, start with the Agent Framework directly.
+**強烈回答：**
+AutoGen 繼續接收錯誤修正和安全修補，因此現有部署不會立即壞掉。然而，**所有新功能開發**都在 Agent Framework 中。遷移路徑有完整文件：AutoGen 的 `AssistantAgent` 對應到 Agent Framework 的 `Agent` 類別，`GroupChat` 對應到新的 `Workflow` 模式，而 Semantic Kernel 的企業功能（會話管理、遙測、過濾器）現在原生可用。遷移的關鍵好處是**統一的 .NET 和 Python 支持**以及**基於圖形的工作流程**，可對多代理執行路徑提供明確控制。對於新專案，直接從 Agent Framework 開始。
 
-### Q: How do you prevent "Infinite Loops" where agents keep talking to each other without solving the task?
+### Q：如何防止「無限迴圈」，即代理繼續相互對話而不解決任務？
 
-**Strong answer:**
-We use **Termination Conditions** and **Max Conversational Turns**. We also implement a "Critic Agent" whose only job is to detect if the conversation is stagnant. If the Critic detects circularity, it triggers a user proxy to interrupt or force-switches the group chat manager to a different reasoning path. We also monitor **Token Velocity**: if an agent pair uses 100K tokens in 2 minutes without progress, we kill the session automatically. In 2026, frameworks like the Microsoft Agent Framework and LangGraph provide built-in workflow timeouts and state checkpointing that make loop detection more systematic.
-
----
-
-## References
-- CrewAI. "The Multi-Agent Process Engine" (2025/2026, v1.13)
-- Microsoft. "Agent Framework Overview" (2026) — learn.microsoft.com/en-us/agent-framework
-- Microsoft. "AutoGen to Agent Framework Migration Guide" (2026)
-- Anthropic. "Claude Agent SDK" (2026) — platform.claude.com/docs/en/agent-sdk
-- OpenAI. "Agents SDK Documentation" (2026)
-- Google. "Agent Development Kit" (2026) — google.github.io/adk-docs
-- OpenAI Swarm. "Lightweight Multi-Agent Orchestration" (2024 tech report)
+**強烈回答：**
+我們使用**終止條件**和**最大對話輪數**。我們還實現了一個「批評者代理」，其唯一工作是檢測對話是否停滯。如果批評者檢測到循環性，它會觸發使用者代理進行中斷，或將群組聊天管理器強制切換到不同的推理路徑。我們還監控 **Token 速度**：如果一對代理在 2 分鐘內使用 100K token 而沒有進展，我們自動終止會話。在 2026 年，像 Microsoft Agent Framework 和 LangGraph 之類的框架提供了內建的工作流程超時和狀態檢查點，使迴圈檢測更加系統化。
 
 ---
 
-*Next: [Framework Selection Guide](08-framework-selection-guide.md)*
+## 參考文獻
+
+- CrewAI。〈多代理流程引擎〉（2025/2026，v1.13）
+- Microsoft。〈Agent Framework 概述〉（2026）— learn.microsoft.com/en-us/agent-framework
+- Microsoft。〈AutoGen 到 Agent Framework 遷移指南〉（2026）
+- Anthropic。〈Claude Agent SDK〉（2026）— platform.claude.com/docs/en/agent-sdk
+- OpenAI。〈Agents SDK 文件〉（2026）
+- Google。〈Agent Development Kit〉（2026）— google.github.io/adk-docs
+- OpenAI Swarm。〈輕量級多代理編排〉（2024 技術報告）
+
+---
+
+*下一篇：[框架選擇指南](08-framework-selection-guide.md)*
