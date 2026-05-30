@@ -1,680 +1,772 @@
 # 可靠性模式
 
-<<<<<<< Updated upstream
-生產 LLM 系統需要超越基本重試邏輯的穩健可靠性模式。本章涵蓋構建彈性 AI 應用程式的高級模式。
-=======
-生產 LLM 系統需要超越基本重試邏輯的強健可靠性模式。本章涵蓋用於構建彈性 AI 應用程式的進階模式。
->>>>>>> Stashed changes
+本章涵蓋用於構建可靠 LLM 系統的生產模式：重試、備用模型、斷路器、隔離、驗證和監控。
 
 ## 目錄
 
-- [可靠性挑戰](#可靠性挑戰)
-- [重試模式](#重試模式)
-<<<<<<< Updated upstream
-- [熔斷器](#熔斷器)
+- [可靠性模式地圖](#可靠性模式地圖)
+- [錯誤分類](#錯誤分類)
+- [備用模型與多重提供者](#備用模型與多重提供者)
+- [重試策略](#重試策略)
+- [斷路器模式](#斷路器模式)
 - [隔離模式](#隔離模式)
-- [超時策略](#超時策略)
-- [優雅降級](#優雅降級)
-- [多提供商故障轉移](#多提供商故障轉移)
-- [面試題目](#面試題目)
-=======
-- [斷路器](#斷路器)
-- [隔離模式](#隔離模式)
-- [超時策略](#超時策略)
-- [優雅降級](#優雅降級)
-- [多提供者故障轉移](#多提供者故障轉移)
+- [驗證模式](#驗證模式)
+- [健康檢查](#健康檢查)
+- [混沌工程](#混沌工程)
 - [面試問題](#面試問題)
->>>>>>> Stashed changes
-- [參考文獻](#參考文獻)
 
 ---
 
-## 可靠性挑戰
+## 可靠性模式地圖
 
-<<<<<<< Updated upstream
-### LLM 特定的失敗模式
-
-| 失敗模式 | 原因 | 影響 |
-|--------------|-------|--------|
-| 速率限制 | 超過配額 | 請求被拒絕 |
-| 超時 | 生成時間長、網路問題 | 緩慢/失敗的響應 |
-| 提供商故障 | 基礎設施問題 | 完全失敗 |
-| 品質下降 | 模型更新、負載 | 更差的輸出 |
-| 上下文溢出 | 輸入過大 | 請求失敗 |
-| 格式錯誤輸出 | 生成錯誤 | 解析失敗 |
-
-### 可靠性目標
-
-| 等級 | 可用性 | 延遲 p99 | 範例 |
-|------|--------------|-------------|----------|
-| 關鍵 | 99.99% | < 3秒 | 支付處理 |
-| 標準 | 99.9% | < 10秒 | 客戶支援 |
-| 最大努力 | 99% | < 30秒 | 後台任務 |
-=======
-### LLM 特有故障模式
-
-| 故障模式 | 原因 | 影響 |
-|----------|------|------|
-| 速率限制 | 超過配額 | 請求拒絕 |
-| 逾時 | 長時間生成、網路問題 | 回應緩慢/失敗 |
-| 提供者中斷 | 基礎設施問題 | 完全失敗 |
-| 品質下降 | 模型更新、負載 | 輸出變差 |
-| 上下文溢出 | 輸入太大 | 請求失敗 |
-| 格式錯誤的輸出 | 生成錯誤 | 解析失敗 |
-
-### 可靠性目標
-
-| 層級 | 可用性 | 延遲 p99 | 範例 |
-|------|--------|----------|------|
-| 關鍵 | 99.99% | < 3s | 付款處理 |
-| 標準 | 99.9% | < 10s | 客戶支援 |
-| 盡力而為 | 99% | < 30s | 背景任務 |
->>>>>>> Stashed changes
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    RELIABILITY PATTERNS                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    │
+│  │  REDUNDANCY  │    │   FAILFAST   │    │  OBSERVABILITY│   │
+│  ├──────────────┤    ├──────────────┤    ├──────────────┤    │
+│  │ Multi-provider│    │ Circuit break│    │  Health check │    │
+│  │ Fallback     │    │ Rate limit   │    │  Metrics      │    │
+│  │ Load balancer│    │ Timeout      │    │  Alerting     │    │
+│  └──────────────┘    └──────────────┘    └──────────────┘    │
+│                                                                  │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    │
+│  │  ISOLATION   │    │  VALIDATION  │    │   RETRY      │    │
+│  ├──────────────┤    ├──────────────┤    ├──────────────┤    │
+│  │ Bulkhead     │    │ Input verify │    │ Exponential  │    │
+│  │ Tenant iso.  │    │ Output check │    │ Jitter       │    │
+│  │ Sandbox      │    │ Schema valid │    │ Retry budget │    │
+│  └──────────────┘    └──────────────┘    └──────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 重試模式
+## 錯誤分類
 
-<<<<<<< Updated upstream
-### 帶抖動的指數退避
-=======
-### 指數退避與抖動
->>>>>>> Stashed changes
+### LLM 錯誤類型
 
 ```python
-import random
-import asyncio
-from typing import TypeVar, Callable
+class LLMErrorType(Enum):
+    # Transient (retry may help)
+    RATE_LIMITED = "rate_limited"           # 429
+    TIMEOUT = "timeout"                     # Request timeout
+    SERVICE_UNAVAILABLE = "unavailable"     # 503
+    SERVER_ERROR = "server_error"           # 500
+    NETWORK_ERROR = "network"               # Connection failure
+    
+    # Permanent (retry won't help)
+    AUTHENTICATION_ERROR = "auth"           # 401
+    INVALID_REQUEST = "invalid_request"     # 400
+    CONTENT_FILTERED = "content_filtered"   # Policy violation
+    CONTEXT_LENGTH = "context_too_long"     # 400
+    MODEL_NOT_FOUND = "model_not_found"     # 404
+    NOT_FOUND = "not_found"                # 404
+    
+    # Partial failure (may have partial output)
+    PARTIAL_RESPONSE = "partial"            # Stream interrupted
+    TRUNCATED = "truncated"                # Max tokens reached
 
-T = TypeVar("T")
+def classify_error(response: Response) -> LLMErrorType:
+    """Classify error to determine retry strategy."""
+    
+    if response.status == 429:
+        return LLMErrorType.RATE_LIMITED
+    elif response.status == 400:
+        if "context" in response.error.lower():
+            return LLMErrorType.CONTEXT_LENGTH
+        return LLMErrorType.INVALID_REQUEST
+    elif response.status == 401:
+        return LLMErrorType.AUTHENTICATION_ERROR
+    elif response.status >= 500:
+        return LLMErrorType.SERVER_ERROR
+    elif response.status == 503:
+        return LLMErrorType.SERVICE_UNAVAILABLE
+    elif response.timeout:
+        return LLMErrorType.TIMEOUT
+    else:
+        return LLMErrorType.UNKNOWN
+```
 
-class RetryConfig:
-    def __init__(
+### 錯誤決策樹
+
+```
+Error occurred
+    │
+    ├── Is it transient? (rate limit, timeout, server error)
+    │   └── YES → Retry with backoff
+    │
+    ├── Is it permanent? (auth, invalid request)
+    │   └── YES → Fail immediately, fix request
+    │
+    └── Is it partial? (truncated, interrupted)
+        └── YES → Attempt to use partial or retry
+```
+
+---
+
+## 備用模型與多重提供者
+
+### 多提供者客戶端
+
+```python
+class MultiProviderClient:
+    """
+    Production multi-provider implementation with fallback.
+    
+    Key principles:
+    1. Providers tried in order of preference
+    2. Each provider tracks its own health
+    3. Latency budgets prevent slow providers blocking
+    """
+    
+    def __init__(self, providers: list[Provider], default_provider: str):
+        self.providers = {p.name: p for p in providers}
+        self.default_provider = default_provider
+        self.health_tracker = HealthTracker()
+    
+    async def generate(
         self,
-        max_retries: int = 3,
-        base_delay: float = 1.0,
-        max_delay: float = 60.0,
-        exponential_base: float = 2.0,
-        jitter: float = 0.5
-    ):
-        self.max_retries = max_retries
-        self.base_delay = base_delay
-        self.max_delay = max_delay
-        self.exponential_base = exponential_base
-        self.jitter = jitter
-    
-    def get_delay(self, attempt: int) -> float:
-        delay = min(
-            self.base_delay * (self.exponential_base ** attempt),
-            self.max_delay
+        prompt: str,
+        model: str = None,
+        timeout: float = 30.0,
+        fallback_enabled: bool = True
+    ) -> GenerationResult:
+        start_time = time.time()
+        attempted_providers = []
+        
+        # Try providers in order
+        provider_order = self._get_provider_order(model)
+        
+        for provider_name in provider_order:
+            if time.time() - start_time > timeout:
+                raise TimeoutError(f"Exhausted {len(attempted_providers)} providers within {timeout}s")
+            
+            provider = self.providers[provider_name]
+            attempted_providers.append(provider_name)
+            
+            try:
+                result = await provider.generate(prompt, model=model)
+                self.health_tracker.record_success(provider_name)
+                return result
+                
+            except RateLimitError as e:
+                # Record failure, try next provider
+                self.health_tracker.record_failure(provider_name)
+                wait_time = e.retry_after or 1.0
+                await asyncio.sleep(wait_time)
+                continue
+                
+            except ServiceError as e:
+                self.health_tracker.record_failure(provider_name)
+                continue  # Try next provider
+                
+            except (AuthenticationError, InvalidRequestError) as e:
+                # Permanent errors - don't retry with another provider
+                raise
+        
+        # All providers failed
+        raise AllProvidersFailedError(
+            attempted=attempted_providers,
+            last_error=e
         )
-        # 添加抖動以防止雷鳴 herd
-        jitter_range = delay * self.jitter
-        delay += random.uniform(-jitter_range, jitter_range)
-        return max(0, delay)
-
-
-async def retry_with_backoff(
-    func: Callable[[], T],
-    config: RetryConfig,
-    retryable_exceptions: tuple = (Exception,)
-) -> T:
-    last_exception = None
     
-    for attempt in range(config.max_retries + 1):
+    def _get_provider_order(self, model: str) -> list[str]:
+        """Determine provider priority order."""
+        
+        # Check model availability
+        available = [
+            name for name, p in self.providers.items()
+            if model in p.available_models
+        ]
+        
+        # Sort by health score (prefer healthier providers)
+        scored = [
+            (name, self.health_tracker.get_score(name))
+            for name in available
+        ]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        
+        return [name for name, _ in scored]
+```
+
+### 模型路由
+
+```python
+class ModelRouter:
+    """
+    Route requests to appropriate model based on task complexity.
+    
+    Key insight: Simple queries don't need frontier models.
+    Route to cheapest sufficient model.
+    """
+    
+    COMPLEXITY_CLASSIFIER = "gpt-4o-mini"
+    
+    async def route(self, query: str) -> str:
+        complexity = await self._classify_complexity(query)
+        
+        if complexity == "simple":
+            return "gpt-4o-mini"
+        elif complexity == "medium":
+            return "claude-3.5-haiku"
+        elif complexity == "complex":
+            return "gpt-4o"
+        else:
+            return "claude-3.5-sonnet"
+    
+    async def _classify_complexity(self, query: str) -> str:
+        prompt = f"""
+Classify this query complexity: {query}
+
+Options:
+- simple: Factual Q&A, simple transformations, short responses
+- medium: Analysis, explanations, multi-step reasoning
+- complex: Creative writing, code generation, multi-document synthesis
+
+Respond with just one word.
+"""
+        result = await llm.generate(prompt)
+        return result.lower().strip()
+```
+
+---
+
+## 重試策略
+
+### 指數退避與抖動
+
+```python
+async def retry_with_backoff(
+    func: Callable,
+    max_attempts: int = 3,
+    base_delay: float = 1.0,
+    max_delay: float = 60.0,
+    jitter: bool = True
+) -> Any:
+    """
+    Exponential backoff with jitter prevents thundering herd.
+    
+    Formula: delay = min(base_delay * 2^attempt + random(0, delay/2), max_delay)
+    """
+    
+    for attempt in range(max_attempts):
         try:
             return await func()
-        except retryable_exceptions as e:
-            last_exception = e
             
-            if attempt == config.max_retries:
-                break
+        except TransientError as e:
+            if attempt == max_attempts - 1:
+                raise  # Last attempt, propagate error
             
-            delay = config.get_delay(attempt)
+            # Calculate delay
+            delay = min(base_delay * (2 ** attempt), max_delay)
+            
+            if jitter:
+                # Add jitter: ±25% of delay
+                delay = delay * (0.75 + random.random() * 0.5)
+            
+            logger.warning(
+                f"Attempt {attempt + 1} failed: {e}. "
+                f"Retrying in {delay:.2f}s"
+            )
             await asyncio.sleep(delay)
-    
-    raise last_exception
+        
+        except PermanentError:
+            raise  # Don't retry permanent errors
+
+# Usage
+result = await retry_with_backoff(
+    lambda: llm.generate(prompt),
+    max_attempts=3,
+    base_delay=2.0
+)
 ```
 
-<<<<<<< Updated upstream
-### 可重試 vs 不可重試錯誤
-=======
-### 可重試與不可重試錯誤
->>>>>>> Stashed changes
+### 重試預算追蹤
 
 ```python
-class LLMRetryPolicy:
-    RETRYABLE = [
-        RateLimitError,
-        TimeoutError,
-        ServiceUnavailableError,
-        ConnectionError
-    ]
+class RetryBudget:
+    """
+    Track retry budget per user/request to prevent runaway retry loops.
     
-    NOT_RETRYABLE = [
-        AuthenticationError,
-        InvalidRequestError,
-        ContentPolicyViolation,
-        ContextLengthExceeded
-    ]
+    Critical for:
+    - Rate limit loops (user keeps retrying 429s)
+    - Cost control (infinite retries = infinite cost)
+    """
     
-    @classmethod
-    def should_retry(cls, error: Exception) -> bool:
-        for retryable_type in cls.RETRYABLE:
-            if isinstance(error, retryable_type):
-                return True
-        return False
+    def __init__(
+        self,
+        max_retries: int = 5,
+        max_retry_cost: float = 1.00,
+        window_seconds: int = 60
+    ):
+        self.max_retries = max_retries
+        self.max_retry_cost = max_retry_cost
+        self.window = window_seconds
+        self.attempts: dict[str, list[float]] = defaultdict(list)
+        self.costs: dict[str, list[float]] = defaultdict(list)
     
-    @classmethod
-    def get_retry_after(cls, error: Exception) -> float | None:
-        # 某些速率限制錯誤包含 retry-after 標頭
-        if hasattr(error, "retry_after"):
-            return error.retry_after
-        return None
+    def can_retry(self, request_id: str, estimated_cost: float = 0.01) -> bool:
+        now = time.time()
+        
+        # Clean old entries
+        self.attempts[request_id] = [
+            t for t in self.attempts[request_id]
+            if now - t < self.window
+        ]
+        self.costs[request_id] = [
+            c for c in self.costs[request_id]
+            if now - c < self.window
+        ]
+        
+        # Check budget
+        if len(self.attempts[request_id]) >= self.max_retries:
+            return False
+        
+        if sum(self.costs[request_id]) + estimated_cost > self.max_retry_cost:
+            return False
+        
+        return True
+    
+    def record_attempt(self, request_id: str, cost: float):
+        self.attempts[request_id].append(time.time())
+        self.costs[request_id].append(cost)
 ```
 
 ---
 
-<<<<<<< Updated upstream
-## 熔斷器
+## 斷路器模式
 
-### 實現
-=======
-## 斷路器
-
-### 實作
->>>>>>> Stashed changes
+### 斷路器實現
 
 ```python
-from enum import Enum
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-
-class CircuitState(Enum):
-    CLOSED = "closed"      # 正常操作
-    OPEN = "open"          # 故障中，拒絕請求
-    HALF_OPEN = "half_open"  # 測試恢復
-
-@dataclass
-class CircuitBreakerConfig:
-    failure_threshold: int = 5
-    recovery_timeout: timedelta = timedelta(seconds=30)
-    half_open_max_calls: int = 3
-    success_threshold: int = 2  # 關閉所需的成功次數
-
 class CircuitBreaker:
-    def __init__(self, name: str, config: CircuitBreakerConfig):
-        self.name = name
-        self.config = config
-        self.state = CircuitState.CLOSED
+    """
+    Circuit breaker prevents cascading failures.
+    
+    States:
+    - CLOSED: Normal operation, requests pass through
+    - OPEN: Failures exceeded threshold, requests fail fast
+    - HALF_OPEN: Testing if service recovered
+    """
+    
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+    
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        recovery_timeout: float = 30.0,
+        success_threshold: int = 3,
+        half_open_max_calls: int = 3
+    ):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.success_threshold = success_threshold
+        self.half_open_max_calls = half_open_max_calls
+        
+        self.state = self.CLOSED
         self.failure_count = 0
         self.success_count = 0
-        self.last_failure_time: datetime | None = None
+        self.last_failure_time = None
         self.half_open_calls = 0
     
-    def can_execute(self) -> bool:
-        if self.state == CircuitState.CLOSED:
-            return True
+    async def call(self, func: Callable) -> Any:
+        # Check if circuit should transition
+        self._check_transition()
         
-        if self.state == CircuitState.OPEN:
-            # 檢查恢復超時是否已過
-            if self._recovery_timeout_elapsed():
-                self._transition_to_half_open()
-                return True
-            return False
+        if self.state == self.OPEN:
+            raise CircuitOpenError(
+                f"Circuit open. Retry after {self.recovery_timeout}s"
+            )
         
-        if self.state == CircuitState.HALF_OPEN:
-            # 在半開狀態允許有限呼叫
-            return self.half_open_calls < self.config.half_open_max_calls
-        
-        return False
-    
-    def record_success(self):
-        if self.state == CircuitState.HALF_OPEN:
-            self.success_count += 1
-            if self.success_count >= self.config.success_threshold:
-                self._transition_to_closed()
-        else:
-            self.failure_count = 0
-    
-    def record_failure(self):
-        self.failure_count += 1
-        self.last_failure_time = datetime.now()
-        
-        if self.state == CircuitState.HALF_OPEN:
-            self._transition_to_open()
-        elif self.failure_count >= self.config.failure_threshold:
-            self._transition_to_open()
-    
-    def _transition_to_open(self):
-        self.state = CircuitState.OPEN
-        self.success_count = 0
-    
-    def _transition_to_half_open(self):
-        self.state = CircuitState.HALF_OPEN
-        self.half_open_calls = 0
-        self.success_count = 0
-    
-    def _transition_to_closed(self):
-        self.state = CircuitState.CLOSED
-        self.failure_count = 0
-        self.success_count = 0
-    
-    def _recovery_timeout_elapsed(self) -> bool:
-        if self.last_failure_time is None:
-            return True
-        return datetime.now() - self.last_failure_time >= self.config.recovery_timeout
-```
-
-<<<<<<< Updated upstream
-### 與 LLM 客戶端一起使用
-=======
-### 與 LLM 用戶端一起使用
->>>>>>> Stashed changes
-
-```python
-class ResilientLLMClient:
-    def __init__(self):
-        self.circuit_breakers = {
-            "openai": CircuitBreaker("openai", CircuitBreakerConfig()),
-            "anthropic": CircuitBreaker("anthropic", CircuitBreakerConfig()),
-        }
-    
-    async def generate(self, prompt: str, provider: str = "openai") -> str:
-        cb = self.circuit_breakers[provider]
-        
-        if not cb.can_execute():
-            raise CircuitOpenError(f"熔斷器為 {provider} 開啟")
+        if self.state == self.HALF_OPEN:
+            if self.half_open_calls >= self.half_open_max_calls:
+                raise CircuitOpenError("Half-open call limit reached")
+            self.half_open_calls += 1
         
         try:
-            result = await self._call_provider(provider, prompt)
-            cb.record_success()
+            result = await func()
+            self._on_success()
             return result
-        except RetryableError as e:
-            cb.record_failure()
+        except Exception as e:
+            self._on_failure()
             raise
+    
+    def _check_transition(self):
+        if self.state == self.OPEN:
+            if time.time() - self.last_failure_time > self.recovery_timeout:
+                self.state = self.HALF_OPEN
+                self.half_open_calls = 0
+                logger.info("Circuit transitioned: OPEN -> HALF_OPEN")
+    
+    def _on_success(self):
+        self.failure_count = 0
+        
+        if self.state == self.HALF_OPEN:
+            self.success_count += 1
+            if self.success_count >= self.success_threshold:
+                self.state = self.CLOSED
+                self.success_count = 0
+                logger.info("Circuit transitioned: HALF_OPEN -> CLOSED")
+    
+    def _on_failure(self):
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        
+        if self.state == self.HALF_OPEN:
+            self.state = self.OPEN
+            logger.warning("Circuit transitioned: HALF_OPEN -> OPEN")
+        elif self.failure_count >= self.failure_threshold:
+            self.state = self.OPEN
+            logger.warning("Circuit transitioned: CLOSED -> OPEN")
+```
+
+### 生產斷路器配置
+
+```yaml
+circuit_breakers:
+  gpt-4o:
+    failure_threshold: 5      # Open after 5 failures
+    recovery_timeout: 30      # Try again after 30s
+    success_threshold: 3      # Need 3 successes to close
+    half_open_max_calls: 3    # Allow 3 test calls
+    
+  claude-3.5-sonnet:
+    failure_threshold: 3
+    recovery_timeout: 60
+    success_threshold: 2
+    half_open_max_calls: 2
+    
+  rate_limit_strategy:
+    strategy: "exponential_backoff"  # or "queue" or "drop"
+    initial_delay: 1.0
+    max_delay: 60.0
 ```
 
 ---
 
 ## 隔離模式
 
-### 隔離資源
+### 隔板模式
+
+隔離不同優先級的工作負載：
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    BULKHEAD PATTERN                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Priority Traffic:                                              │
+│  ┌──────────────────────────────────────────────────┐          │
+│  │ Pool A (max 10 concurrent)                       │          │
+│  │ - Enterprise customers                            │          │
+│  │ - Critical operations                             │          │
+│  └──────────────────────────────────────────────────┘          │
+│                                                                  │
+│  Standard Traffic:                                              │
+│  ┌──────────────────────────────────────────────────┐          │
+│  │ Pool B (max 50 concurrent)                       │          │
+│  │ - Regular customers                              │          │
+│  │ - Non-critical operations                         │          │
+│  └──────────────────────────────────────────────────┘          │
+│                                                                  │
+│  Best Effort Traffic:                                          │
+│  ┌──────────────────────────────────────────────────┐          │
+│  │ Pool C (max 100 concurrent)                      │          │
+│  │ - Analytics, batch                               │          │
+│  │ - Can be deprioritized                           │          │
+│  └──────────────────────────────────────────────────┘          │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ```python
-import asyncio
-from contextlib import asynccontextmanager
-
-class Bulkhead:
+class BulkheadExecutor:
     """
-    隔離資源以防止級聯故障。
+    Bulkhead pattern with semaphore-based concurrency control.
     """
     
-    def __init__(
-        self,
-        name: str,
-        max_concurrent: int,
-        max_queued: int = 100
-    ):
-        self.name = name
+    def __init__(self, max_concurrent: int):
         self.semaphore = asyncio.Semaphore(max_concurrent)
-        self.queue_semaphore = asyncio.Semaphore(max_queued)
+        self.active_count = 0
+        self.rejected_count = 0
     
-    @asynccontextmanager
-    async def acquire(self, timeout: float = 30.0):
-        # 檢查佇列容量
-        if not self.queue_semaphore.locked():
-            await self.queue_semaphore.acquire()
+    async def execute(self, func: Callable) -> Any:
+        if not self.semaphore.locked():
+            async with self.semaphore:
+                self.active_count += 1
+                try:
+                    return await func()
+                finally:
+                    self.active_count -= 1
         else:
-            raise BulkheadFullError(f"隔離區 {self.name} 佇列已滿")
-        
-        try:
-            # 等待執行槽位
-            acquired = await asyncio.wait_for(
-                self.semaphore.acquire(),
-                timeout=timeout
-            )
-            self.queue_semaphore.release()
-            
-            try:
-                yield
-            finally:
-                self.semaphore.release()
-        except asyncio.TimeoutError:
-            self.queue_semaphore.release()
-            raise BulkheadTimeoutError(f"隔離區 {self.name} 超時")
-
-
-class BulkheadedLLMClient:
-    def __init__(self):
-        # 為不同工作負載分離隔離區
-        self.bulkheads = {
-            "realtime": Bulkhead("realtime", max_concurrent=50),
-            "batch": Bulkhead("batch", max_concurrent=200),
-            "critical": Bulkhead("critical", max_concurrent=10)
-        }
-    
-    async def generate(
-        self,
-        prompt: str,
-        priority: str = "realtime"
-    ) -> str:
-        bulkhead = self.bulkheads[priority]
-        
-        async with bulkhead.acquire():
-            return await self._call_llm(prompt)
+            self.rejected_count += 1
+            raise RejectedExecutionError("Bulkhead pool exhausted")
 ```
 
 ---
 
-## 超時策略
+## 驗證模式
 
-### 分層超時
-
-```python
-class TimeoutConfig:
-    def __init__(
-        self,
-        connection_timeout: float = 5.0,
-        read_timeout: float = 30.0,
-        total_timeout: float = 60.0
-    ):
-        self.connection_timeout = connection_timeout
-        self.read_timeout = read_timeout
-        self.total_timeout = total_timeout
-
-
-class TimeoutManager:
-    def __init__(self, config: TimeoutConfig):
-        self.config = config
-    
-    async def execute_with_timeout(self, func, *args, **kwargs):
-        try:
-            return await asyncio.wait_for(
-                func(*args, **kwargs),
-                timeout=self.config.total_timeout
-            )
-        except asyncio.TimeoutError:
-            raise LLMTimeoutError(
-                f"請求超時，耗時 {self.config.total_timeout} 秒"
-            )
-```
-
-### 自適應超時
+### 輸出驗證
 
 ```python
-class AdaptiveTimeout:
+class OutputValidator:
     """
-    基於觀察到的延遲調整超時。
+    Validate LLM outputs before returning to users.
+    
+    Checks:
+    - Format (JSON if expected)
+    - Schema compliance
+    - Content safety
+    - Relevance to query
     """
     
-    def __init__(
+    def __init__(self):
+        self.schema_validator = SchemaValidator()
+        self.safety_checker = SafetyChecker()
+        self.relevance_checker = RelevanceChecker()
+    
+    async def validate(
         self,
-        initial_timeout: float = 30.0,
-        min_timeout: float = 10.0,
-        max_timeout: float = 120.0,
-        percentile: float = 0.99
-    ):
-        self.min_timeout = min_timeout
-        self.max_timeout = max_timeout
-        self.percentile = percentile
-        self.latencies: list[float] = []
-        self.current_timeout = initial_timeout
-    
-    def record_latency(self, latency: float):
-        self.latencies.append(latency)
+        output: str,
+        expected_format: str,
+        query: str,
+        context: list[str]
+    ) -> ValidationResult:
         
-        # 保持最近 1000 個觀察
-        if len(self.latencies) > 1000:
-            self.latencies = self.latencies[-1000:]
-        
-        # 更新超時為百分位 + 緩衝
-        if len(self.latencies) >= 10:
-            sorted_latencies = sorted(self.latencies)
-            idx = int(len(sorted_latencies) * self.percentile)
-            p99_latency = sorted_latencies[idx]
-            
-            # 添加 20% 緩衝
-            new_timeout = p99_latency * 1.2
-            self.current_timeout = max(
-                self.min_timeout,
-                min(self.max_timeout, new_timeout)
-            )
-    
-    def get_timeout(self) -> float:
-        return self.current_timeout
-```
-
----
-
-## 優雅降級
-
-<<<<<<< Updated upstream
-### 降級級別
-=======
-### 降級層級
->>>>>>> Stashed changes
-
-```python
-class DegradationLevel(Enum):
-    FULL = "full"           # 所有功能
-    REDUCED = "reduced"     # 較少功能
-    MINIMAL = "minimal"     # 僅核心
-    CACHED = "cached"       # 僅緩存響應
-    OFFLINE = "offline"     # 錯誤消息
-
-class GracefulDegrader:
-    def __init__(self):
-        self.current_level = DegradationLevel.FULL
-        self.health_checker = HealthChecker()
-    
-    async def get_response(self, query: str) -> str:
-        level = await self.health_checker.get_degradation_level()
-        
-        if level == DegradationLevel.FULL:
-            return await self.full_pipeline(query)
-        
-        elif level == DegradationLevel.REDUCED:
-            # 跳過昂貴操作
-            return await self.reduced_pipeline(query)
-        
-        elif level == DegradationLevel.MINIMAL:
-            # 簡單模型，無檢索
-            return await self.minimal_pipeline(query)
-        
-        elif level == DegradationLevel.CACHED:
-            # 僅返回緩存響應
-            cached = await self.cache.get_similar(query)
-            if cached:
-                return cached
-            return "我遇到問題了。請稍後再試。"
-        
-        else:
-            return "服務暫時不可用。"
-    
-    async def full_pipeline(self, query: str) -> str:
-        # RAG + 前沿模型 + 集成驗證
-        context = await self.retrieve(query)
-        response = await self.generate(query, context, model="gpt-4o")
-        verified = await self.verify(response)
-        return verified
-    
-    async def reduced_pipeline(self, query: str) -> str:
-        # RAG + 較小模型，無驗證
-        context = await self.retrieve(query)
-        return await self.generate(query, context, model="gpt-4o-mini")
-    
-    async def minimal_pipeline(self, query: str) -> str:
-        # 使用最小模型直接生成
-        return await self.generate(query, None, model="gpt-4o-mini")
-```
-
----
-
-<<<<<<< Updated upstream
-## 多提供商故障轉移
-
-### 提供商管理器
-=======
-## 多提供者故障轉移
-
-### 提供者管理器
->>>>>>> Stashed changes
-
-```python
-class ProviderManager:
-    def __init__(self):
-        self.providers = {
-            "primary": OpenAIProvider(),
-            "secondary": AnthropicProvider(),
-            "tertiary": GoogleProvider()
-        }
-        self.health = {name: True for name in self.providers}
-        self.priority_order = ["primary", "secondary", "tertiary"]
-    
-    async def generate(self, request: dict) -> str:
-        for provider_name in self.priority_order:
-            if not self.health[provider_name]:
-                continue
-            
-            provider = self.providers[provider_name]
-            
+        # Check format
+        if expected_format == "json":
             try:
-                result = await provider.generate(request)
-                return result
-            except RetryableError as e:
-                # 標記為不健康但繼續下一個提供商
-                self.health[provider_name] = False
-                asyncio.create_task(
-                    self._health_check_later(provider_name)
+                parsed = json.loads(output)
+            except json.JSONDecodeError as e:
+                return ValidationResult(
+                    valid=False,
+                    reason=f"Invalid JSON: {e}",
+                    should_retry=True
                 )
-                continue
         
-        raise AllProvidersUnavailableError()
-    
-    async def _health_check_later(self, provider_name: str):
-        await asyncio.sleep(30)  # 等待後重試
-        try:
-            await self.providers[provider_name].health_check()
-            self.health[provider_name] = True
-        except:
-            # 安排另一個檢查
-            asyncio.create_task(self._health_check_later(provider_name))
+        # Check schema
+        schema_result = self.schema_validator.validate(parsed)
+        if not schema_result.valid:
+            return ValidationResult(
+                valid=False,
+                reason=f"Schema violation: {schema_result.errors}",
+                should_retry=True
+            )
+        
+        # Check safety
+        safety_result = await self.safety_checker.check(output)
+        if not safety_result.safe:
+            return ValidationResult(
+                valid=False,
+                reason=f"Safety concern: {safety_result.reason}",
+                should_retry=False  # Don't retry unsafe content
+            )
+        
+        # Check relevance
+        relevance_result = await self.relevance_checker.check(query, output, context)
+        if relevance_result.score < 0.5:
+            return ValidationResult(
+                valid=False,
+                reason=f"Low relevance: {relevance_result.score}",
+                should_retry=True
+            )
+        
+        return ValidationResult(valid=True)
 ```
 
-<<<<<<< Updated upstream
----
-=======
-### 請求對沖
->>>>>>> Stashed changes
-
-## 面試題目
-
-### Q：如何處理 LLM 提供商的速率限制？
-
-**強烈回答：**
-
-「處理速率限制需要多層方法：
-
-1. **預防**：實施速率限制，防止請求達到限制
-   - 客戶端速率限制
-   - 佇列管理
-   - 請求去重
-
-2. **檢測**：識別何時接近限制
-   - 監控使用量與限制的比率
-   - 追蹤 429 響應
-
-3. **響應**：當達到限制時
-   - 指數退避（使用 jitter 防止叢集效應）
-   - 切換到備用提供商
-   - 緩存響應用於重複查詢
-
-4. **長期策略**：
-   - 請求定價以鼓勵節儉使用
-   - 模型路由到更便宜的模型
-   - 回退到更簡單的流程」
-
-### Q：什麼是熔斷器模式？何時使用？
-
-**強烈回答：**
-
-「熔斷器模式防止級聯故障。當服務持續失敗時，熔斷器「打開」並立即拒絕請求，而不是讓它們排队等待並最終也失敗。
-
-工作原理：
-- **關閉**：正常操作，記錄失敗
-- **打開**：快速失敗，拒絕所有請求
-- **半開**：測試恢復，允許有限請求
-
-何時使用：
-- 當您的服務依賴多個外部 LLM 提供商時
-- 當單一提供商的問題不應影響其他提供商時
-- 當您需要保護下游系統免受上游故障影響時
-
-對於 LLM，我為每個提供商維護一個熔斷器，並在熔斷器打開時自動切換到備用。」
-
 ---
 
-<<<<<<< Updated upstream
-## 參考文獻
+## 健康檢查
 
-- Circuit Breaker Pattern: Martin Fowler
-- AWS Architecture: Reliability Patterns
-- Azure: Retry and Circuit Breaker patterns
+### 詳細的健康檢查
+
+```python
+class LLMHealthCheck:
+    """
+    Comprehensive health check for LLM providers.
+    """
+    
+    PROBE_PROMPT = "Respond with exactly: OK"
+    EXPECTED_RESPONSE = "OK"
+    
+    async def check_provider(self, provider: Provider) -> HealthStatus:
+        start = time.time()
+        
+        try:
+            # Check latency
+            response = await provider.generate(
+                self.PROBE_PROMPT,
+                timeout=5.0
+            )
+            latency = time.time() - start
+            
+            # Verify response
+            if self.EXPECTED_RESPONSE not in response:
+                return HealthStatus(
+                    healthy=False,
+                    latency=latency,
+                    error="Unexpected response content"
+                )
+            
+            return HealthStatus(
+                healthy=True,
+                latency=latency,
+                error=None
+            )
+            
+        except TimeoutError:
+            return HealthStatus(
+                healthy=False,
+                latency=5.0,
+                error="Timeout"
+            )
+        except Exception as e:
+            return HealthStatus(
+                healthy=False,
+                latency=time.time() - start,
+                error=str(e)
+            )
+```
+
+### 健康檢查路由
+
+```python
+# Kubernetes readiness probe integration
+@app.get("/ready")
+async def readiness():
+    results = await asyncio.gather(*[
+        health_check.check_provider(p) for p in providers
+    ])
+    
+    healthy = [r for r in results if r.healthy]
+    
+    if not healthy:
+        return JSONResponse(
+            status=503,
+            content={"status": "unhealthy", "providers": results}
+        )
+    
+    return {"status": "ready", "providers": results}
+```
 
 ---
 
-*上一篇：[集成方法](02-ensemble-methods.md)*
-=======
+## 混沌工程
+
+### 故障注入
+
+```python
+class ChaosEngine:
+    """
+    Inject failures to test system resilience.
+    """
+    
+    def inject_latency(self, delay_ms: int):
+        """Test timeout handling."""
+        time.sleep(delay_ms / 1000)
+    
+    def inject_error(self, error_rate: float):
+        """Randomly inject errors."""
+        if random.random() < error_rate:
+            raise InjectedError("Chaos injection")
+    
+    def inject_rate_limit(self, provider: str):
+        """Simulate rate limiting."""
+        raise RateLimitError("Chaos injection", retry_after=1.0)
+    
+    async def run_chaos_scenario(
+        self,
+        scenario: str,
+        duration_seconds: int
+    ):
+        """Execute chaos scenario."""
+        logger.warning(f"Starting chaos scenario: {scenario}")
+        
+        start = time.time()
+        while time.time() - start < duration_seconds:
+            if scenario == "provider_down":
+                raise InjectedError("Provider chaos")
+            elif scenario == "high_latency":
+                self.inject_latency(5000)  # 5s delay
+            elif scenario == "rate_limit":
+                self.inject_rate_limit("openai")
+            
+            await asyncio.sleep(1)
+```
+
+---
+
 ## 面試問題
 
-### Q: 如何為 LLM 系統設計高可用性？
+### Q: LLM 系統的重試策略應該考慮什麼？
 
 **理想回答：**
 
-「我使用多層可靠性：
+「LLM 重試策略的關鍵考量：
 
-**帶退避的重試：** 指數退避與抖動處理瞬態故障。重要的是區分可重試（速率限制、逾時）和不可重試（認證、錯誤請求）錯誤。
+**錯誤分類：**
+- 瞬態錯誤（429、503、逾時）：應該重試
+- 永久錯誤（401、400）：不重試，直接失敗
+- 部分失敗（截斷）：取決於截斷多少
 
-**斷路器：** 如果提供者重複失敗，停止嘗試一段冷卻時間。這防止在死去的提供者上浪費延遲，並給它時間恢復。
+**退避策略：**
+- 指數退避：delay = base * 2^attempt
+- 抖動：delay *= (0.75 + random * 0.5)
+- 防止雷鳴 herd：所有客戶同時重試是最糟糕的
 
-**多提供者故障轉移：** 永遠不要依賴單一提供者。我配置主要/次要/第三順位，帶自動故障轉移。每個提供者有自己的斷路器。
+**成本控制：**
+- 重試預算：每請求最多 N 次重試
+- 成本上限：總重試成本不超過某金額
+- 時間窗口：滾動窗口內追蹤
 
-**優雅降級：** 定義當沒有提供者可用時會發生什麼。更好的做法是返回降級的回應（更簡單的模型、快取的結果），而不是完全失敗。
+**斷路器：**
+- 連續失敗 N 次後打開
+- 等待一段時間後進入半開狀態
+- 測試幾次成功後關閉
 
-**隔離：** 隔離不同的工作負載。批量處理激增不應該讓即時查詢當機。
+**我對大多數 LLM 系統使用：**
+- 最多 3 次重試，指數退避，base=1s，max=30s
+- 429 錯誤特殊處理（尊重 Retry-After header）
+- 不重試內容安全錯誤（無濟於事）」
 
-關鍵見解是假設失敗。LLM API 比傳統 API 不可靠。設計時假設提供者會當機，因為它會。」
-
-### Q: 斷路器和重試有什麼區別？
+### Q: 如何構建零當機的 LLM 服務切換？
 
 **理想回答：**
 
-「它們解決不同問題：
+「零當機切換的關鍵：
 
-**重試**處理瞬態故障。如果單一請求失敗，再試一次。它假設故障是獨立的，下一次嘗試可能成功。
+**健康追蹤：**
+- 每個提供者維護健康分數
+- 追蹤成功率、延遲、錯誤率
+- 緩慢的提供者權重降低
 
-**斷路器**處理系統性故障。如果許多請求都失敗了，完全停止嘗試。它假設下游系統不健康，重複嘗試浪費資源並減慢恢復。
+**漸進式遷移：**
+- 不要一次切換所有流量
+- 1% → 5% → 25% → 100%
+- 每個階段監控錯誤率和延遲
 
-**它們如何一起工作：**
-1. 請求失敗 → 帶退避重試（嘗試 1、2、3）
-2. 如果所有重試都失敗 → 斷路器記錄故障
-3. N 次失敗後 → 斷路器打開，立即拒絕請求
-4. 逾時後 → 斷路器半開，允許有限的測試請求
-5. 如果測試成功 → 斷路器關閉，正常操作恢復
+**預留實例：**
+- 新提供者部署後先空跑
+- 驗證輸出品質
+- 然後開始轉移流量
 
-沒有斷路器：在中斷期間，每個請求都會等待所有重試後才失敗。延遲飆升，資源耗盡。
+**快速回滾：**
+- 監控錯誤率飆升
+- 自動回滾到上一個穩定提供者
+- 設定明確的觸發條件
 
-有斷路器：在偵測到中斷後，請求快速失敗。系統保持回應，可以故障轉移到替代方案。」
+**斷路器防護：**
+- 每個提供者有自己的斷路器
+- 避免級聯故障
+- 半開狀態測試恢復
+
+核心原則：永遠不同時改變所有內容。漸進式變更、快速回滾、持續監控。」
 
 ---
 
-## 參考文獻
-
-- Microsoft Resilience Patterns: https://learn.microsoft.com/en-us/azure/architecture/patterns/
-- Netflix Hystrix: https://github.com/Netflix/Hystrix
-
----
-
-*上一篇：[集成方法](02-ensemble-methods.md)*
->>>>>>> Stashed changes
+*前一篇：[集成方法](02-ensemble-methods.md)*
