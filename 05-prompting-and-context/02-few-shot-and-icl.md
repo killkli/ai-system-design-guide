@@ -1,99 +1,100 @@
-# Few-Shot and In-Context Learning (ICL)
+# 少樣本與上下文學習（ICL）
 
-In-Context Learning (ICL) is the ability of an LLM to learn a new task simply by seeing examples in the prompt, without any weight updates. Maximizing ICL efficiency is a key lever for prompt stability.
+上下文學習（ICL）是 LLM 只需在提示詞中看到範例即可學習新任務的能力，無需任何權重更新。最大化 ICL 效率是提示詞穩定性的關鍵槓桿。
 
-## Table of Contents
+## 目錄
 
-- [The Anatomy of a Few-Shot Example](#anatomy)
-- [How many examples?](#how-many)
-- [Dynamic Example Selection](#dynamic-selection)
-- [The Importance of Labelling Nuance](#labelling)
-- [Advanced ICL: Analogy and Retraining-lite](#advanced-icl)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [少樣本範例的結構](#anatomy)
+- [應該用多少範例？](#how-many)
+- [動態範例選擇](#dynamic-selection)
+- [標籤細節的重要性](#labelling)
+- [進階 ICL：類比與輕量級重訓練](#advanced-icl)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## The Anatomy of a Few-Shot Example
+## 少樣本範例的結構
 
-A high-quality example consists of three parts:
-1. **Input**: A realistic sample of potential user data.
-2. **Reasoning (Optional)**: A short explanation of *why* the output is what it is.
-3. **Output**: The "Gold Standar" result.
+高質量範例由三部分組成：
+1. **輸入**：潛在使用者資料的實際樣本。
+2. **推理（可選）**：對輸出為何如此進行的簡短解釋。
+3. **輸出**：「黃金標準」結果。
 
 ```markdown
-User: "The weather is okay, but the flight was late."
-Reasoning: The user is neutral about the weather but negative about the service.
-Sentiment: Mixed
+User: "天氣還行，但航班延誤了。"
+Reasoning: 使用者對天氣中立，但對服務負面。
+Sentiment: 混合
 ```
 
 ---
 
-## How many examples?
+## 應該用多少範例？
 
-| Model Size | Sweet Spot | Scaling Behavior |
-|------------|------------|------------------|
-| **Small (8B)** | 5 - 10 | Gains continue until ~20 examples. |
-| **Medium (70B)**| 3 - 5 | Plateaus early; more examples increase latency. |
-| **Frontier (405B)**| 1 - 2 | Highly capable; "Instruction Following" usually suffices. |
+| 模型規模 | 甜蜜點 | 規模行為 |
+|----------|--------|----------|
+| **小型（8B）** | 5 - 10 | 在約 20 個範例前持續進步。 |
+| **中型（70B）** | 3 - 5 | 早期高原；更多範例增加延遲。 |
+| **前沿（405B）** | 1 - 2 | 高度能動；通常「指令跟隨」足矣。 |
 
-**Rule of thumb**: If you need more than 20 examples to get a stable output, your task is likely too complex for the model, or you should consider **Fine-tuning**.
-
----
-
-## Dynamic Example Selection
-
-In production RAG or Classification, don't use the same static examples for every user.
-**The Dynamic Pattern:**
-1. User provides a query.
-2. Search a "Vector DB of Gold Examples" for the 3 most **semantically similar** cases.
-3. Inject those 3 specific cases into the prompt.
-
-**Result**: Drastically higher accuracy because the model sees "local" patterns relevant to the current user.
+**經驗法則**：若需要超過 20 個範例才能獲得穩定輸出，您的任務可能對該模型太複雜，或者應該考慮**微調**。
 
 ---
 
-## The Importance of Labelling Nuance
+## 動態範例選擇
 
-Frontier models are sensitive to **Distribution Bias** in examples.
-- If you provide 5 "Positive" examples and 1 "Negative," the model will bias toward "Positive."
-- **Fix**: Always use **Label Balancing**. Ensure your few-shot examples roughly mirror the expected output distribution or are perfectly balanced (1:1).
+在生產 RAG 或分類中，不要對每個使用者使用相同的靜態範例。
+**動態模式：**
+1. 使用者提供查詢。
+2. 在「黃金範例向量資料庫」中搜索 3 個最**語意相似**的案例。
+3. 將這 3 個特定案例注入提示詞。
 
----
-
-## Advanced ICL: Analogy and "Few-Shot CoT"
-
-**Analogy Prompting**: Instead of saying "Do X," provide an analogy. 
-"Translate this code like a translator would move a poem from French to English—preserving the soul (logic) but changing the syntax."
-
-**Few-Shot CoT**: Providing 2 examples where the reasoning is explicit. This "primes" the model's attention to focus on logic rather than just mimicking the output string.
+**結果**：因為模型看到與當前使用者相關的「本地」模式，準確率大幅提升。
 
 ---
 
-## Interview Questions
+## 標籤細節的重要性
 
-### Q: Why not just provide all 50 examples we have in the prompt?
-
-**Strong answer:**
-There are three primary reasons:
-1. **Context Window Latency**: Every example adds tokens, increasing the "Prefill" time and the cost per request.
-2. **Attention Dilution**: Even with 128k context, models can "lose" specific constraints if buried under too much irrelevant data (the "lost-in-the-middle" effect).
-3. **Overfitting**: Providing too many narrow examples can cause the model to mimic the *format* of the examples too strictly, losing its general capability to handle edge cases outside that set.
-
-### Q: What is "Label Bias" in In-Context Learning?
-
-**Strong answer:**
-Label bias occurs when the model predicts a specific label more frequently simply because it appeared more often in the few-shot examples or because it appeared at the end of the list. The standard mitigations are:
-1. Shuffling the order of examples for different requests.
-2. Ensuring an equal number of positive/negative/neutral samples.
-3. Using "Permutation Testing" during prompt development to ensure the model responds to the content, not the order.
+前沿模型對範例中的**分布偏誤**敏感。
+- 若提供 5 個「正面」範例和 1 個「負面」範例，模型會偏向「正面」。
+- **修復**：始終使用**標籤平衡**。確保少樣本範例大致反映預期輸出分布，或完美平衡（1:1）。
 
 ---
 
-## References
+## 進階 ICL：類比與「少樣本 CoT」
+
+**類比提示**：不要說「做 X」，而是提供一個類比。
+「像翻譯者將詩歌從法文翻成英文那樣翻譯這段程式碼——保留靈魂（邏輯）但改變語法。」
+
+**少樣本 CoT**：提供 2 個帶有明確推理的範例。這「啟動」模型注意力聚焦在邏輯上，而不僅僅是模仿輸出字串。
+
+---
+
+## 面試題目
+
+### Q：為什麼不直接在提示詞中提供所有 50 個範例？
+
+**理想回答：**
+有三個主要原因：
+1. **上下文視窗延遲**：每個範例都增加 Token，增加「前置處理」時間和每次請求的成本。
+2. **注意力稀釋**：即使有 128k 上下文，模型如果被太多無關資料埋沒，可能會「丟失」特定約束（「中間迷失」效應）。
+3. **過擬合**：提供太多狹窄範例可能導致模型過於嚴格地模仿範例的*格式*，失去處理該集合之外邊緣案例的一般能力。
+
+### Q：什麼是上下文學習中的「標籤偏誤」？
+
+**理想回答：**
+標籤偏誤發生在模型僅因為某特定標籤在少樣本範例中出現頻率更高，或因為出現在列表末尾，就更頻繁地預測該特定標籤時。標準緩解措施包括：
+1. 為不同請求洗牌範例順序。
+2. 確保正面/負面/中性樣本數量相等。
+3. 在提示詞開發期間使用「排列測試」確保模型回應內容而非順序。
+
+---
+
+## 參考文獻
+
 - Brown et al. "Language Models are Few-Shot Learners" (2020)
 - Min et al. "Rethinking the Role of Demonstrations: What Makes In-Context Learning Work?" (2022)
 
 ---
 
-*Next: [Chain-of-Thought](03-chain-of-thought.md)*
+*下一篇：[思維鏈](03-chain-of-thought.md)*
