@@ -1,6 +1,6 @@
-# AI System Design Interview Preparation
+# AI 系統設計面試準備
 
-Interview prep for senior and staff AI engineering roles: 110+ system design questions, answer frameworks, common pitfalls, whiteboard exercises, and 2026 hiring trends.
+Interview prep for senior and staff AI engineering roles: 110+ 系統設計 questions, answer frameworks, common pitfalls, 白板演練, and 2026 hiring trends.
 
 The six files in this folder are designed to be read in order. Each builds on the last: questions teach the surface area, frameworks teach how to structure answers, pitfalls teach what kills offers, exercises rehearse the motion, behavioral covers the staff-level signal, and job-market trends cover the current hiring landscape.
 
@@ -47,20 +47,20 @@ mindmap
 
 | File | Purpose |
 |------|---------|
-| [01-question-bank.md](01-question-bank.md) | 110+ real interview questions grouped by topic, with model answers and follow-ups (through May 2026). |
-| [02-answer-frameworks.md](02-answer-frameworks.md) | Five structured answer frameworks: SPIDER for design, ETA for concepts, tradeoff analysis, debugging, STAR-L for behavioral. |
-| [03-common-pitfalls.md](03-common-pitfalls.md) | Patterns that kill staff-level offers: hand-waving on tradeoffs, missing observability, ignoring failure modes. |
+| [01-question-bank.md](01-question-bank.md) | 110+ real interview questions grouped by topic, with 標準答案 and 追問方向 (through May 2026). |
+| [02-answer-frameworks.md](02-answer-frameworks.md) | Five structured answer frameworks: SPIDER for design, ETA for concepts, tradeoff analysis, debugging, STAR-L（情境、任務、行動、結果、學習） for behavioral. |
+| [03-common-pitfalls.md](03-common-pitfalls.md) | Patterns that kill staff-level offers: hand-waving on tradeoffs, missing 可觀測性, ignoring 失敗模式. |
 | [04-whiteboard-exercises.md](04-whiteboard-exercises.md) | System design exercises with full worked solutions. The closest simulation of a real loop. |
-| [05-behavioral-for-ai-roles.md](05-behavioral-for-ai-roles.md) | Behavioral interview prep for AI-specific scenarios: model deprecations, production hallucinations, eval culture. |
-| [06-job-market-trends-2026.md](06-job-market-trends-2026.md) | Role taxonomy, comp ranges, interview process patterns, and emerging titles (FDE, AI Eval Engineer, AI Reliability Engineer, MCP Engineer). |
-| [07-faq.md](07-faq.md) | Short, direct answers to the most-asked questions about AI engineering, RAG, agents, models, eval, inference, memory, and security. Useful for quick reference and for newcomers to the field. |
+| [05-behavioral-for-ai-roles.md](05-behavioral-for-ai-roles.md) | Behavioral interview prep for AI-specific scenarios: model deprecations, 生產環境 幻覺, 評估 culture. |
+| [06-job-market-trends-2026.md](06-job-market-trends-2026.md) | Role taxonomy, comp ranges, interview process patterns, and emerging titles (FDE, AI Eval Engineer, AI Reliability Engineer, MCP（模型上下文協議） Engineer). |
+| [07-faq.md](07-faq.md) | Short, direct answers to the most-asked questions about AI engineering, RAG（檢索增強生成）, 代理, models, 評估, inference, memory, and security. Useful for quick reference and for newcomers to the field. |
 
 ## Companion Resources
 
 - [Role Transition Guide](../TRANSITION_GUIDE.md) for prepping from backend, frontend, QA, PM, or EM into AI.
 - [Recommended Courses](../COURSES.md) for foundational learning before interview prep.
 - [Glossary](../GLOSSARY.md) for quick term definitions during prep.
-- [Case Studies](../16-case-studies/) for production architectures that map directly to whiteboard prompts.
+- [Case Studies](../16-case-studies/) for 生產環境 architectures that map directly to whiteboard prompts.
 
 ## Key Takeaways
 
