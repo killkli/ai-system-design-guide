@@ -1,90 +1,91 @@
-# OCR and Layout Analysis
+# OCR 和版面分析
 
-Traditional OCR (Tesseract, specialized engines) has been largely superseded by **Native Multimodal LLMs** (Gemini 3.1 Pro, GPT-5.5, Claude Sonnet 4.6, Claude Opus 4.7). We no longer "read characters"; we "understand layouts."
+傳統 OCR（Tesseract、專業引擎）在很大程度上已被**原生多模態 LLM**（Gemini 3.1 Pro、GPT-5.5、Claude Sonnet 4.6、Claude Opus 4.7）取代。我們不再「讀取字元」；我們「理解版面」。
 
-## Table of Contents
+## 目錄
 
-- [The Shift: Traditional OCR vs. Vision-LLMs](#shift)
-- [Vision-LLM Layout Extraction](#layout-extraction)
-- [Reading Order and Logical Structure](#reading-order)
-- [Handling Low-Quality Scans and Handwriting](#quality)
-- [Cost and Latency Tradeoffs](#tradeoffs)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [轉變：傳統 OCR 對比 Vision-LLM](#shift)
+- [Vision-LLM 版面擷取](#layout-extraction)
+- [閱讀順序和邏輯結構](#reading-order)
+- [處理低品質掃描和手寫](#quality)
+- [成本和延遲權衡](#tradeoffs)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## The Shift: Traditional OCR vs. Vision-LLMs
+## 轉變：傳統 OCR 對比 Vision-LLM
 
-| Feature | Traditional OCR (Tesseract/AWS Textract) | Vision-LLMs (Gemini 3.1 Pro, GPT-5.5, Claude Opus 4.7) |
+| 功能 | 傳統 OCR（Tesseract/AWS Textract） | Vision-LLM（Gemini 3.1 Pro、GPT-5.5、Claude Opus 4.7） |
 |---------|-------------------------------------------|--------------------------------------------------------|
-| **Primary Mechanism** | Character recognition | Visual token understanding |
-| **Logic** | Point-and-line analysis | Semantic context |
-| **Reading Order** | Simple top-to-bottom | Multi-column, complex layout aware |
-| **Handwriting** | Poor | Excellent (Human-level) |
-| **Output** | Text blocks + Bounding boxes | Structured Markdown/JSON |
+| **主要機制** | 字元辨識 | 視覺 token 理解 |
+| **邏輯** | 點和線分析 | 語意上下文 |
+| **閱讀順序** | 簡單由上到下 | 多欄、複雜版面感知 |
+| **手寫** | 差 | 出色（人類水準） |
+| **輸出** | 文字區塊 + 邊界框 | 結構化 Markdown/JSON |
 
 ---
 
-## Vision-LLM Layout Extraction
+## Vision-LLM 版面擷取
 
-The standard workflow is **Screenshot-to-Markdown**.
-1. **Rasterize**: Convert PDF pages to images.
-2. **Visual Prompting**: Ask the vision model to "Transcribe the following page into GitHub-flavored Markdown, preserving tables and headers."
-3. **Structured Recovery**: Use the model's spatial awareness to rebuild the logical hierarchy.
+標準工作流程是**截圖到 Markdown**。
+1. **點陣化**：將 PDF 頁面轉換為圖像。
+2. **視覺提示**：要求視覺模型「將以下頁面轉錄為 GitHub 風格的 Markdown，保留表格和標題」。
+3. **結構化恢復**：使用模型的空間感知來重建邏輯層次結構。
 
 ---
 
-## Reading Order and Logical Structure
+## 閱讀順序和邏輯結構
 
 > [!IMPORTANT]
-> A common failure in naive RAG is breaking a paragraph across a column. 
-> Vision-LLMs solve this by "Seeing" the column gutter and correctly sequencing the text, unlike rule-based parsers that might read straight across both columns.
+> 天真 RAG 中的一個常見失敗是在欄之間打破段落。 
+> Vision-LLM 透過「看見」欄間隙並正確排序文字來解決這個問題，不像規則型解析器可能直線讀取兩欄。
 
 ---
 
-## Handling Low-Quality Scans
+## 處理低品質掃描
 
-Modern multimodal models are robust to:
-- **Skew/Rotation**: Automatically corrected in the visual attention layer.
-- **Bleed-through**: The model uses semantic context to "ignore" text from the back of the page.
-- **Handwritten Annotations**: Can be extracted into a separate `annotations` JSON field.
+現代多模態模型對以下具有穩健性：
+- **歪斜/旋轉**：在視覺注意力層自動校正。
+- **透印**：模型使用語意上下文來「忽略」頁面背面的文字。
+- **手寫註釋**：可以擷取到单独的 `annotations` JSON 欄位中。
 
 ---
 
-## Cost and Latency Tradeoffs
+## 成本和延遲權衡
 
-| Model Tier | Use Case | Latency | Cost (1K pages) |
+| 模型層級 | 使用案例 | 延遲 | 成本（1K 頁面） |
 |------------|----------|---------|-----------------|
-| **Gemini 3.1 Flash** | High-volume batch | 1-2s / page | $1-3 |
-| **GPT-5.5 / Claude Sonnet 4.6** | High-precision / Legal | 3-5s / page | $8-18 |
-| **Local (Llama 4 Vision)** | PII-sensitive / On-prem | <1s / page | Infrastructure only |
+| **Gemini 3.1 Flash** | 高容量批次 | 1-2秒/頁 | $1-3 |
+| **GPT-5.5 / Claude Sonnet 4.6** | 高精度 / 法律 | 3-5秒/頁 | $8-18 |
+| **本地（Llama 4 Vision）** | PII 敏感 / 內部部署 | <1秒/頁 | 僅基礎設施 |
 
 ---
 
-## Interview Questions
+## 面試題目
 
-### Q: Why would you still use AWS Textract or Azure AI Search (OCR) when vision LLMs exist?
+### Q：當 vision LLM 存在時，為何您仍會使用 AWS Textract 或 Azure AI Search（OCR）？
 
-**Strong answer:**
-**Strict Spatial Metadata and Compliance**. If my application needs exact pixel-level bounding boxes for every single word (e.g., for a legal redaction tool), a specialized OCR engine is often more precise and cheaper. Furthermore, OCR engines are **Deterministic**: they do not \"Hallucinate\" words that do not exist. For high-stakes document processing where 100% character accuracy is required over \"Layout understanding,\" traditional engines still hold a spot in the hybrid pipeline.
+**強烈回答：**
+**嚴格空間中繼資料和合規性**。如果我的應用程式需要每個單字的精確像素級邊界框（例如，用於法律修訂工具），專業 OCR 引擎通常更精確且更便宜。此外，OCR 引擎是**確定的**：它們不會「產生幻覺」不存在的字元。對於需要 100% 字元精度而非「版面理解」的高風險文件處理，傳統引擎在混合管線中仍有一席之地。
 
-### Q: How do you handle a 500-page PDF with Vision LLMs efficiently?
+### Q：如何使用 Vision LLM 高效處理 500 頁 PDF？
 
-**Strong answer:**
-We use a **Parallel Map-Reduce** pattern. 
-1. **Map**: We spin up 50 parallel workers (using AWS Lambda or Modal) to process 10 pages each. Each worker calls a fast Vision model (like Gemini 3 Flash) to get the Markdown.
-2. **Consolidate**: A central agent reviews the Markdown snippets to ensure header continuity.
-3. **Cache**: We store the resulting Markdown in a vector DB.
-This reduces the processing time from 30 minutes (sequential) to under 20 seconds.
-
----
-
-## References
-- Google DeepMind. "Gemini 2.0: Understanding Multi-column Documents" (2025)
-- OpenAI. "Vision Models for Document Understanding" (2025)
-- Tesseract v6. "The Integration of Hybrid Transformer OCR" (2025)
+**強烈回答：**
+我們使用**平行 Map-Reduce** 模式。
+1. **Map**：我們啟動 50 個平行工作者（使用 AWS Lambda 或 Modal）來處理每個 10 頁。每個工作者呼叫快速視覺模型（如 Gemini 3 Flash）來獲取 Markdown。
+2. **Consolidate**：中央代理審查 Markdown 片段以確保標題連續性。
+3. **Cache**：我們將 resulting Markdown 存储在向量資料庫中。
+這將處理時間從 30 分鐘（順序）減少到 20 秒以下。
 
 ---
 
-*Next: [Multimodal Parsing and Markdown Conversion](02-multimodal-parsing.md)*
+## 參考文獻
+
+- Google DeepMind。〈Gemini 2.0：理解多欄文件〉（2025）
+- OpenAI。〈用於文件理解的視覺模型〉（2025）
+- Tesseract v6。〈混合Transformer OCR 的整合〉（2025）
+
+---
+
+*下一篇：[多模態解析和 Markdown 轉換](02-multimodal-parsing.md)*
