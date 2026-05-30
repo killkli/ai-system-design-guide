@@ -1,98 +1,99 @@
-# Evaluating Agentic Systems
+# 評估代理系統
 
-Evaluating agents is fundamentally different from evaluating RAG. While RAG is about "Accuracy," Agents are about **"Reliability," "Efficiency," and "Safety."** Production agent eval relies on **Trajectory Benchmarks** and **LLM-as-Judge** for multi-step reasoning, with tools like Langfuse, LangWatch, Braintrust, and Arize Phoenix offering native trace-level scoring.
+評估代理與評估 RAG 有根本不同。RAG 關注「準確度」，而代理關注**「可靠性」、「效率」與「安全」**。生產代理評估依賴**軌跡基準**與**LLM 作為法官**進行多步驟推理，Langfuse、LangWatch、Braintrust 與 Arize Phoenix 等工具提供原生的追蹤級評分。
 
 > [!NOTE]
-> For standard RAG evaluation (Retrieval vs. Generation metrics), see [06-retrieval-systems/09-advanced-retrieval-patterns.md](../06-retrieval-systems/09-advanced-retrieval-patterns.md) and Section 14. This chapter focuses specifically on the *Execution Path* of an agent.
+> 有關標準 RAG 評估（檢索 vs. 生成指標），請見 [06-retrieval-systems/09-advanced-retrieval-patterns.md](../06-retrieval-systems/09-advanced-retrieval-patterns.md) 及第 14 章。本章專注於代理*執行路徑*的評估。
 
-## Table of Contents
+## 目錄
 
-- [The Evaluation Shift](#shift)
-- [Trajectory Benchmarks (The GOLD Standard)](#benchmarks)
-- [Key Metrics: Success, Cost, and Duration](#metrics)
-- [LLM-as-Judge for Step Quality](#judge)
-- [Production Evaluation (A/B Testing Agents)](#production)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Evaluation Shift
-
-| Metric | RAG App | Agentic App |
-|--------|---------|-------------|
-| **Unit of Eval** | Single Response | The **Trajectory** (All steps) |
-| **Success Criteria**| Groundedness/Faithfulness | Task Completion / Logical Soundness |
-| **Complexity** | Low (Text similarity) | High (Tool state validation) |
+- [評估轉變](#shift)
+- [軌跡基準（黃金標準）](#benchmarks)
+- [關鍵指標：成功率、成本與持續時間](#metrics)
+- [LLM 作為法官進行步驟品質評估](#judge)
+- [生產評估（A/B 測試代理）](#production)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Trajectory Benchmarks
+## 評估轉變
 
-Modern eval scores the **"Path to the Result."**
-1. **Optimal Path**: The shortest sequence of tools to solve the task.
-2. **Agent Path**: The actual steps taken.
-3. **The Score**: `Efficiency = (Optimal Steps / Agent Steps)`. A score of `0.2` means the agent meandered or looped excessively.
-
-**Common Benchmarks**:
-- **SWE-bench**: Fixing GitHub issues (Code Agency).
-- **WebArena**: Navigating menus and forms (Browser Agency).
-- **GAIA**: General tool-use tasks (Assistant Agency).
+| 指標 | RAG 應用 | 代理應用 |
+|------|----------|----------|
+| **評估單元** | 單一回應 | **軌跡**（所有步驟） |
+| **成功標準** | 基於性/忠實度 | 任務完成 / 邏輯合理性 |
+| **複雜度** | 低（文字相似度） | 高（工具狀態驗證） |
 
 ---
 
-## Key Metrics
+## 軌跡基準
 
-### 1. Task Success Rate (TSR)
-The percentage of tasks where the final state is correct.
+現代評估對**「通往結果的路徑」**評分。
+1. **最優路徑**：解決任務的最短工具序列。
+2. **代理路徑**：實際採取的步驟。
+3. **分數**：`效率 = (最優步驟 / 代理步驟)`。分數 `0.2` 表示代理過度繞路或迴圈過多。
+
+**常見基準**：
+- **SWE-bench**：修復 GitHub 問題（程式碼代理）。
+- **WebArena**：導航功能表與表單（瀏覽器代理）。
+- **GAIA**：通用工具使用任務（助理代理）。
+
+---
+
+## 關鍵指標
+
+### 1. 任務成功率（TSR）
+最終狀態正確的任務百分比。
 > [!IMPORTANT]
-> A "Correct Answer" via a "Wrong Path" is a score of 0 in senior production settings.
+> 在資深生產環境中，透過「錯誤路徑」獲得的「正確答案」分數為 0。
 
-### 2. Action Success Rate (ASR)
-The percentage of individual tool calls that returned valid data (not errors or hallucinations).
+### 2. 動作成功率（ASR）
+返回有效資料（而非錯誤或幻覺）的個別工具呼叫百分比。
 
-### 3. Unit Cost per Task
-Total tokens + infrastructure cost (Sandboxes, API calls) per completed goal.
-
----
-
-## LLM-as-Judge for Step Quality
-
-We use a stronger model (Claude Opus 4.7, GPT-5.5 reasoning) to review the **Reasoning Log** of a smaller agent.
-- **Thought Quality**: Did the agent's logic for using Tool X follow from Observation Y?
-- **Redundancy Check**: Did the agent repeat a search it just performed?
-- **Feedback Loop**: This "Judge" output is then used for **DPO (Direct Preference Optimization)** to align the agent's future behavior.
+### 3. 每任務單位成本
+每完成目標的總 token + 基礎設施成本（沙箱、API 呼叫）。
 
 ---
 
-## Production Evaluation
+## LLM 作為法官進行步驟品質評估
 
-Production teams use **Shadow Execution**.
-1. **V1 Agent** responds to the user.
-2. **V2 (Experimental) Agent** runs the same query in a "Hidden Sandbox."
-3. **The Comparison**: We compare the two trajectories. If V2 consistently solves tasks in fewer steps without safety violations, we promote it to production.
-
----
-
-## Interview Questions
-
-### Q: How do you evaluate an agent when the environment is non-deterministic (e.g., the web)?
-
-**Strong answer:**
-We use **Mock Environments** or **Snapshotted States**. For high-fidelity testing, we use a containerized browser that resets to a clean state for every test run. We then compare the agent's trajectory against a **Reference Trace**. If the environment is truly live, we use **State-Based Verification**—instead of comparing the text, we check the external world's state (e.g., "Is there a new row in the database with the correct values?").
-
-### Q: Why is "Meandering" (taking too many steps) a critical failure in Staff-level Agent design?
-
-**Strong answer:**
-Meandering leads to three failures: 1) **Cost**: Every step is an LLM call; 2) **Latency**: Every step adds 2-5 seconds; 3) **Entropy**: The longer the trajectory, the higher the chance of the agent encountering a weird edge case that triggers a hallucination. The standard fix is **Step Budgets**: if an agent doesn't solve a task in 10 steps, we terminate it and escalate to a human to prevent a "Token Leak."
+我們使用更強的模型（Claude Opus 4.7、GPT-5.5 推理）來審查較小代理的**推理日誌**。
+- **思考品質**：代理使用工具 X 的邏輯是否來自觀察 Y？
+- **冗餘檢查**：代理是否重複了剛執行的搜尋？
+- **回饋迴圈**：該「法官」輸出隨後用於 **DPO（直接偏好優化）** 來對齊代理的未來行為。
 
 ---
 
-## References
-- Jimenez et al. "SWE-bench: Can Language Models Resolve Real-World GitHub Issues?" (2024/2025 update)
-- Microsoft Research. "AgentBench: A Comprehensive Benchmark for AI Agents" (2024)
-- RAGAS. "Agentic Evaluation Module" (2025)
+## 生產評估
+
+生產團隊使用**影子執行**。
+1. **V1 代理**回應使用者。
+2. **V2（實驗）代理**在「隱藏沙箱」中執行相同查詢。
+3. **比較**：我們比較兩個軌跡。如果 V2 持續以更少步驟且無安全違規地解決任務，我們將其提升至生產環境。
 
 ---
 
-*Next: [Memory Architectures](../08-memory-and-state/01-memory-architectures.md)*
+## 面試問題
+
+### Q：當環境非確定性時（例如網路），如何評估代理？
+
+**理想回答：**
+我們使用**模擬環境**或**快照狀態**。對於高保真度測試，我們使用為每次測試執行重置為乾淨狀態的容器化瀏覽器。然後我們將代理軌跡與**參考軌跡**進行比較。如果環境是真正的即時環境，我們使用**基於狀態的驗證**——而非比較文字，我們檢查外部世界的狀態（例如「資料庫中是否有一個具有正確值的新行？」）。
+
+### Q：為什麼「繞路」（採取太多步驟）是專業級代理設計中的關鍵失敗？
+
+**理想回答：**
+繞路導致三種失敗：1）**成本**：每步都是 LLM 呼叫；2）**延遲**：每步增加 2-5 秒；3）**熵**：軌跡越長，代理遇到觸發幻覺的奇怪邊緣情況的可能性越高。標準修復是**步驟預算**：如果代理在 10 步內未解決任務，我們終止它並升級至人類，以防止「Token 洩漏」。
+
+---
+
+## 參考文獻
+
+- Jimenez et al. 《SWE-bench：語言模型能解決真實 GitHub 問題嗎？》（2024/2025 更新）
+- Microsoft Research. 《AgentBench：AI 代理綜合基準》（2024）
+- RAGAS. 《代理評估模組》（2025）
+
+---
+
+*下一篇：[記憶架構](../08-memory-and-state/01-memory-architectures.md)*
