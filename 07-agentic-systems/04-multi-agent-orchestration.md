@@ -1,163 +1,164 @@
-# Multi-Agent Orchestration
+# 多代理編排
 
-Complex systems are rarely one agent. They are teams of specialized agents. Orchestration has matured from "Blind Managers" to **Hierarchical Supervisors**, **Dynamic Swarms**, and **Cross-Vendor Agent Networks** enabled by interoperability protocols like A2A. Gartner projects that 40% of enterprise applications will feature task-specific AI agents by end of 2026, up from under 5% in early 2025.
+複雜系統很少只有一個代理。它們是專業代理的團隊。編排已從「盲目管理者」成熟至**階層監督者**、**動態蟲群**與**跨供應商代理網路**，由 A2A 等互通性協定啟用。Gartner 預測到 2026 年底，40% 的企業應用程式將具備任務特定的 AI 代理，高於 2025 年初的不到 5%。
 
-## Table of Contents
+## 目錄
 
-- [Why Multi-Agent?](#why)
-- [The Supervisor Pattern](#supervisor)
-- [The Pipeline Pattern](#pipeline)
-- [Swarms and Peer-to-Peer (P2P)](#swarms)
-- [Graph-Based Orchestration (2026 Dominant Pattern)](#graph-orchestration)
-- [Cross-Vendor Agent Orchestration via A2A](#cross-vendor)
-- [The 2026 Framework Landscape for Multi-Agent](#framework-landscape)
-- [State Management in Agent Teams](#state)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## Why Multi-Agent?
-
-A single agent with 50 tools experiences **Cognitive Load**.
-1. **Specialization**: A "Code Agent" can use a model optimized for Python, while a "Search Agent" uses a model optimized for RAG.
-2. **Parallelism**: Multiple agents can work on independent sub-tasks simultaneously.
-3. **Decoupled Evaluation**: You can evaluate the "Writer Agent" separately from the "Researcher Agent."
+- [為何多代理？](#why)
+- [監督者模式](#supervisor)
+- [管線模式](#pipeline)
+- [蟲群與點對點（P2P）](#swarms)
+- [圖形化編排（2026 年主流模式）](#graph-orchestration)
+- [透過 A2A 進行跨供應商代理編排](#cross-vendor)
+- [2026 年多代理框架版圖](#framework-landscape)
+- [代理團隊中的狀態管理](#state)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## The Supervisor Pattern (Hierarchical)
+## 為何多代理？
 
-The most common enterprise pattern as of 2026.
-
-- **The Supervisor**: A high-reasoning model (Claude Opus 4.7, GPT-5.5 reasoning, Gemini 3.1 Pro Deep Think) that decomposes the user prompt and delegates to workers.
-- **Workers**: Fast, cost-efficient models (Claude Haiku 4.5, Gemini 3.1 Flash, GPT-5.5-mini) that perform the work.
-- **Reviewer**: A separate agent that validates the consolidated output against the supervisor's original plan.
-
-**Architecture**: LangGraph remains the dominant framework for implementing these state-aware hierarchical loops. The Claude Agent SDK, Google ADK, and Microsoft Agent Framework all support this pattern natively as of 2026.
+一個具有 50 個工具的單一代理會面臨**認知負載**。
+1. **專業化**：「程式碼代理」可以使用針對 Python 優化的模型，而「搜尋代理」可以使用針對 RAG 優化的模型。
+2. **平行處理**：多個代理可以同時處理獨立的子任務。
+3. **解耦評估**：可以分別評估「編寫代理」與「研究代理」。
 
 ---
 
-## Swarms (The OpenAI Pattern)
+## 監督者模式（階層式）
 
- popularized in late 2024, **Swarms** focus on "Handoffs."
+截至 2026 年，這是最常見的企業模式。
 
-- One agent "Hands off" the conversation to another.
-- **Key concept**: `Handoff(TargetAgent)`.
-- **Benefit**: No central "Manager" bottleneck. The conversation flows naturally between specialized entities.
+- **監督者**：高推理模型（Claude Opus 4.7、GPT-5.5 推理、Gemini 3.1 Pro Deep Think），將使用者提示分解並委託給工作者。
+- **工作者**：快速、符合成本效益的模型（Claude Haiku 4.5、Gemini 3.1 Flash、GPT-5.5-mini）執行工作。
+- **審查者**：獨立代理，根據監督者的原始計劃驗證整合後的輸出。
 
----
-
-## Graph-Based Orchestration (2026 Dominant Pattern)
-
-The architectural momentum in 2026 has shifted decisively toward **graph-based orchestration**, where agent workflows are modeled as directed graphs with typed state.
-
-### Why Graphs Won
-
-- **Explicit control flow**: Nodes are agents or functions; edges define transitions, including conditional branches and loops
-- **Visualizable**: Teams can inspect and debug the workflow as a diagram
-- **State-aware**: Typed state objects pass through the graph, enabling checkpointing and resumption
-
-### Framework Support
-
-| Framework | Graph Model | Key Differentiator |
-|-----------|-------------|-------------------|
-| **LangGraph** (24k stars) | Imperative DAG with typed state | Most mature, broadest community |
-| **Google ADK** (17k stars) | Agent graphs with built-in A2A | Native Google Cloud integration |
-| **Microsoft Agent Framework** | Workflow graphs (sequential, concurrent, handoff) | Unified .NET + Python, enterprise governance |
-| **Claude Agent SDK** | Supervisor-based hierarchical trees | Built-in tools (bash, editor), production-ready |
-
-### The Paperclip Pattern (Hierarchical Agents at Scale)
-
-A notable 2026 development is **Paperclip** (44,900 GitHub stars within three weeks of its March 2026 launch). It uses a hierarchical model where a CEO agent receives a top-level goal, decomposes it, and delegates to manager agents who spawn and coordinate worker agents. This pattern demonstrates how deeply hierarchical multi-agent trees can handle complex real-world tasks.
-
-> *Verified May 2026.*
+**架構**：LangGraph 仍然是實作這些具有狀態感知能力的階層式迴圈的主流框架。截至 2026 年，Claude Agent SDK、Google ADK 與 Microsoft Agent Framework 都原生支援此模式。
 
 ---
 
-## Cross-Vendor Agent Orchestration via A2A
+## 蟲群模式（OpenAI 模式）
 
-The **Agent-to-Agent (A2A) protocol** (see [Tool Use and MCP](03-tool-use-and-mcp.md#a2a)) enables a new multi-agent pattern: **cross-vendor orchestration**. Before A2A, multi-agent systems required all agents to share the same framework and runtime. Now:
+**蟲群（Swarms）** 在 2024 年後期由 OpenAI 推廣，專注於「交接」。
 
-1. **Agent Discovery**: An orchestrator finds specialist agents via their **Agent Cards** (JSON metadata describing capabilities)
-2. **Task Delegation**: The orchestrator sends a structured task to a remote agent via HTTP/SSE
-3. **Async Progress**: The remote agent streams status updates back; the orchestrator can delegate to other agents in parallel
-4. **Result Collection**: Final artifacts are returned and integrated into the orchestrator's state
-
-**Production example**: A procurement system where the orchestrator (LangGraph) delegates compliance checking to a specialized agent (Google ADK), inventory lookup to an MCP-connected tool, and contract generation to a CrewAI crew — all communicating via A2A and MCP respectively.
-
-> *Verified May 2026. Source: a2a-protocol.org*
+- 一個代理將對話「交接」給另一個。
+- **核心概念**：`Handoff(TargetAgent)`。
+- **效益**：沒有中央「管理者」瓶頸。對話在專業實體之間自然流動。
 
 ---
 
-## The 2026 Framework Landscape for Multi-Agent
+## 圖形化編排（2026 年主流模式）
 
-Every major AI lab now ships an agent framework. The multi-agent orchestration landscape as of May 2026:
+2026 年的架構動能已堅定不移地轉向**圖形化編排**，代理工作流程被建模為具有類型化狀態的有向圖。
 
-| Framework | Provider | Multi-Agent Model | Status |
-|-----------|----------|-------------------|--------|
-| **LangGraph** | LangChain | Graph-based, most flexible | Production (126k stars) |
-| **Claude Agent SDK** | Anthropic | Supervisor trees with built-in tools | GA (Python + TypeScript) |
-| **Google ADK** | Google | Graph-based with A2A native support | GA (Python, TS, Java, Go) |
-| **Microsoft Agent Framework** | Microsoft | Workflows + group chat patterns | RC 1.0 (Feb 2026), GA Q2 2026 |
-| **OpenAI Agents SDK** | OpenAI | Handoff-based swarms with guardrails | GA (Python + TypeScript) |
-| **CrewAI** | CrewAI Inc. | Role-based crews with Flows | v1.13 (60%+ Fortune 500) |
-| **Smolagents** | HuggingFace | Lightweight, open-source | Active development |
+### 為何圖形勝出
 
-**Key trend**: No single framework excels at all four multi-agent patterns (supervisor, swarm, pipeline, debate). Teams increasingly combine frameworks — e.g., LangGraph for complex orchestration with CrewAI for business-user-facing automations.
+- **明確的控制流程**：節點是代理或函數；邊定義轉換，包括條件分支與迴圈
+- **可視化**：團隊可以將工作流程作為圖表檢查與除錯
+- **狀態感知**：類型化狀態物件流經圖形，啟用檢查點與恢復
 
-> *Verified May 2026.*
+### 框架支援
 
----
+| 框架 | 圖形模型 | 關鍵差異化 |
+|------|---------|-----------|
+| **LangGraph**（24k stars） | 具類型狀態的命令式 DAG | 最成熟、社區最廣 |
+| **Google ADK**（17k stars） | 具內建 A2A 的代理圖形 | 原生 Google Cloud 整合 |
+| **Microsoft Agent Framework** | 工作流程圖形（順序 並發 交接） | 統一 .NET + Python、企業治理 |
+| **Claude Agent SDK** | 基於監督者的階層式樹 | 內建工具（bash、編輯器）、生產就緒 |
 
-## State Management
+### 迴紋針模式（規模化階層代理）
 
-The biggest challenge in multi-agent systems is the **Shared Blackboard**.
+2026 年的一個值得注意的發展是 **Paperclip**（2026 年 3 月發布後三週內獲得 44,900 GitHub stars）。它使用階層模型，其中 CEO 代理接收頂層目標、分解目標，然後委託給管理代理，管理代理生成並協調工作者代理。此模式展示了深層階層式多代理樹如何處理複雜的現實世界任務。
 
-1. **Local State**: Context only visible to a specific agent.
-2. **Global State**: Shared memory (e.g., the final draft) visible to all.
-3. **Write Conflicts**: When two agents try to modify the same Global State.
-   - **Best practice**: Use **Transactional Handoffs**. An agent can only write to the global state when it "Owns" the lock.
+> *2026 年 5 月驗證。*
 
 ---
 
-## Peer-to-Peer (P2P) Debate
+## 透過 A2A 進行跨供應商代理編排
 
-For high-accuracy tasks (e.g., Legal or Medical), we use **Agentic Debate**.
-- **Agent A**: Proposes an answer.
-- **Agent B**: Tries to find flaws in Agent A's answer.
-- **Agent A**: Refines the answer based on B's critique.
-- **Result**: Convergence on a higher-quality result than any single agent could produce.
+**代理對代理（A2A）協定**（見[工具使用與 MCP](03-tool-use-and-mcp.md#a2a)）啟用了一種新的多代理模式：**跨供應商編排**。在 A2A 之前，多代理系統要求所有代理共享相同的框架與執行環境。現在：
 
----
+1. **代理探索**：編排者透過它們的**代理卡**（描述能力的 JSON 中繼資料）找到專家代理
+2. **任務委託**：編排者透過 HTTP/SSE 向遠端代理發送結構化任務
+3. **非同步進度**：遠端代理回傳串流狀態更新；編排者可以並行委託給其他代理
+4. **結果收集**：最終產物被返回並整合至編排者的狀態
 
-## Interview Questions
+**生產範例**：採購系統中，編排者（LangGraph）將合規檢查委託給專門代理（Google ADK），庫存查詢委託給 MCP 連接的工具，並將合約生成委託給 CrewAI crew——全部分別透過 A2A 與 MCP 通訊。
 
-### Q: What are the main failure modes of a "Supervisor" multi-agent architecture?
-
-**Strong answer:**
-The primary failure mode is **Decomposition Failure**. If the Supervisor agent breaks a task into sub-tasks that are logically inconsistent or have hidden dependencies, the workers will produce correct answers to the *wrong questions*. The standard fix is **Iterative Planning**: the Supervisor must get "Confirmation of sub-task feasibility" from the workers before they begin execution. Another failure is **Context Dilution**, where the global state becomes so bloated with worker logs that the Supervisor loses the "Big Picture."
-
-### Q: How do you choose between a "Sequence of Chains" and a "Multi-Agent Graph"?
-
-**Strong answer:**
-I use a **Sequence of Chains** when the task is linear and deterministic (e.g., Extract -> Translate -> Summarize). I use a **Multi-Agent Graph** (like LangGraph) when the task is **Non-Linear** or requires **Conditional Loops**. For example, if the "Translate" step might fail and need to go back to "Extract" for more context, a static chain breaks, but a graph can self-correct by routing back to an earlier node.
-
-### Q: When would you use A2A for multi-agent orchestration versus keeping all agents in a single framework?
-
-**Strong answer:**
-I keep agents in a single framework when the team owns all agents, they share the same runtime, and low latency between agent calls is critical. I introduce A2A when crossing **organizational or vendor boundaries** — for example, when my orchestrator needs to delegate to a compliance agent maintained by a different team, or when integrating a third-party specialized agent (e.g., a legal review service). A2A adds HTTP overhead but provides **vendor neutrality**, **independent scaling**, and **capability discovery** via Agent Cards. The rule of thumb: same team, same framework; different team or vendor, use A2A.
+> *2026 年 5 月驗證。來源：a2a-protocol.org*
 
 ---
 
-## References
-- Wu et al. "AutoGPT: An Autonomous GPT-4 Experiment" (Historical/2025 update)
-- Li et al. "Camel: Communicative Agents for 'Mind' Exploration" (2023/2025)
-- OpenAI. "Swarms Framework" (2024/2025)
-- Google. "Agent2Agent Protocol" (2025/2026)
-- Gartner. "Predicts 2026: AI Agent Market" (2025)
-- Andrew Ng. "Agentic Design Patterns" (2025/2026)
+## 2026 年多代理框架版圖
+
+每個主要 AI 實驗室現在都發布了代理框架。截至 2026 年 5 月的多代理編排版圖：
+
+| 框架 | 供應商 | 多代理模型 | 狀態 |
+|------|--------|-----------|------|
+| **LangGraph** | LangChain | 圖形化，最靈活 | 生產（126k stars） |
+| **Claude Agent SDK** | Anthropic | 具內建工具的監督者樹 | GA（Python + TypeScript） |
+| **Google ADK** | Google | 具 A2A 原生支援的圖形化 | GA（Python, TS, Java, Go） |
+| **Microsoft Agent Framework** | Microsoft | 工作流程 + 群組聊天模式 | RC 1.0（2026 年 2 月），GA Q2 2026 |
+| **OpenAI Agents SDK** | OpenAI | 帶守衛的交接式蟲群 | GA（Python + TypeScript） |
+| **CrewAI** | CrewAI Inc. | 基於角色的 crew 與 Flows | v1.13（60%+ 財富 500 強） |
+| **Smolagents** | HuggingFace | 輕量級、開源 | 積極開發中 |
+
+**關鍵趨勢**：沒有單一框架在全部四種多代理模式（監督者、蟲群、管線、辯論）中都擅長。團隊越來越多的組合框架——例如 LangGraph 用於複雜編排，CrewAI 用於商業使用者導向的自動化。
+
+> *2026 年 5 月驗證。*
 
 ---
 
-*Next: [Agent Memory and State](05-agent-memory-and-state.md)*
+## 狀態管理
+
+多代理系統最大的挑戰是**共享白板**。
+
+1. **本地狀態**：僅特定代理可見的上下文。
+2. **全域狀態**：共享記憶體（例如最終草稿），所有代理可見。
+3. **寫入衝突**：當兩個代理嘗試修改同一個全域狀態時。
+   - **最佳實踐**：使用**交易性交握**。代理只能在「擁有」鎖時寫入全域狀態。
+
+---
+
+## 點對點（P2P）辯論
+
+對於高準確度任務（例如法律或醫療），我們使用**代理辯論**。
+- **代理 A**：提出答案。
+- **代理 B**：嘗試找出代理 A 答案中的缺陷。
+- **代理 A**：根據代理 B 的批評完善答案。
+- **結果**：收斂至比任何單一代理所能產生更高品質的結果。
+
+---
+
+## 面試問題
+
+### Q：「監督者」多代理架構的主要失敗模式是什麼？
+
+**理想回答：**
+主要失敗模式是**分解失敗**。如果監督者代理將任務分解為邏輯上不一致或具有隱藏依賴性的子任務，工作者將產生正確答案應對*錯誤的問題*。標準修復是**迭代規劃**：工作者在開始執行前必須從工作者那裡獲得「子任務可行性確認」。另一個失敗是**上下文稀釋**，全域狀態因工作者日誌而變得過於龐大，監督者失去「大局觀」。
+
+### Q：何時選擇「鏈序列」vs.「多代理圖」？
+
+**理想回答：**
+當任務是線性且確定性時（例如擷取 → 翻譯 → 摘要），我使用**鏈序列**。當任務是**非線性**或需要**條件迴圈**時，我使用**多代理圖**（如 LangGraph）。例如，如果「翻譯」步驟可能失敗並需要返回「擷取」獲取更多上下文，靜態鏈會中斷，但圖可以透過路由回早期節點進行自我修正。
+
+### Q：何時使用 A2A 進行多代理編排，而非將所有代理保留在單一框架中？
+
+**理想回答：**
+當團隊擁有所有代理、它們共享相同執行環境且代理呼叫之間的延遲要求極低時，我將代理保留在單一框架中。當跨越**組織或供應商邊界**時，我引入 A2A——例如，當我的編排者需要委託給由不同團隊維護的合規代理，或整合第三方專門代理（例如法律審查服務）時。A2A 增加 HTTP 開銷，但提供**供應商中立性**、**獨立擴展性**與**能力探索**（透過代理卡）。經驗法則：同一團隊、同一框架；不同團隊或供應商，使用 A2A。
+
+---
+
+## 參考文獻
+
+- Wu et al. 《AutoGPT：一個自主 GPT-4 實驗》（歷史/2025 更新）
+- Li et al. 《CAMEL：用於「心靈」探索的通訊代理》（2023/2025）
+- OpenAI. 《Swarms 框架》（2024/2025）
+- Google. 《代理對代理協定》（2025/2026）
+- Gartner. 《2026 預測：AI 代理市場》（2025）
+- Andrew Ng. 《代理設計模式》（2025/2026）
+
+---
+
+*下一篇：[代理記憶與狀態](05-agent-memory-and-state.md)*
