@@ -1,39 +1,39 @@
-# OpenClaw Deep Dive: The Open-Source Personal AI Agent
+# OpenClaw 深度解析：開源個人 AI 代理程式
 
-OpenClaw is an **open-source, self-hosted personal AI agent** that executes tasks through LLMs using messaging platforms as its primary interface. You talk to it via WhatsApp, Telegram, Slack, Discord, or Signal, and it talks back -- running shell commands, controlling your browser, managing calendars, processing emails, and orchestrating multi-step workflows.
+OpenClaw 是一個**開源、自託管的個人 AI 代理程式**，透過 LLMs 使用訊息平台作為主要介面來執行任務。你可以透過 WhatsApp、Telegram、Slack、Discord 或 Signal 與它交談，它會回覆——執行 shell 命令、控制瀏覽器、管理日曆、處理電子郵件，以及協調多步驟工作流程。
 
-## Table of Contents
+## 目錄
 
-- [What Is OpenClaw](#what-is-openclaw)
-- [History: Clawdbot to Moltbot to OpenClaw](#history)
-- [Architecture Deep Dive](#architecture)
-- [The AgentSkills System](#agentskills)
-- [LLM Provider Configuration](#llm-providers)
-- [Messaging Platform Integrations](#messaging-integrations)
-- [Security Model](#security-model)
-- [Deployment Patterns](#deployment-patterns)
-- [Performance Optimization and Scaling](#performance)
-- [Real-World Use Cases](#use-cases)
-- [Limitations and When NOT to Use OpenClaw](#limitations)
-- [Comparison with Alternatives](#comparison)
-- [Getting Started: Quick Setup Guide](#getting-started)
-- [System Design Interview Angle](#system-design-interview)
-- [References](#references)
+- [什麼是 OpenClaw](#what-is-openclaw)
+- [歷史：Clawdbot 到 Moltbot 到 OpenClaw](#history)
+- [架構深度解析](#architecture)
+- [AgentSkills 系統](#agentskills)
+- [LLM 提供商配置](#llm-providers)
+- [訊息平台整合](#messaging-integrations)
+- [安全性模型](#security-model)
+- [部署模式](#deployment-patterns)
+- [效能優化與擴展](#performance)
+- [真實世界使用案例](#use-cases)
+- [限制與何時不使用 OpenClaw](#limitations)
+- [與替代方案的比較](#comparison)
+- [入門：快速設定指南](#getting-started)
+- [系統設計面試切入點](#system-design-interview)
+- [參考文獻](#references)
 
 ---
 
-## What Is OpenClaw
+## 什麼是 OpenClaw
 
-OpenClaw is:
+OpenClaw 是：
 
-- **A personal AI agent**: Not a chatbot -- an autonomous agent that acts on your behalf
-- **Self-hosted**: Runs on your machine, VPS, or Raspberry Pi -- you control your data
-- **Messaging-native**: Lives in chat apps you already use (WhatsApp, Telegram, Slack, Discord, Signal, iMessage, and 20+ others)
-- **LLM-agnostic**: Works with Claude, GPT-4, Gemini, DeepSeek, or local models
-- **Skill-extensible**: 100+ pre-configured skills, with a simple format for writing custom ones
-- **Open source**: MIT-licensed, 250K+ GitHub stars as of early 2026
+- **個人 AI 代理程式**：不是聊天機器人——是一個代表你行動的自主代理程式
+- **自託管**：在你的機器、VPS 或樹莓派上運行——你控制你的資料
+- **訊息原生**：生活在你已經使用的聊天應用程式中（WhatsApp、Telegram、Slack、Discord、Signal、iMessage 以及 20+ 其他）
+- **LLM 無關**：可與 Claude、GPT-4、Gemini、DeepSeek 或本地模型配合使用
+- **技能可擴展**：100+ 預配置技能，帶有撰寫自訂技能的簡單格式
+- **開源**：MIT 授權，2026 年初擁有 250K+ GitHub 星標
 
-```
+```bash
 # The simplest way to start
 git clone https://github.com/openclaw/openclaw.git
 cd openclaw
@@ -44,43 +44,43 @@ npm install -g openclaw
 openclaw start
 ```
 
-**The key difference from chatbots:**
-- ChatGPT/Claude.ai: You type, it replies with text
-- OpenClaw: You type, it **does things** -- runs commands, edits files, sends emails, controls smart home devices, manages your calendar
+**與聊天機器人的關鍵區別：**
+- ChatGPT/Claude.ai：你輸入，它回覆文字
+- OpenClaw：你輸入，它**做事**——執行命令、編輯檔案、發送電子郵件、控制智慧家居裝置、管理你的日曆
 
 ---
 
-## History
+## 歷史
 
-### The Naming Timeline
+### 命名時間線
 
-| Date | Name | Event |
-|------|------|-------|
-| November 2025 | **Clawdbot** | Peter Steinberger publishes first prototype, built in roughly one hour |
-| January 2026 | 2,000 stars | Early adopters discover the project |
-| January 27, 2026 | **Moltbot** | Renamed after Anthropic trademark complaints (lobster theme preserved) |
-| January 30, 2026 | **OpenClaw** | Renamed again -- Steinberger found "Moltbot" awkward to say |
-| February 2026 | 145,000+ stars | Explosive growth, surpasses many established open-source projects |
-| February 14, 2026 | -- | Steinberger joins OpenAI, citing access to resources needed to scale |
-| March 2026 | 250,000+ stars | Overtakes React on GitHub; one of the fastest-growing OSS projects ever |
+| 日期 | 名稱 | 事件 |
+|------|------|------|
+| 2025 年 11 月 | **Clawdbot** | Peter Steinberger 發布第一個原型，大約用了一小時構建 |
+| 2026 年 1 月 | 2,000 星標 | 早期採用者發現這個專案 |
+| 2026 年 1 月 27 日 | **Moltbot** | 在 Anthropic 商標投訴後更名（保留龍蝦主題） |
+| 2026 年 1 月 30 日 | **OpenClaw** | 再次更名——Steinberger 發現「Moltbot」說起來很彆扭 |
+| 2026 年 2 月 | 145,000+ 星標 | 爆發性增長，超越許多成熟的開源專案 |
+| 2026 年 2 月 14 日 | -- | Steinberger 加入 OpenAI，理由是需要資源來擴展規模 |
+| 2026 年 3 月 | 250,000+ 星標 | 超越 GitHub 上的 React；史上增長最快的 OSS 專案之一 |
 
-### The Creator
+### 創建者
 
-Peter Steinberger is an Austrian software engineer who previously spent 13 years building PSPDFKit, a PDF toolkit used by developers worldwide, before selling the company in 2024. He describes himself as a "vibe coder" and famously said he ships code he does not read -- embodying the new AI-first development philosophy where the human provides intent and the AI provides implementation.
+Peter Steinberger 是一位奧地利軟體工程師，之前花了 13 年構建 PSPDFKit，這是一款全球開發者使用的 PDF 工具包，2024 年出售了公司。他稱自己是「氛圍程式設計師」，並表示他發布他不閱讀的程式碼——體現了新的 AI 優先開發理念，人類提供意圖，AI 提供實作。
 
-### Why It Went Viral
+### 為何病毒式傳播
 
-OpenClaw hit a nerve because it solved a real problem: LLMs are powerful but stateless. Every conversation starts from zero. OpenClaw gives LLMs **persistence** (memory across sessions), **agency** (the ability to act, not just talk), and **reach** (integration with the apps you already use). The fact that it was self-hosted and open source meant anyone could run it without trusting a third-party service with their data.
+OpenClaw 觸動了神經，因為它解決了一個真實問題：LLMs 很強大但無狀態。每個對話從零開始。OpenClaw 給予 LLMs **持久性**（跨對話的記憶）、**能動性**（行動的能力，而不僅僅是談話）和**觸及範圍**（與你已經使用的應用程式整合）。它是自託管和開源的事實意味著任何人都可以在不信任第三方服務的情況下運行它。
 
 ---
 
-## Architecture
+## 架構
 
-### High-Level Overview
+### 高層概覽
 
 ```
                          OPENCLAW ARCHITECTURE
- ============================================================
+ ===========================================================
 
   Messaging Platforms              OpenClaw Gateway           LLM Providers
  ┌──────────────┐              ┌─────────────────────┐     ┌──────────────┐
@@ -118,48 +118,48 @@ OpenClaw hit a nerve because it solved a real problem: LLMs are powerful but sta
                                 localhost:18789             └──────────────┘
 ```
 
-### Core Components
+### 核心元件
 
-**1. The Gateway**
+**1. Gateway**
 
-The Gateway is a long-running WebSocket server (default: `localhost:18789`) that serves as the single source of truth for sessions, routing, and channel connections. It handles:
+Gateway 是一個長期運行的 WebSocket 伺服器（預設：`localhost:18789`），作為工作階段、路由和通道連線的單一真理來源。它處理：
 
-- Accepting connections from all messaging platforms via channel adapters
-- Routing messages to the correct agent
-- Session management and state persistence
-- Authentication and access control
-- Hot-reloading configuration changes
+- 接受來自所有訊息平台的連線（透過通道介面卡）
+- 將訊息路由到正確的代理程式
+- 工作階段管理和狀態持久化
+- 認證和存取控制
+- 熱重載設定變更
 
-**2. Channel Adapters**
+**2. 通道介面卡**
 
-When a message arrives from any platform, a channel adapter normalizes it into a standard internal format. Each adapter wraps a platform-specific library:
+當來自任何平台的訊息到達時，通道介面卡將其正規化為標準內部格式。每個介面卡包裝特定於平台的函式庫：
 
-| Platform | Adapter Library | Protocol |
+| 平台 | 介面卡函式庫 | 協定 |
 |----------|----------------|----------|
-| WhatsApp | Baileys | WebSocket (unofficial) |
+| WhatsApp | Baileys | WebSocket（非官方） |
 | Telegram | grammY | Bot API |
 | Slack | Bolt | Events API |
 | Discord | discord.js | Gateway API |
 | Signal | signal-cli | D-Bus |
 | iMessage | BlueBubbles | REST API |
-| IRC | irc-framework | IRC protocol |
-| Matrix | matrix-js-sdk | Matrix protocol |
+| IRC | irc-framework | IRC 協定 |
+| Matrix | matrix-js-sdk | Matrix 協定 |
 | Microsoft Teams | Bot Framework | REST API |
 
 **3. Agent Runtime**
 
-The Agent Runtime is the AI loop. For each incoming message, it:
+Agent Runtime 是 AI 迴圈。對於每個收到的訊息，它：
 
-1. Assembles context from session history, workspace memory, and relevant skills
-2. Sends the assembled prompt to the configured LLM
-3. Receives tool calls from the model
-4. Executes tool calls against the system capabilities
-5. Returns results to the model for next iteration
-6. Persists updated state (memory, files, session history)
+1. 從工作階段歷史、工作區記憶體和相關技能組裝上下文
+2. 將組裝的提示傳送給配置的 LLM
+3. 從模型接收工具呼叫
+4. 對系統功能執行工具呼叫
+5. 將結果返回給模型以進行下一次迭代
+6. 持久化更新後的狀態（記憶體、檔案、工作階段歷史）
 
-**4. Multi-Agent Routing**
+**4. 多代理程式路由**
 
-OpenClaw supports running multiple agents inside one Gateway process. Each agent gets its own workspace, agentDir, sessions, and tool configuration. Inbound messages are routed to agents via bindings:
+OpenClaw 支援在一個 Gateway 程序內運行多個代理程式。每個代理程式擁有自己的工作區、agentDir、工作階段和工具配置。入站訊息透過綁定路由到代理程式：
 
 ```json
 {
@@ -185,24 +185,24 @@ OpenClaw supports running multiple agents inside one Gateway process. Each agent
 }
 ```
 
-This means you can have a work assistant on Slack, a personal assistant on WhatsApp, and a DevOps bot on Discord -- all running from one Gateway, with completely isolated memory and permissions.
+這意味著你可以有一個在 Slack 上的工作助理、一個在 WhatsApp 上的個人助理和一個在 Discord 上的 DevOps 機器人——全部從一個 Gateway 運行，擁有完全隔離的記憶體和許可。
 
 ---
 
-## The AgentSkills System
+## AgentSkills 系統
 
-### How Skills Work
+### 技能如何運作
 
-Skills are the mechanism by which OpenClaw gains capabilities beyond basic conversation. Each skill is a directory containing a `SKILL.md` file with YAML frontmatter (metadata) and markdown instructions (behavior).
+技能是 OpenClaw 獲得超越基本對話能力的機制。每個技能是一個目錄，包含帶有 YAML 前置資料的 `SKILL.md` 檔案（元資料）和 markdown 指令（行為）。
 
 ```
 ~/.openclaw/skills/
   weather/
-    SKILL.md           # Required: metadata + instructions
+    SKILL.md           # 必需：元資料 + 指令
     scripts/
-      fetch_weather.py # Optional: executable scripts
+      fetch_weather.py # 可選：可執行腳本
     references/
-      api_docs.md      # Optional: supplementary docs
+      api_docs.md      # 可選：補充文件
 
   email-manager/
     SKILL.md
@@ -210,7 +210,7 @@ Skills are the mechanism by which OpenClaw gains capabilities beyond basic conve
       process_inbox.py
 ```
 
-### SKILL.md Format
+### SKILL.md 格式
 
 ```yaml
 ---
@@ -243,23 +243,23 @@ When the user asks about weather:
 Forecast: Clear skies through Thursday, rain expected Friday."
 ```
 
-### Skill Resolution Order
+### 技能解析順序
 
-Skills can live in multiple locations. When a name collision occurs, the most local copy wins:
+技能可以存在於多個位置。當發生名稱衝突時，最本地的副本優先：
 
 ```
-Priority (highest first):
-  1. <workspace>/skills/        # Project-specific skills
-  2. ~/.openclaw/skills/        # User-global skills
-  3. <installed-packages>/      # npm-installed skills
-  4. <bundled>/skills/          # Ships with OpenClaw
+優先順序（最高優先）：
+  1. <workspace>/skills/        # 專案特定技能
+  2. ~/.openclaw/skills/        # 使用者全域技能
+  3. <installed-packages>/      # npm 安裝的技能
+  4. <bundled>/skills/          # 隨 OpenClaw 附帶
 ```
 
-### Selective Injection
+### 選擇性注入
 
-OpenClaw does **not** inject every skill into every prompt. The runtime selectively injects only the skills relevant to the current turn, based on the skill description and trigger keywords. This prevents prompt bloat and keeps model performance high.
+OpenClaw **不會**將每個技能注入每個提示。執行時選擇性注入僅與當前回合相關的技能，基於技能描述和觸發關鍵字。這防止了提示膨脹並保持模型效能高水平。
 
-### Creating a Custom Skill
+### 建立自訂技能
 
 ```bash
 # Create the skill directory
@@ -300,17 +300,17 @@ Last 3 commits: ...
 EOF
 ```
 
-### Community Skills Ecosystem
+### 社群技能生態系統
 
-The OpenClaw skills ecosystem has grown rapidly, with community-maintained collections containing thousands of skills across categories like DevOps, home automation, content creation, data analysis, and more. However, this openness carries risk -- always review third-party skills before installing, as the early catalog had incidents with malicious scripts.
+OpenClaw 技能生態系統快速增長，社群維護的集合包含數千個跨類別的技能，如 DevOps、家庭自動化、內容建立、資料分析等。然而，這種開放性帶來風險——在安裝之前始終審查第三方技能，因為早期目錄中有惡意腳本的事件。
 
 ---
 
-## LLM Provider Configuration
+## LLM 提供商配置
 
-### Configuration File
+### 配置檔案
 
-OpenClaw reads its configuration from `~/.openclaw/openclaw.json` (JSON5 format -- comments and trailing commas allowed). The Gateway watches this file and applies changes automatically via hot reload.
+OpenClaw 從 `~/.openclaw/openclaw.json`（JSON5 格式——允許註釋和尾隨逗號）讀取配置。Gateway 監看此檔案並透過熱重載自動應用變更。
 
 ```json5
 {
@@ -367,34 +367,34 @@ OpenClaw reads its configuration from `~/.openclaw/openclaw.json` (JSON5 format 
 }
 ```
 
-### Provider Selection Strategy
+### 提供商選擇策略
 
-| Provider | Best For | Trade-offs |
+| 提供商 | 最適合 | 權衡 |
 |----------|----------|------------|
-| Anthropic (Claude) | Complex reasoning, coding tasks, long-context | Higher cost, best quality |
-| OpenAI (GPT-4o) | General-purpose, fast responses | Good balance of speed and quality |
-| Google (Gemini) | Budget-conscious testing, generous free tier | Lower reasoning quality |
-| DeepSeek | Cheapest frontier-class option (V4 Flash $0.14/$0.28 per 1M, V4 Pro $0.435/$0.87 after permanent May 22, 2026 discount); 1M context; best for high-volume cache-friendly workloads | Variable availability; open weights also self-hostable |
-| Local (Ollama) | Privacy-critical, offline use | Requires powerful hardware, lower quality |
+| Anthropic (Claude) | 複雜推理、編碼任務、長上下文 | 較高成本、最佳品質 |
+| OpenAI (GPT-4o) | 通用用途、快速回覆 | 速度和品質的良好平衡 |
+| Google (Gemini) | 注重預算的測試、慷慨的免費方案 | 較低推理品質 |
+| DeepSeek | 最便宜的前沿級選項（V4 Flash $0.14/$0.28 每 1M，V4 Pro $0.435/$0.87，2026 年 5 月 22 日永久折扣後）；1M 上下文；最適合高容量、快取友好的工作負載 | 可變可用性；也可自行托管開源權重 |
+| 本地 (Ollama) | 注重隱私、離線使用 | 需要強大硬體、較低品質 |
 
-### Model Routing Within OpenClaw
+### OpenClaw 內的模型路由
 
-You can configure different models for different agents, allowing cost optimization:
+你可以為不同代理程式配置不同模型，實現成本優化：
 
 ```json5
 {
   "agents": {
     "defaults": {
-      "model": "openai/gpt-4o-mini"  // Cheap default
+      "model": "openai/gpt-4o-mini"  // 便宜的預設
     },
     "list": [
       {
         "name": "coding-agent",
-        "model": "anthropic/claude-sonnet-4"  // Premium for code
+        "model": "anthropic/claude-sonnet-4"  // 高階編碼
       },
       {
         "name": "reminder-bot",
-        "model": "google/gemini-2.0-flash"  // Cheap for simple tasks
+        "model": "google/gemini-2.0-flash"  // 簡單任務便宜
       }
     ]
   }
@@ -403,35 +403,35 @@ You can configure different models for different agents, allowing cost optimizat
 
 ---
 
-## Messaging Platform Integrations
+## 訊息平台整合
 
-OpenClaw supports 20+ messaging platforms through its channel adapter architecture:
+OpenClaw 透過其通道介面卡架構支援 20+ 訊息平台：
 
-### Supported Platforms
+### 支援的平台
 
-| Platform | Library | Status | Notes |
+| 平台 | 函式庫 | 狀態 | 備註 |
 |----------|---------|--------|-------|
-| WhatsApp | Baileys | Stable | Unofficial API; personal account required |
-| Telegram | grammY | Stable | Official Bot API; most reliable channel |
-| Slack | Bolt | Stable | Workspace app installation required |
-| Discord | discord.js | Stable | Bot token required |
-| Signal | signal-cli | Stable | Requires linked device |
-| iMessage | BlueBubbles | Stable | macOS only; requires BlueBubbles server |
-| Google Chat | Chat API | Stable | Workspace admin approval |
-| Microsoft Teams | Bot Framework | Beta | Q2 2026 full release |
-| IRC | irc-framework | Stable | Classic protocol support |
-| Matrix | matrix-js-sdk | Stable | Federated, self-hosted friendly |
-| Mattermost | API | Stable | Self-hosted Slack alternative |
-| LINE | Messaging API | Stable | Popular in Japan/SE Asia |
-| Feishu (Lark) | Open API | Stable | Popular in China |
-| Twitch | TMI.js | Stable | Chat-only |
-| WeChat | -- | Beta | Requires custom bridge |
-| Nostr | -- | Beta | Decentralized protocol |
-| WebChat | Built-in | Stable | Browser-based fallback |
+| WhatsApp | Baileys | 穩定 | 非官方 API；需要個人帳戶 |
+| Telegram | grammY | 穩定 | 官方 Bot API；最可靠的通道 |
+| Slack | Bolt | 穩定 | 需要工作區應用安裝 |
+| Discord | discord.js | 穩定 | 需要 Bot token |
+| Signal | signal-cli | 穩定 | 需要連結的裝置 |
+| iMessage | BlueBubbles | 穩定 | 僅限 macOS；需要 BlueBubbles 伺服器 |
+| Google Chat | Chat API | 穩定 | 需要工作區管理員批准 |
+| Microsoft Teams | Bot Framework | Beta | 2026 年 Q2 全面發布 |
+| IRC | irc-framework | 穩定 | 經典協定支援 |
+| Matrix | matrix-js-sdk | 穩定 | 聯合、自託管友好 |
+| Mattermost | API | 穩定 | 自託管 Slack 替代方案 |
+| LINE | Messaging API | 穩定 | 日本/東南亞流行 |
+| Feishu (Lark) | Open API | 穩定 | 中國流行 |
+| Twitch | TMI.js | 穩定 | 僅聊天 |
+| WeChat | -- | Beta | 需要自訂橋接 |
+| Nostr | -- | Beta | 去中心化協定 |
+| WebChat | 內建 | 穩定 | 基於瀏覽器的備選 |
 
-### Unified Context Across Channels
+### 跨通道的統一上下文
 
-A critical architectural decision: the Gateway maintains **one unified memory system** across all channels. If you tell your agent something on WhatsApp, it remembers when you message from Slack. This means your AI agent has consistent context regardless of which app you use to reach it.
+一個關鍵的架構決策：Gateway 跨所有通道維護**一個統一的記憶體系統**。如果你在 WhatsApp 上告訴你的代理程式某些事情，它會記得當你從 Slack 發訊息時的內容。這意味著你的 AI 代理程式無論使用哪個應用程式與其聯繫，都有一致的上下文。
 
 ```
           WhatsApp ──┐
@@ -444,17 +444,17 @@ A critical architectural decision: the Gateway maintains **one unified memory sy
 
 ---
 
-## Security Model
+## 安全性模型
 
-### Security Philosophy
+### 安全哲學
 
-OpenClaw's security model assumes a "personal assistant" threat model: one trusted operator, potentially multiple agents. The priorities are:
+OpenClaw 的安全模型假設「個人助理」威脅模型：一個受信任的操作員，可能是多個代理程式。優先事項是：
 
-1. **Identity first**: Who can talk to the bot?
-2. **Scope next**: Where is the bot allowed to act?
-3. **Model last**: Assume the model can be manipulated, limit blast radius
+1. **身份第一**：誰可以與機器人交談？
+2. **範圍其次**：機器人允許在哪裡行動？
+3. **模型最後**：假設模型可以被操縱，限制爆炸半徑
 
-### Permission Layers
+### 許可層
 
 ```
  Layer 1: Channel Authentication
@@ -478,9 +478,9 @@ OpenClaw's security model assumes a "personal assistant" threat model: one trust
  Gated per-channel and per-user with allowFrom lists.
 ```
 
-### Sandbox Isolation
+### 沙盒隔離
 
-For non-main sessions (sub-agents, cron jobs, isolated tasks), OpenClaw supports Docker sandbox isolation:
+對於非主要工作階段（子代理程式、cron 工作、隔離任務），OpenClaw 支援 Docker 沙盒隔離：
 
 ```yaml
 # docker-compose.sandbox.yml
@@ -495,15 +495,15 @@ services:
       - no-new-privileges:true
 ```
 
-With `network: "none"`, a sandboxed sub-agent cannot make outbound requests, cannot exfiltrate data, and cannot reach external services -- even if running malicious code.
+使用 `network: "none"`，沙盒化子代理程式無法發出出站請求、無法滲透資料、無法訪問外部服務——即使運行惡意程式碼。
 
-### Critical Security Warnings
+### 關鍵安全警告
 
-**Default localhost trust**: By default, OpenClaw trusts connections from localhost without authentication. If the Gateway sits behind an improperly configured reverse proxy that forwards all requests to localhost, external attackers get full access. Always configure authentication for remote deployments.
+**預設 localhost 信任**：預設情況下，OpenClaw 信任來自 localhost 的連線而無需認證。如果 Gateway 位於配置不當的反向代理後面，該代理轉發所有請求到 localhost，外部攻擊者將獲得完全存取權。對於遠端部署始終配置認證。
 
-**Skill supply chain**: The community skills catalog has had incidents with malicious packages. Always review third-party skills before installation. Pin skill versions. Use the sandbox for untrusted skills.
+**技能供應鏈**：社群技能目錄中有惡意套件的事件。安裝前始終審查第三方技能。固定技能版本。為不受信任的技能使用沙盒。
 
-### Hardening Checklist
+### 強化檢查清單
 
 ```
 [x] Set state directory permissions to 700
@@ -520,9 +520,9 @@ With `network: "none"`, a sandboxed sub-agent cannot make outbound requests, can
 
 ---
 
-## Deployment Patterns
+## 部署模式
 
-### Option 1: Local Development (Fastest Start)
+### 選項 1：本地開發（最快開始）
 
 ```bash
 # Clone and run
@@ -535,9 +535,9 @@ npm install
 npm start
 ```
 
-**Requirements**: Node.js 20+, 512MB RAM, any OS.
+**需求**：Node.js 20+、512MB RAM、任何作業系統。
 
-### Option 2: Docker (Recommended for Production)
+### 選項 2：Docker（推薦用於生產）
 
 ```yaml
 # docker-compose.yml
@@ -568,22 +568,22 @@ docker compose up -d
 docker logs -f openclaw-gateway  # Watch logs
 ```
 
-### Option 3: Cloud VPS (Always-On)
+### 選項 3：雲端 VPS（常開）
 
-OpenClaw is lightweight -- any machine with 512MB RAM and 1 CPU core is sufficient. A $4-6/month VPS works.
+OpenClaw 很輕量——任何具有 512MB RAM 和 1 個 CPU 核心的機器都足夠。每月 $4-6 的 VPS 即可。
 
-**Quick deploy options:**
-- **DigitalOcean**: 1-Click App with security hardening built in
-- **Railway**: One-click deploy button from GitHub README (~5 min)
-- **Contabo**: Free 1-click OpenClaw add-on for VPS plans
-- **AWS Lightsail**: $3.50/month instance runs it comfortably
-- **Raspberry Pi**: Runs well on Pi 4 with 4GB RAM
+**快速部署選項：**
+- **DigitalOcean**：1-Click App，內建安全強化
+- **Railway**：從 GitHub README 一鍵部署按鈕（約 5 分鐘）
+- **Contabo**：VPS 方案的免費 1-click OpenClaw 附加元件
+- **AWS Lightsail**：每月 $3.50 的實例輕鬆運行
+- **Raspberry Pi**：在 Pi 4 上運行良好，4GB RAM
 
-### Production Architecture
+### 生產架構
 
 ```
                     PRODUCTION DEPLOYMENT
- ====================================================
+ ===================================================
 
   Internet
      │
@@ -621,7 +621,7 @@ OpenClaw is lightweight -- any machine with 512MB RAM and 1 CPU core is sufficie
     (Anthropic, OpenAI, etc.)
 ```
 
-### Nginx Configuration for Remote Access
+### 用於遠端存取的 Nginx 配置
 
 ```nginx
 # /etc/nginx/sites-available/openclaw
@@ -649,26 +649,26 @@ server {
 
 ---
 
-## Performance Optimization and Scaling
+## 效能優化與擴展
 
-### Memory Guidelines
+### 記憶體指南
 
-| Deployment | Recommended RAM | Rationale |
+| 部署 | 建議 RAM | 理由 |
 |------------|----------------|-----------|
-| Personal, light use | 512MB - 1GB | Few skills, short conversations |
-| Personal, daily use | 4GB | Moderate skill count, browser automation |
-| Team or high-frequency | 8GB | Multiple agents, concurrent sessions |
-| Production standard | 16GB | Full skill suite, heavy automation |
+| 個人、輕量使用 | 512MB - 1GB | 少量技能、短對話 |
+| 個人、日常使用 | 4GB | 中等技能數量、瀏覽器自動化 |
+| 團隊或高頻率 | 8GB | 多個代理程式、並發對話 |
+| 生產標準 | 16GB | 完整技能套件、重度自動化 |
 
-### Context Window Management
+### 上下文視窗管理
 
-LLM attention scales quadratically with context length. When context goes from 50K to 100K tokens, the model does four times the work. Practical optimizations:
+LLM 注意力隨上下文長度二次方擴展。當上下文從 50K 增加到 100K tokens 時，模型多做四倍的工作。實際優化：
 
-- **Limit context window**: 100K tokens is enough for most tasks
-- **Start new conversations**: Long history accumulates hundreds of messages; restart periodically
-- **Disable unused skills**: Each loaded skill adds to the context budget
+- **限制上下文視窗**：100K tokens 對大多數任務來說足夠了
+- **開始新對話**：長歷史累積了數百條訊息；定期重啟
+- **禁用未使用的技能**：每個載入的技能都增加到上下文預算中
 
-### Skill Optimization
+### 技能優化
 
 ```
  DO: Enable only skills you actively use
@@ -680,22 +680,22 @@ LLM attention scales quadratically with context length. When context goes from 5
  DON'T: Load 50+ skills simultaneously
 ```
 
-Each enabled skill adds context the agent must evaluate on every turn. If you have not used a skill in the past week, disable it.
+每個啟用的技能都會增加代理程式必須在每個回合評估的上下文。如果你過去一週沒有使用某個技能，請禁用它。
 
-### Latency Reduction
+### 延遲減少
 
-1. **Disable verbose thinking**: The `thinkingDefault` setting controls internal reasoning. For real-time interactions, skip chain-of-thought to cut processing time roughly in half
-2. **Use faster models**: Route simple tasks (reminders, lookups) to smaller models
-3. **Co-locate providers**: Use an LLM provider and region close to your server
-4. **Monitor with Docker**: `docker stats openclaw-gateway` for real-time resource usage
+1. **禁用冗長推理**：`thinkingDefault` 設定控制內部推理。對於即時互動，跳過思維鏈可將處理時間減少大約一半
+2. **使用更快的模型**：將簡單任務（提醒、查詢）路由到較小的模型
+3. **共置提供商**：使用靠近你的伺服器的 LLM 提供商和區域
+4. **使用 Docker 監控**：`docker stats openclaw-gateway` 用於即時資源使用情況
 
 ---
 
-## Real-World Use Cases
+## 真實世界使用案例
 
-### 1. Development Workflow Orchestrator
+### 1. 開發工作流程協調器
 
-A supervisor agent named "Patch" coordinates 5-20 parallel Claude Code instances via Telegram. The developer sends high-level instructions from their phone, and the supervisor spins up coding agents, assigns tasks, reviews output, runs tests, and merges code.
+一個名為「Patch」的主管代理程式透過 Telegram 協調 5-20 個並行 Claude Code 實例。開發者從手機發送高層級指令，主管啟動編碼代理程式、分配任務、審查輸出、執行測試並合併程式碼。
 
 ```
 Developer (phone)
@@ -715,66 +715,66 @@ Developer (phone)
        PR created automatically
 ```
 
-### 2. Email Triage at Scale
+### 2. 大規模電子郵件分類
 
-One developer used the himalaya CLI integration to give OpenClaw access to an email account with 15,000 messages. The agent processed the backlog -- unsubscribing from spam, categorizing by urgency, and drafting replies for review.
+一位開發者使用 himalaya CLI 整合為 OpenClaw 提供對擁有 15,000 條訊息的電子郵件帳戶的存取。代理程式處理了積壓——取消訂閱垃圾郵件、按緊急程度分類並起草回覆以供審查。
 
-### 3. Home Automation Hub
+### 3. 家庭自動化中心
 
-An agent named "Claudette" controls an entire house through Home Assistant, using the ha-mcp skill to access all Home Assistant entities. It controls Philips Hue lights, Elgato devices, and adjusts boiler settings based on weather forecasts -- all via WhatsApp commands.
+一個名為「Claudette」的代理程式透過 Home Assistant 透過 Home Assistant 的 ha-mcp 技能控制整個房子。它控制 Philips Hue 燈泡、Elgato 設備，並根據天氣預報調整鍋爐設定——全部透過 WhatsApp 命令。
 
-### 4. Content Production Pipeline
+### 4. 內容生產管道
 
-Multi-agent content workflows using parallel Discord-based workers:
-- Agent 1: Research and outline
-- Agent 2: Write draft
-- Agent 3: Generate thumbnails and social media assets
-- Supervisor: Review, edit, and publish
+使用並行 Discord 工作者的多代理程式內容工作流程：
+- 代理程式 1：研究和大綱
+- 代理程式 2：撰寫初稿
+- 代理程式 3：生成縮圖和社群媒體素材
+- 主管：審查、編輯和發布
 
-### 5. CI/CD Monitoring
+### 5. CI/CD 監控
 
-An always-on agent watches GitHub Actions, GitLab CI, or Jenkins and alerts via Telegram when builds fail, tests error out, or deployments finish. It can also auto-triage failures and open issues.
+一個常開的代理程式監看 GitHub Actions、GitLab CI 或 Jenkins，並在構建失敗、測試錯誤或部署完成時透過 Telegram 發出警報。它還可以自動分類失敗並開啟問題。
 
-### 6. Automated Client Onboarding
+### 6. 自動化客戶入職
 
-When a new client signs on, an agent kicks off a full workflow: creates a project folder, sends a welcome email, schedules a kickoff call, and adds follow-up reminders to the task list.
+當新客戶簽約時，代理程式啟動完整工作流程：建立專案資料夾、發送歡迎電子郵件、排定啟動電話並將後續提醒添加到任務清單。
 
 ---
 
-## Limitations and When NOT to Use OpenClaw
+## 限制與何時不使用 OpenClaw
 
-### Known Limitations
+### 已知限制
 
-**Over-autonomy**: OpenClaw's autonomy can become a liability. You ask it to do one thing, and it may wander through reasoning loops, invoke tools repeatedly, or reinterpret your objective mid-execution. Outcomes require manual review.
+**過度自主性**：OpenClaw 的自主性可能成為負擔。你要求它做一件事，它可能會透過推理迴圈漫遊、反覆呼叫工具或在執行中途重新詮釋你的目標。結果需要手動審查。
 
-**Configuration complexity**: Running OpenClaw well involves managing environments, permissions, tool connectors, and execution sandboxes. Many users report spending more time configuring than using the system.
+**配置複雜性**：良好地運行 OpenClaw 涉及管理環境、許可、工具連接器和執行沙盒。許多使用者報告花在配置上的時間比使用系統的時間多。
 
-**Memory fragility**: In-session chat history is temporary and lost on Gateway restart. Workspace files persist only what was explicitly saved. If a conversation never saved to memory files, there is nothing to retrieve later.
+**記憶體脆弱性**：對話內聊天歷史是暫時的，在 Gateway 重啟時丟失。工作區檔案僅保留明確保存的內容。如果對話從未保存到記憶體檔案，則沒有任何內容可在之後檢索。
 
-**Resource consumption**: The container can use 2GB+ of RAM with many skills loaded. Long conversation history compounds this.
+**資源消耗**：容器在使用多個技能時可能使用 2GB+ RAM。長對話歷史加劇了這個問題。
 
-**Unofficial APIs**: WhatsApp integration uses Baileys (unofficial). This can break with WhatsApp updates and may violate terms of service. Similar risks exist for other unofficial adapters.
+**非官方 API**：WhatsApp 整合使用 Baileys（非官方）。這可能因 WhatsApp 更新而中斷，可能違反服務條款。其他非官方介面卡存在類似風險。
 
-### When NOT to Use OpenClaw
+### 何時不使用 OpenClaw
 
-| Scenario | Why Not | Better Alternative |
+| 場景 | 為何不行 | 更好的替代方案 |
 |----------|---------|-------------------|
-| Multi-tenant SaaS | Not designed for hostile multi-user isolation | Custom agent framework with proper tenant boundaries |
-| High-stakes automation | Unpredictable execution paths, hard to audit | Deterministic workflow engines (Temporal, Prefect) |
-| Real-time systems | LLM latency (1-5s per turn) is too slow | Event-driven architecture |
-| Regulated industries | No compliance certifications, audit trails are basic | Enterprise AI platforms with SOC2/HIPAA |
-| Teams > 10 people | Single-operator trust model does not scale | Shared agent platforms with proper RBAC |
-| Ambiguous real-world tasks | Works best in tightly scoped environments where mistakes are cheap | Human operators |
+| 多租戶 SaaS | 非為敵對多使用者隔離設計 | 帶適當租戶邊界的自訂代理程式框架 |
+| 高風險自動化 | 不可預測的執行路徑、難以稽核 | 確定性工作流程引擎（Temporal、Prefect） |
+| 即時系統 | LLM 延遲（每回合 1-5 秒）太慢 | 事件驅動架構 |
+| 受監管產業 | 無合規認證、稽核追蹤基本 | 帶 SOC2/HIPAA 的企業 AI 平台 |
+| 團隊 > 10 人 | 單一操作員信任模型無法擴展 | 帶適當 RBAC 的共享代理程式平台 |
+| 模糊的真實世界任務 | 在緊密範圍環境中表現最佳，錯誤代價低廉 | 人類操作員 |
 
 ---
 
-## The April 2026 Anthropic Block-and-Reverse Incident
+## 2026 年 4 月 Anthropic 封鎖與反轉事件
 
-OpenClaw's reliance on Claude Pro and Claude Max subscriptions to power agent work was, until April 2026, treated as a cost-control feature: users could run OpenClaw against their existing personal Claude plan instead of paying API rates. On April 4, 2026, Anthropic changed the policy. A new enforcement clause blocked third-party agent frameworks from acting as a programmatic intermediary for Pro and Max subscriptions. Within hours, OpenClaw instances pointed at Pro and Max accounts began returning errors. Roughly 135,000 active OpenClaw deployments were affected, and a sizeable fraction of those users moved to direct API billing at rates 5x or more above their previous effective cost. Community frustration trended on Hacker News and X for nearly two weeks.
+OpenClaw 依賴 Claude Pro 和 Claude Max 訂閱來驅動代理程式工作，到 2026 年 4 月這被視為成本控制功能：用戶可以使用現有的個人 Claude 方案運行 OpenClaw，而不是支付 API 費率。2026 年 4 月 4 日，Anthropic 更改了政策。一個新的執行情條封鎖了第三方代理程式框架作為 Pro 和 Max 訂閱的程式化中介。在幾小時內，指向 Pro 和 Max 帳戶的 OpenClaw 實例開始返回錯誤。大約 135,000 個活躍的 OpenClaw 部署受到影響，這些用戶中有相當一部分轉向直接 API 計費，費率是其先前有效成本的 5 倍或更多。社群挫敗感在 Hacker News 和 X 上持續了近兩週。
 
-Anthropic reversed the policy mid-April with a new product called Agent SDK Credit, a metered allowance bundled into Pro and Max plans (with a higher allowance for Max) explicitly authorized for programmatic agent use through the Anthropic Agent SDK. Frameworks integrating with the Agent SDK, including OpenClaw, can again drive a personal subscription, but now within a transparent quota and only over the Agent SDK path. Direct Claude.ai web-session scraping remains forbidden.
+Anthropic 在 4 月中旬反轉了政策，推出了名為 Agent SDK Credit 的新產品，這是一個捆綁到 Pro 和 Max 方案中的計量補貼（Max 的補貼更高），明確授權用於透過 Anthropic Agent SDK 進行的程式化代理程式使用。與 Agent SDK 整合的框架（包括 OpenClaw）可以再次驅動個人訂閱，但現在在透明的配額內，且僅透過 Agent SDK 路徑。直接 Claude.ai 網頁工作階段抓取仍然被禁止。
 
-### Timeline of the Incident
+### 事件時間線
 
 ```mermaid
 gantt
@@ -791,47 +791,47 @@ gantt
     Self-host and multi-provider migration :b2, 2026-04-07, 25d
 ```
 
-### What It Means Architecturally
+### 這在架構上意味著什麼
 
-The incident was not a security event. It was a product-policy event with security and reliability consequences. Three lessons follow:
+這次事件不是安全事件。這是具有安全和可靠性後果的產品政策事件。三個教訓如下：
 
-**Provider policy is part of your architecture.** A single line in a vendor's Acceptable Use enforcement is functionally identical, from an availability standpoint, to a service outage that lasts however long the policy stays in force. If your agent platform's economics depend on a specific provider plan, the provider's policy team is on your critical path. Treat their Terms of Service as a runtime dependency, not a legal artifact.
+**提供商政策是你架構的一部分。** 供應商條款中的一行執行實際上與持續時間取決於政策持續時間的服務中斷相同，從可用性角度來看。如果你的代理程式平台的經濟學依賴於特定提供商方案，提供商的策略團隊就在你的關鍵路徑上。將他們的服務條款視為執行時依賴項，而非法律構件。
 
-**Multi-provider abstraction is operational hygiene, not optimization.** OpenClaw users who had configured both Anthropic and OpenAI providers, with model routing rules per agent, kept working through the block at degraded quality. Users who had hard-coded a single provider in every agent definition were dead in the water. The abstraction layer is cheap to build and the failure mode it covers is real.
+**多提供商抽象是操作衛生，而非優化。** 配置了 Anthropic 和 OpenAI 提供商、每個代理程式有模型路由規則的 OpenClaw 使用者在封鎖期間以降級品質繼續工作。在每個代理程式定義中硬編碼單一提供商的用戶則完全停滯。抽象層建構成本低廉，其覆蓋的失敗模式是真實的。
 
-**Self-host backstops matter for personal-data agents.** A meaningful subset of OpenClaw deployments switched their default agent over to a local Ollama model (Llama 3.3 70B was the most common choice) for two weeks, accepting lower quality for guaranteed availability. The lesson is not that local models are competitive with frontier models; it is that having a working fallback path, even at degraded quality, is part of a serious deployment.
+**自托管後盾對個人資料代理程式很重要。** 有意義的 OpenClaw 部署子集在兩週內將預設代理程式切換到本地 Ollama 模型（Llama 3.3 70B 是最常見的選擇），接受較低品質以保證可用性。教訓不是本地模型與前沿模型競爭；而是擁有一個即使在降級品質下也能工作的後備路徑，是嚴肅部署的一部分。
 
-### Vendor-Risk Checklist
+### 供應商風險檢查清單
 
-- Every agent definition routes through a provider-abstraction layer; no agent hard-codes a single provider model name.
-- The configuration includes a documented fallback provider per agent, with a tested switchover script.
-- For personal-data or revenue-critical agents, at least one fallback path uses a self-hostable model (Ollama, vLLM, or a tenant-isolated cloud provider).
-- The deployment's runbook treats provider Terms of Service and Acceptable Use as monitored documents, with subscription to provider security advisories and policy update mailing lists.
-- Cost budgets in the agent config are set against the realistic worst case (direct API rates), not the optimistic case.
-- A weekly canary test invokes each provider through the abstraction layer and alerts on 4xx changes, surfacing policy shifts before they hit production traffic.
+- 每個代理程式定義都透過提供商抽象層路由；沒有代理程式硬編碼單一提供商模型名稱。
+- 配置包括每個代理程式的有記錄的備用提供商，以及經過測試的切換腳本。
+- 對於個人資料或營收關鍵的代理程式，至少一個後備路徑使用可自托管的模型（Ollama、vLLM 或租戶隔離的雲端提供商）。
+- 部署的手冊將提供商服務條款和可接受使用作為監控文件對待，訂閱提供商安全公告和政策更新郵件清單。
+- 代理程式配置中的成本預算根據現實的最壞情況（直接 API 費率）設定，而非樂觀情況。
+- 每週金絲雀測試透過抽象層呼叫每個提供商，並在 4xx 變更時發出警報，在影響生產流量之前發現策略轉變。
 
-**Sources:**
+**來源：**
 - [Axios: Anthropic blocks OpenClaw third-party agents](https://www.axios.com/2026/04/06/anthropic-openclaw-subscription-openai)
 - [VentureBeat: OpenClaw reversal with Agent SDK credit](https://venturebeat.com/technology/anthropic-reinstates-openclaw-and-third-party-agent-usage-on-claude-subscriptions-with-a-catch)
 
 ---
 
-## Comparison with Alternatives
+## 與替代方案的比較
 
-| Feature | OpenClaw | Hermes Agent | Claude Code | Open Interpreter |
+| 特性 | OpenClaw | Hermes Agent | Claude Code | Open Interpreter |
 |---------|----------|-------------|-------------|-----------------|
-| **Primary interface** | Messaging apps | Messaging apps | Terminal/CLI | Terminal/CLI |
-| **Architecture** | Gateway + Channel Adapters | Learning loop + Skill memory | Agentic CLI | Simple REPL |
-| **LLM support** | Any (Claude, GPT, Gemini, local) | Any | Claude only | Any |
-| **Messaging platforms** | 20+ (WhatsApp, Telegram, Slack, etc.) | 6 (Telegram, Discord, Slack, WhatsApp, Signal, email) | None (terminal only) | None (terminal only) |
-| **Memory** | Cross-session per assistant | Multi-level (session, persistent, skill) | Session only (CLAUDE.md for context) | Session only |
-| **Skills/Plugins** | 100+ bundled, community ecosystem | Self-learning skill system | MCP tools | Limited plugins |
-| **Self-hosted** | Yes (required) | Yes (required) | No (Anthropic-hosted) | Yes |
-| **GitHub stars** | 250K+ | 22K+ | N/A (closed source) | 55K+ |
-| **Best for** | Multi-channel personal AI assistant | Personal agent that learns over time | Software development | Quick local automation |
-| **Weakest at** | Predictability, enterprise use | Platform reach | Non-coding tasks | Complex workflows |
+| **主要介面** | 訊息應用程式 | 訊息應用程式 | 終端機/CLI | 終端機/CLI |
+| **架構** | Gateway + 通道介面卡 | 學習迴圈 + 技能記憶體 | 代理式 CLI | 簡單 REPL |
+| **LLM 支援** | 任何（Claude、GPT、Gemini、本地） | 任何 | 僅限 Claude | 任何 |
+| **訊息平台** | 20+（WhatsApp、Telegram、Slack 等） | 6（Telegram、Discord、Slack、WhatsApp、Signal、email） | 無（僅終端機） | 無（僅終端機） |
+| **記憶體** | 每助理跨對話 | 多層級（對話、持久化、技能） | 僅對話（CLAUDE.md 用於上下文） | 僅對話 |
+| **技能/外掛** | 100+ 捆綁、社群生態系統 | 自學習技能系統 | MCP 工具 | 有限外掛 |
+| **自托管** | 是（必需） | 是（必需） | 否（Anthropic 托管） | 是 |
+| **GitHub 星標** | 250K+ | 22K+ | N/A（閉源） | 55K+ |
+| **最適合** | 多通道個人 AI 助理 | 隨時間學習的個人代理程式 | 軟體開發 | 快速本地自動化 |
+| **最弱之處** | 可預測性、企業使用 | 平台覆蓋範圍 | 非編碼任務 | 複雜工作流程 |
 
-### Choosing the Right Tool
+### 選擇正確的工具
 
 ```
 Need multi-channel messaging?          --> OpenClaw
@@ -843,9 +843,9 @@ Need enterprise-grade reliability?     --> Custom solution or commercial platfor
 
 ---
 
-## Getting Started
+## 入門
 
-### Minimal Setup (5 Minutes)
+### 最小設定（5 分鐘）
 
 ```bash
 # 1. Clone the repository
@@ -865,9 +865,9 @@ docker compose up -d
 docker logs -f openclaw-gateway
 ```
 
-### Connect Your First Channel (Telegram)
+### 連接你的第一個通道（Telegram）
 
-Telegram is the easiest channel to set up:
+Telegram 是最容易設定的通道：
 
 ```json5
 // ~/.openclaw/openclaw.json
@@ -894,7 +894,7 @@ Telegram is the easiest channel to set up:
 }
 ```
 
-### Install Your First Skill
+### 安裝你的第一個技能
 
 ```bash
 # Install a community skill
@@ -911,7 +911,7 @@ When the user says hello, respond warmly and offer to help.
 EOF
 ```
 
-### Verify Everything Works
+### 驗證一切正常
 
 ```bash
 # Check Gateway health
@@ -926,28 +926,28 @@ docker logs openclaw-gateway --tail 50
 
 ---
 
-## System Design Interview Angle
+## 系統設計面試切入點
 
-### Prompt: "Design a Personal AI Assistant Platform Like OpenClaw"
+### 提示：「設計一個像 OpenClaw 這樣的個人 AI 助理平台」
 
-This is an excellent system design question because it covers messaging systems, agent orchestration, security, multi-tenancy, and real-time communication.
+這是一個出色的系統設計問題，因為它涵蓋了訊息系統、代理程式協調、安全性、多租戶和即時通訊。
 
-### Requirements Gathering
+### 需求收集
 
-**Functional:**
-- Users interact via messaging platforms (WhatsApp, Slack, Telegram)
-- The agent can execute tasks: run commands, manage files, send emails, control devices
-- Memory persists across sessions and channels
-- Support for multiple isolated agents per user
-- Extensible skill/plugin system
+**功能性：**
+- 使用者透過訊息平台互動（WhatsApp、Slack、Telegram）
+- 代理程式可以執行任務：執行命令、管理檔案、發送電子郵件、控制裝置
+- 記憶體跨對話和通道持久化
+- 支援每使用者多個隔離代理程式
+- 可擴展的技能/外掛系統
 
-**Non-functional:**
-- Low latency (< 5s response time including LLM inference)
-- Self-hostable (user controls their data)
-- Secure (sandboxed execution, permission controls)
-- Reliable (24/7 uptime for always-on assistant)
+**非功能性：**
+- 低延遲（< 5 秒回覆時間，包括 LLM 推理）
+- 可自托管（使用者控制他們的資料）
+- 安全（沙盒化執行、許可控制）
+- 可靠（24/7 正常運作時間以實現常開助理）
 
-### High-Level Design
+### 高層設計
 
 ```
                      SYSTEM DESIGN
@@ -997,53 +997,56 @@ This is an excellent system design question because it covers messaging systems,
           └─────────────────────────────┘
 ```
 
-### Key Design Decisions
+### 關鍵設計決策
 
-**1. Why a single Gateway process (not microservices)?**
+**1. 為什麼是單一 Gateway 程序（而非微服務）？**
 
-OpenClaw runs as a single process because the personal assistant use case does not need horizontal scaling. One user means one Gateway. This eliminates distributed system complexity (service discovery, inter-service auth, eventual consistency) and keeps deployment simple enough for a Raspberry Pi.
+OpenClaw 作為單一程序運行，因為個人助理使用案例不需要水平擴展。一個使用者意味著一個 Gateway。這消除了分散式系統複雜性（服務發現、服務間認證、最終一致性），並保持足夠簡單，可在樹莓派上部署。
 
-**2. Why channel adapters, not a unified messaging API?**
+**2. 為什麼是通道介面卡，而非統一的訊息 API？**
 
-Each messaging platform has unique constraints (message size limits, media support, typing indicators, read receipts). A thin adapter per platform preserves platform-specific features while normalizing the core message format. This is the Adapter Pattern from Gang of Four.
+每個訊息平台都有獨特的約束（訊息大小限制、媒體支援、輸入指示器、已讀回執）。每個平台的薄介面卡保留了平台特定功能，同時正規化了核心訊息格式。這是四人幫的轉接器模式。
 
-**3. How to handle tool execution safety?**
+**3. 如何處理工具執行安全性？**
 
-The defense-in-depth approach: (a) Agent-level tool allowlists define what tools an agent can theoretically use. (b) Sandbox-level policy separately gates what tools can actually execute. (c) Elevated access requires per-user, per-channel authorization. (d) Docker isolation for sub-agents ensures that even if a malicious prompt tricks the model, the blast radius is contained.
+深度防禦方法：(a) 代理程式層級工具允許清單定義代理程式可以理論上使用的工具。(b) 沙盒層級策略單獨控制哪些工具可以實際執行。(c) 提升存取需要每使用者、每通道的授權。(d) 子代理程式的 Docker 隔離確保即使惡意提示欺騙模型，爆炸半徑也被控制。
 
-**4. How to manage memory without a vector database?**
+**4. 如何管理記憶體而無需向量資料庫？**
 
-OpenClaw uses a simple file-based memory system (markdown files in the state directory) rather than a vector database. For a single-user agent, full-text search over a few hundred memory files is fast enough. This avoids the operational burden of running and maintaining a vector DB.
+OpenClaw 使用簡單的基於檔案的記憶體系統（狀態目錄中的 markdown 檔案），而非向量資料庫。對於單一使用者代理程式，對幾百個記憶體檔案進行全文搜索足夠快。這避免了運行和維護向量資料庫的操作負擔。
 
-**5. How to handle multi-channel session continuity?**
+**5. 如何處理多通道對話連續性？**
 
-All channels route through the same Router, which maps platform-specific user IDs to a unified internal user identity. The memory store is keyed by agent (not channel), so switching from WhatsApp to Slack mid-conversation maintains context. This is conceptually similar to how a CRM links email, phone, and chat to one customer record.
+所有通道透過相同的路由器路由，該路由器將平台特定的使用者 ID 對應到統一的內部使用者身份。記憶體儲存按代理程式（而非通道）鍵控，因此在 WhatsApp 和 Slack 之間切換可在對話中途維持上下文。這在概念上類似於 CRM 如何將電子郵件、電話和聊天關聯到一個客戶記錄。
 
-### Scaling Discussion
+### 擴展討論
 
-| Scale | Architecture | Notes |
+| 規模 | 架構 | 備註 |
 |-------|-------------|-------|
-| 1 user | Single process on VPS | OpenClaw's default design |
-| 10 users | Multiple Gateway instances, one per user | Each user self-hosts their own |
-| 1,000 users | Managed multi-tenant platform | Requires complete redesign: proper isolation, shared infra, billing |
-| 100K+ users | Distributed system with agent pools | Need horizontal scaling, queue-based dispatch, shared skill registry |
+| 1 使用者 | VPS 上的單一程序 | OpenClaw 的預設設計 |
+| 10 使用者 | 多個 Gateway 實例，每使用者一個 | 每個使用者自我托管 |
+| 1,000 使用者 | 托管多租戶平台 | 需要完全重新設計：適當隔離、共享基礎設施、計費 |
+| 100K+ 使用者 | 具有代理程式池的分散式系統 | 需要水平擴展、基於佇列的調度、共享技能註冊表 |
 
-The architectural jump from "personal assistant" to "multi-tenant platform" is significant. OpenClaw intentionally does not cross this boundary, which is both a strength (simplicity) and a limitation (does not scale to a SaaS product without major rearchitecting).
+從「個人助理」到「多租戶平台」的架構跳躍是巨大的。OpenClaw 有意不跨越這個邊界，這既是優勢（簡單）也是限制（無法在不進行重大重構的情況下擴展到 SaaS 產品）。
 
-### Follow-up Questions an Interviewer Might Ask
+### 面試官可能問的後續問題
 
-**Q: How would you add a vector database for long-term memory?**
-Add a RAG pipeline: when the agent saves a memory, embed it and store in a vector DB (Qdrant, Weaviate). On each turn, retrieve the top-K relevant memories and inject them into the context. This trades storage complexity for better long-term recall without ballooning the context window.
+**Q：如何添加向量資料庫以實現長期記憶？**
 
-**Q: How would you make this multi-tenant?**
-Isolate at the container level: each tenant gets their own Gateway container with separate storage volumes, network namespace, and API key configuration. Use Kubernetes with per-tenant namespaces. Add a routing layer in front that maps tenant domains to containers.
+添加 RAG 管道：當代理程式儲存記憶體時，對其進行嵌入並儲存在向量資料庫（Qdrant、Weaviate）中。在每個回合，檢索 top-K 相關記憶體並將它們注入上下文。這以儲存複雜性換取更好的長期回憶，而不會使上下文視窗膨脹。
 
-**Q: How would you handle rate limiting to control LLM costs?**
-Three levels: (a) per-user message rate limiting at the Gateway, (b) per-agent token budget tracked in the orchestrator, (c) model routing that sends simple queries to cheaper models. Alert the user when they approach their budget, and allow configurable daily/monthly caps.
+**Q：如何使其成為多租戶？**
+
+在容器層級隔離：每個租戶獲得自己的 Gateway 容器，具有單獨的儲存卷、網路命名空間和 API 金鑰配置。使用 Kubernetes 配合每租戶命名空間。在前面添加路由層，將租戶網域對應到容器。
+
+**Q：如何處理速率限制以控制 LLM 成本？**
+
+三個層級：(a) Gateway 處的每使用者訊息速率限制，(b) 在協調器中追蹤的每代理程式 token 預算，(c) 將簡單查詢傳送到更便宜模型的模型路由。在接近預算時警示使用者，並允許配置每日/每月上限。
 
 ---
 
-## References
+## 參考文獻
 
 - OpenClaw Official Documentation -- https://docs.openclaw.ai
 - OpenClaw GitHub Repository -- https://github.com/openclaw/openclaw
@@ -1058,4 +1061,4 @@ Three levels: (a) per-user message rate limiting at the Gateway, (b) per-agent t
 
 ---
 
-*Next: See [Claude Code Deep Dive](../09-frameworks-and-tools/09-claude-code.md) for comparison with Anthropic's coding-focused agent approach.*
+*下一章：請參閱 [Claude Code 深度解析](../09-frameworks-and-tools/09-claude-code.md) 了解與 Anthropic 專注於編碼的代理程式方法的比較。*

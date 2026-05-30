@@ -1,6 +1,11 @@
-# Common Pitfalls in AI System Design Interviews
+---
+title: "AI 系統設計面試常見陷阱"
+description: "候選人在 AI 系統設計面試中的常見錯誤、評估影響與避免方法。"
+---
 
-This chapter covers frequent mistakes candidates make in AI system design interviews, why they hurt your evaluation, and how to avoid them.
+# AI 系統設計面試常見陷阱
+
+This chapter covers frequent mistakes candidates make in AI 系統設計 interviews, why they hurt your 評估, and how to avoid them.
 
 ## Table of Contents
 
@@ -18,14 +23,14 @@ This chapter covers frequent mistakes candidates make in AI system design interv
 ### Pitfall 1: Skipping the Data Pipeline
 
 **What goes wrong:**
-Candidates design the inference path in detail but barely mention how data gets into the system.
+Candidates design the inference path in detail but barely mention how 資料 gets into the system.
 
 **Why it matters:**
-Data quality drives AI system quality. A beautiful RAG architecture is useless if the document ingestion pipeline produces garbage chunks.
+Data quality drives AI system quality. A beautiful RAG（檢索增強生成） architecture is useless if the 文件 攝取 管線 produces garbage 區塊.
 
 **What interviewers notice:**
-- No mention of how documents are processed
-- Assumes embeddings magically appear
+- No mention of how 文件 are processed
+- Assumes 嵌入 magically appear
 - Ignores updates and deletions
 
 **Better approach:**
@@ -48,11 +53,11 @@ Data quality drives AI system quality. A beautiful RAG architecture is useless i
 Candidates say they would use GPT-4 (or any single model) for everything.
 
 **Why it matters:**
-Different tasks have different requirements. Using a frontier model for classification is wasteful. Using a small model for complex reasoning fails.
+Different tasks have different requirements. Using a 前沿模型 for classification is wasteful. Using a small model for complex reasoning fails.
 
 **What interviewers notice:**
 - No discussion of cost implications
-- No consideration of latency requirements
+- No consideration of 延遲 requirements
 - No model cascade or routing
 
 **Better approach:**
@@ -77,12 +82,12 @@ costs 60-70% with minimal quality impact."
 Candidates describe how to build the system but not how to know if it works.
 
 **Why it matters:**
-AI systems fail in subtle ways. Without evaluation, you ship broken systems and never detect degradation.
+AI systems fail in subtle ways. Without 評估, you ship broken systems and never detect degradation.
 
 **What interviewers notice:**
-- No test set mentioned
-- No quality metrics defined
-- No monitoring for production issues
+- No 測試集 mentioned
+- No quality 指標 defined
+- No 監控 for 生產環境 issues
 
 **Better approach:**
 ```
@@ -109,14 +114,14 @@ AI systems fail in subtle ways. Without evaluation, you ship broken systems and 
 ### Pitfall 4: Underestimating Multi-Tenancy Complexity
 
 **What goes wrong:**
-Candidates treat multi-tenant RAG as simply adding a "tenant_id" field.
+Candidates treat 多租戶 RAG（檢索增強生成） as simply adding a "tenant_id" field.
 
 **Why it matters:**
-Multi-tenant AI systems have unique failure modes around data leakage, isolation, and fair resource allocation.
+Multi-tenant AI systems have unique 失敗模式 around 資料 leakage, isolation, and fair resource allocation.
 
 **What interviewers notice:**
-- Post-retrieval filtering (major red flag)
-- No discussion of cache isolation
+- Post-檢索 filtering (major red flag)
+- No discussion of 快取 isolation
 - No consideration of noisy neighbor
 
 **Better approach:**
@@ -146,10 +151,10 @@ queries designed to probe for cross-tenant leakage."
 ### Pitfall 5: No Graceful Degradation
 
 **What goes wrong:**
-The system has no fallback when the LLM provider is down, rate-limited, or returning errors.
+The system has no 降級 when the LLM（大型語言模型） provider is down, rate-limited, or returning errors.
 
 **Why it matters:**
-LLM providers have outages. Rate limits get hit. Failure handling separates production-ready from prototype.
+LLM（大型語言模型） providers have outages. Rate limits get hit. Failure handling separates 生產環境-ready from prototype.
 
 **What interviewers notice:**
 - No mention of fallbacks
@@ -187,28 +192,28 @@ LLM providers have outages. Rate limits get hit. Failure handling separates prod
 ### Pitfall 6: Confusing Embedding and Generation Models
 
 **What goes wrong:**
-Candidates talk about generating text with embedding models or treating generation as retrieval.
+Candidates talk about generating text with 嵌入 models or treating 生成 as 檢索.
 
 **What to know:**
-- **Embedding models:** Map text → vector. Used for search/retrieval.
+- **Embedding models:** Map text → vector. Used for search/檢索.
 - **Generation models:** Produce text given a prompt. Used for responses.
 
 **How they connect:**
-RAG uses embedding models for retrieval, then passes retrieved chunks to a generation model.
+RAG（檢索增強生成） uses 嵌入 models for 檢索, then passes retrieved 區塊 to a 生成模型.
 
 ---
 
 ### Pitfall 7: Misunderstanding Context Windows
 
 **What goes wrong:**
-- Assuming 128K context means 128K tokens of useful context
-- Not accounting for system prompt, retrieved chunks, and conversation history
-- Ignoring the "lost in the middle" phenomenon
+- Assuming 128K 上下文 means 128K Token of useful 上下文
+- Not accounting for system prompt, retrieved 區塊, and conversation history
+- Ignoring the "中間遺失問題" phenomenon
 
 **What to know:**
 - Context window is the limit, not the target
 - Attention degrades for middle content
-- Practical useful context is much smaller than the limit
+- Practical useful 上下文 is much smaller than the limit
 
 **Better framing:**
 ```
@@ -233,8 +238,8 @@ avoids the lost-in-the-middle problem documented in Liu et al."
 Candidates discuss features without understanding cost implications.
 
 **What to know:**
-- Pricing is per token, input vs output often priced differently
-- Output tokens cost 2-4x input tokens for most providers
+- Pricing is per Token, input vs output often priced differently
+- Output Token cost 2-4x input Token for most providers
 - Streaming does not change cost
 
 **Quick reference (December 2025, verify current):**
@@ -261,20 +266,20 @@ Daily cost = 10K × (2K × $2.50/1M + 500 × $10/1M)
 
 ---
 
-### Pitfall 9: Shallow Understanding of RAG Components
+### Pitfall 9: Shallow Understanding of RAG（檢索增強生成） Components
 
 **What goes wrong:**
-Candidates can list the components (chunking, embedding, retrieval, generation) but cannot explain the tradeoffs within each.
+Candidates can list the components (分塊, 嵌入, 檢索, 生成) but cannot explain the tradeoffs within each.
 
-**Depth expected for chunks:**
-- Why chunk at all? (Context limits, retrieval precision)
-- Chunk size tradeoffs? (Smaller = more precise, larger = more context)
-- Overlap purpose? (Prevent losing context at boundaries)
-- When to use semantic chunking? (Complex documents with variable structure)
+**Depth expected for 區塊:**
+- Why 區塊 at all? (Context limits, 檢索 precision)
+- Chunk size tradeoffs? (Smaller = more precise, larger = more 上下文)
+- Overlap purpose? (Prevent losing 上下文 at boundaries)
+- When to use semantic 分塊? (Complex 文件 with variable structure)
 
-**Depth expected for retrieval:**
-- Why hybrid search? (Dense good at semantics, sparse good at keywords)
-- What is reranking? (Two-stage: fast recall then accurate ranking)
+**Depth expected for 檢索:**
+- Why 混合檢索? (Dense good at semantics, sparse good at keywords)
+- What is 重新排序? (Two-stage: fast recall then accurate ranking)
 - How to handle no results? (Fallback strategies)
 
 ---
@@ -285,7 +290,7 @@ Candidates can list the components (chunking, embedding, retrieval, generation) 
 Candidates hand-wave "and then we prompt the model to..." without discussing prompt engineering.
 
 **What interviewers want to see:**
-- Prompt structure (system, context, user)
+- Prompt structure (system, 上下文, user)
 - Instruction clarity
 - Output format specification
 - Few-shot examples if appropriate
@@ -326,7 +331,7 @@ Interviews are conversations. Monologuing misses signals about what the intervie
 
 **Better approach:**
 Check in every 3-5 minutes:
-- "Should I go deeper on retrieval or move to generation?"
+- "Should I go deeper on 檢索 or move to 生成?"
 - "Does this architecture make sense before I discuss details?"
 - "Is there a specific component you would like me to focus on?"
 
@@ -357,10 +362,10 @@ Let me start with the high-level architecture..."
 ### Pitfall 13: Technical Jargon Without Explanation
 
 **What goes wrong:**
-Candidates drop terms like "PagedAttention" or "GQA" without explaining them.
+Candidates drop terms like "分頁注意力機制" or "GQA" without explaining them.
 
 **Why it matters:**
-If the interviewer does not know the term, you seem like you are name-dropping. If they do know it, they might ask follow-up questions you cannot answer.
+If the interviewer does not know the term, you seem like you are name-dropping. If they do know it, they might ask 追問 questions you cannot answer.
 
 **Better approach:**
 Brief explanation when introducing terms:
@@ -397,7 +402,7 @@ Let me revise my approach..."
 Candidates get excited about a particular technology and design for that instead of the stated requirements.
 
 **Example:**
-Asked to design a simple Q&A system, candidate designs a complex multi-agent system with autonomous research capabilities.
+Asked to design a simple Q&A system, candidate designs a complex multi-代理 system with autonomous research capabilities.
 
 **Better approach:**
 Design to requirements, then offer extensions:
@@ -412,7 +417,7 @@ could add an agent layer, but I would not start there."
 ### Pitfall 16: Not Managing Time
 
 **What goes wrong:**
-Candidates spend 20 minutes on architecture and have no time for evaluation, reliability, or scaling.
+Candidates spend 20 minutes on architecture and have no time for 評估, reliability, or scaling.
 
 **Better approach:**
 Allocate time explicitly:
@@ -444,23 +449,23 @@ Draw boxes and arrows as you explain. Label clearly. Use the diagram as a refere
 ### Pitfall 18: Treating AI Components as Black Boxes
 
 **What goes wrong:**
-Candidates treat "call the LLM" as an atomic operation without understanding what happens inside.
+Candidates treat "call the LLM（大型語言模型）" as an atomic operation without understanding what happens inside.
 
 **Expectation for senior roles:**
-- Understand prefill vs decode phases
-- Know what affects latency (TTFT vs TPS)
-- Understand KV cache implications
-- Be aware of batching effects
+- Understand 預填充 vs 解碼 phases
+- Know what affects 延遲 (首 Token 到達時間 vs 每秒 Token 數)
+- Understand KV 快取 implications
+- Be aware of 批次處理 effects
 
 ---
 
 ### Pitfall 19: Ignoring Hallucination Risk
 
 **What goes wrong:**
-Candidates design systems that blindly trust LLM output.
+Candidates design systems that blindly trust LLM（大型語言模型） output.
 
 **Why it matters:**
-Hallucinations are inherent to LLMs. Production systems must handle them.
+Hallucinations are inherent to LLM（大型語言模型）. Production systems must handle them.
 
 **Better approach:**
 ```
@@ -481,7 +486,7 @@ Hallucinations are inherent to LLMs. Production systems must handle them.
 Security considerations come at the end, if at all.
 
 **Why it matters:**
-AI systems have novel attack surfaces (prompt injection, data leakage). Security needs to be designed in.
+AI systems have novel attack surfaces (提示注入, 資料 leakage). Security needs to be designed in.
 
 **Better approach:**
 Weave security into the design:
@@ -498,13 +503,13 @@ passes through a content filter before reaching the user."
 
 ### Before the Interview
 
-- [ ] Reviewed RAG architecture patterns
+- [ ] Reviewed RAG（檢索增強生成） architecture patterns
 - [ ] Know current model pricing (ballpark)
-- [ ] Can explain chunking strategies
-- [ ] Understand embedding vs generation
-- [ ] Know common evaluation metrics
-- [ ] Can discuss at least one vector database
-- [ ] Understand multi-tenancy challenges
+- [ ] Can explain 分塊 strategies
+- [ ] Understand 嵌入 vs 生成
+- [ ] Know common 評估 指標
+- [ ] Can discuss at least one 向量資料庫
+- [ ] Understand 多租戶 challenges
 - [ ] Can discuss prompt engineering techniques
 
 ### During the Interview
@@ -512,8 +517,8 @@ passes through a content filter before reaching the user."
 - [ ] Asked clarifying questions
 - [ ] Stated priorities and tradeoffs
 - [ ] Drew a diagram
-- [ ] Mentioned evaluation approach
-- [ ] Discussed failure modes
+- [ ] Mentioned 評估 approach
+- [ ] Discussed 失敗模式
 - [ ] Addressed security/isolation
 - [ ] Checked in with interviewer
 - [ ] Managed time across sections

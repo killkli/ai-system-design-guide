@@ -1,100 +1,102 @@
-# KV Cache and Context Caching
+# KV 快取與上下文快取
 
-The KV Cache is the most significant memory consumer in long-context AI systems. Managing this cache effectively is the difference between a system that scales to 2M tokens and one that crashes at 10k.
+KV 快取是長上下文 AI 系統中最主要的記憶體消耗來源。有效管理此快取，是區分「可擴展至 200 萬 Token」與「在 1 萬 Token 就崩潰」的系統關鍵。
 
-## Table of Contents
+## 目錄
 
-- [The KV Cache Problem](#kv-cache-problem)
-- [GQA: Grouped Query Attention](#gqa)
-- [Context Caching (Self-hosted)](#context-caching-self-hosted)
-- [API-level Context Caching (Prompt Caching)](#api-prompt-caching)
-- [RAD-O: Retrieval Augmented Decoding](#rad-o)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The KV Cache Problem
-
-During generation, the model needs the Key (K) and Value (V) tensors for all previous tokens. Storing these in memory is expensive.
-
-**VRAM Calculation (Llama 4 70B):**
-- **Tokens**: 128,000
-- **Precision**: BF16 (2 bytes/param)
-- **Memory**: `2 (KV) * layers (80) * context (128k) * heads (8) * head_dim (128) * 2 bytes`
-- **Total**: **~42 GB per user** in 128k context.
+- [KV 快取問題](#kv-cache-problem)
+- [GQA：分組查詢注意力](#gqa)
+- [上下文快取（自託管）](#context-caching-self-hosted)
+- [API 級上下文快取（提示詞快取）](#api-prompt-caching)
+- [RAD-O：檢索增強解碼](#rad-o)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## GQA: Grouped Query Attention
+## KV 快取問題
 
-GQA is the modern standard for reducing KV Cache size without losing performance.
+在生成過程中，模型需要所有先前 Token 的 Key（K）和 Value（V）張量。將這些張量儲存在記憶體中代價昂貴。
 
-| Method | Ratio | KV Cache Reduction | Quality Loss |
-|--------|-------|-------------------|--------------|
-| **Multi-Head (MHA)** | 1:1 | 1x (Baseline) | 0% |
-| **Grouped Query (GQA)** | 8:1 | **8x** | < 0.2% |
-| **Multi-Query (MQA)** | All:1 | 64x-128x | 2-3% |
-
-**Nuance**: GQA allows the model to attend to the same KV "memory" from multiple "reasoning" heads, drastically reducing the memory bandwidth needed during the Decode phase.
+**VRAM 計算（Llama 4 70B）：**
+- **Token 數量**：128,000
+- **精度**：BF16（每參數 2 位元組）
+- **記憶體**：`2（KV） × 層數（80） × 上下文（128k） × 頭數（8） × 頭維度（128） × 2 位元組`
+- **總計**：128k 上下文下，**每個使用者約 42 GB**。
 
 ---
 
-## Context Caching (Self-hosted)
+## GQA：分組查詢注意力
 
-Production systems use **Shared KV Caches** for prompts with common prefixes (e.g., a 100-page knowledge base shared by 1,000 users).
+GQA 是目前降低 KV 快取大小而不犧牲效能的現代標準。
 
-### Disk vs. VRAM Caching
-- **VRAM Cache**: Instant access, strictly limited size.
-- **Disk/SSD Cache**: Slower access, nearly unlimited. Frameworks like **SGLang** use a tiered system: `Most Recent (VRAM) -> Frequent (HBM) -> Occasional (SSD)`.
+| 方法 | 比率 | KV 快取減少幅度 | 品質損失 |
+|------|------|----------------|----------|
+| **多頭注意力（MHA）** | 1:1 | 1x（基線） | 0% |
+| **分組查詢注意力（GQA）** | 8:1 | **8x** | < 0.2% |
+| **多查詢注意力（MQA）** | All:1 | 64x-128x | 2-3% |
 
----
-
-## API-level Context Caching (Prompt Caching)
-
-Major providers (OpenAI, Anthropic, Google, DeepSeek) now offer **Prompt Caching** discounts.
-
-| Provider | Feature Name | Pricing (Cached input) | Best For |
-|----------|--------------|------------------------|----------|
-| **Anthropic** | Context Caching | 90% discount (Sonnet 4.6 cached: $0.30/1M) | Long system prompts, tool schemas |
-| **OpenAI** | Prompt Caching | ~50% discount on cached input (GPT-5.5 cached: ~$2.50/1M) | Multi-turn chat |
-| **Google** | Context Caching | Cache reads $0.20/1M (Gemini 3.1 Pro under 200K); hourly storage fee separate | Long shared corpora |
-| **DeepSeek** | Context Caching | **$0.003625/M (V4 Pro) / $0.0028/M (V4 Flash)** | Massive codebase RAG; cheapest cache tier on the market |
-
-**Break-even nuance**: If your cached prefix is reused more than **1.1x to 1.5x**, it is cheaper to use caching than raw tokens. Anthropic charges a 25% premium on cache writes, so for short prefixes the break-even is higher (3-5x reuse). DeepSeek cut the cache-hit price to 1/10 of launch on April 26, 2026. For cache-heavy workloads, V4 Flash now lands roughly 30-50x cheaper per cached token than GPT-5.5.
+**專業細節**：GQA 允許模型從多個「推理」頭 attend to 同一個 KV「記憶體」，大幅減少解碼階段所需的記憶體頻寬。
 
 ---
 
-## RAD-O: Retrieval Augmented Decoding
+## 上下文快取（自託管）
 
-RAD-O is a context-caching technique where the model **compresses** the KV cache of long documents into "Latent tokens."
-- **How**: Instead of storing the full KV vectors for 1M tokens, it stores a compressed representation that is 10x smaller.
-- **Impact**: Enables 2M+ token contexts on hardware that previously only supported 200k.
+生產系統為具有共同前綴的提示詞（如 100 頁知識庫被 1,000 名使用者共享）使用**共享 KV 快取**。
 
----
+### 磁碟快取與 VRAM 快取比較
 
-## Interview Questions
-
-### Q: How does PagedAttention help with KV Cache management? (Simplified)
-
-**Strong answer:**
-Standard KV caches require contiguous memory allocation (one giant block of RAM). This leads to **External Fragmentation** (memory exists but is in unusable gaps). PagedAttention (used in vLLM) breaks the KV cache into small, fixed-size "pages" (like OS virtual memory). This allows the cache to be non-contiguous, meaning we can allocate memory exactly when needed and share pages between different requests that have the same prefix. This typically increases memory efficiency from 60% to 96%+.
-
-### Q: Why is Context Caching better than RAG for a 50k token document?
-
-**Strong answer:**
-With cheap context caching (DeepSeek, Gemini, Anthropic), RAG is often "overkill" for medium-sized documents.
-1. **Recall**: Context caching gives 100% recall (the whole doc is in the window), whereas RAG depends on retrieval accuracy.
-2. **Coherence**: The model can see cross-references across the whole document.
-3. **Economics**: At 50k tokens, the cost of a cached input is often lower than the complexity of maintaining a vector database and retrieval pipeline.
+- **VRAM 快取**：立即存取，大小嚴格受限。
+- **磁碟/SSD 快取**：存取較慢，幾乎無限制。**SGLang** 等框架使用分層系統：`最新（VRAM）→ 頻繁使用（HBM）→ 偶爾使用（SSD）`。
 
 ---
 
-## References
+## API 級上下文快取（提示詞快取）
+
+主要提供商（OpenAI、Anthropic、Google、DeepSeek）現均提供**提示詞快取**折扣。
+
+| 提供商 | 功能名稱 | 費用（快取輸入） | 最適場景 |
+|--------|----------|----------------|----------|
+| **Anthropic** | Context Caching | 9 折（快取後：Sonnet 4.6 為 $0.30/1M） | 長系統提示詞、工具結構描述 |
+| **OpenAI** | Prompt Caching | 快取輸入約 5 折（快取後：GPT-5.5 約 $2.50/1M） | 多輪對話 |
+| **Google** | Context Caching | 快取讀取 $0.20/1M（Gemini 3.1 Pro 200K 以下）；另按小時計費 | 長共享語料庫 |
+| **DeepSeek** | Context Caching | **$0.003625/M（V4 Pro）/ $0.0028/M（V4 Flash）** | 大規模程式碼庫 RAG；市場最低快取價格 |
+
+**損益平衡細節**：若快取前綴被重複使用超過 **1.1x 到 1.5x**，使用快取就比原始 Token 便宜。Anthropic 對快取寫入收取 25% 溢價，因此短前綴的損益平衡點較高（3-5x 重複使用）。DeepSeek 在 2026 年 4 月 26 日將快取命中價格降至發布價的 1/10。對於快取密集型工作負載，V4 Flash 現在每快取 Token 的成本約為 GPT-5.5 的 30-50x 便宜。
+
+---
+
+## RAD-O：檢索增強解碼
+
+RAD-O 是一種上下文快取技術，模型將長文件的 KV 快取**壓縮**為「潛在 Token」。
+- **原理**：不儲存 100 萬 Token 的完整 KV 向量，而是儲存縮小 10 倍的壓縮表示。
+- **影響**：使原本只支援 20 萬 Token 的硬體能處理 200 萬+ Token 上下文。
+
+---
+
+## 面試題目
+
+### Q：分頁注意力如何幫助 KV 快取管理？（簡化版）
+
+**理想回答：**
+標準 KV 快取需要連續記憶體配置（一大塊 RAM）。這導致**外部碎片**（記憶體存在但存在無法使用的縫隙）。分頁注意力（用於 vLLM）將 KV 快取拆分為小的、固定大小的「頁面」（類似作業系統的虛擬記憶體）。這使得快取可以不連續，意味著我們可以在需要時精確配置記憶體，並在具有相同前綴的不同請求之間共享頁面。這通常將記憶體效率從 60% 提升至 96% 以上。
+
+### Q：為什麼上下文快取比 RAG 更適合處理 5 萬 Token 的文件？
+
+**理想回答：**
+有了便宜的上下文快取（DeepSeek、Gemini、Anthropic），RAG 對於中等大小的文件往往「殺雞用牛刀」。
+1. **召回率**：上下文快取提供 100% 召回率（整個文件都在視窗內），而 RAG 取決於檢索準確率。
+2. **連貫性**：模型可以看到整個文件的交叉引用。
+3. **成本效益**：5 萬 Token 時，快取輸入的成本通常低於維護向量資料庫和檢索管線的複雜度。
+
+---
+
+## 參考文獻
+
 - Kwon et al. "Efficient Memory Management with PagedAttention" (2023)
 - Anthropic. "Prompt Caching Documentation" (2024)
 - DeepSeek. "Context Caching Technical Report" (2025)
 
 ---
 
-*Next: [Speculative Decoding](03-speculative-decoding.md)*
+*下一篇：[推測解碼](03-speculative-decoding.md)*

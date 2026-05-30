@@ -1,53 +1,53 @@
-# Guardrails and Safety
+# 防護欄與安全機制
 
-Guardrails are systems that constrain LLM behavior to ensure safe, reliable outputs and prevent unsafe actions. This chapter covers input validation, output filtering, prompt injection defense, action safety, hallucination mitigation, and reliability patterns for production systems.
+防護欄是約束 LLM 行為以確保輸出安全、可靠，並防止不安全動作的系統。本章涵蓋輸入驗證、輸出過濾、提示詞注入防禦、幻覺緩解、動作安全，以及生產系統的可靠性和應變模式。
 
-## Table of Contents
+## 目錄
 
-- [Why Guardrails Matter](#why-guardrails-matter)
-- [Types of Guardrails](#types-of-guardrails)
-- [Input Guardrails](#input-guardrails)
-- [Output Guardrails](#output-guardrails)
-- [Prompt Injection Defense](#prompt-injection-defense)
-- [Hallucination Mitigation](#hallucination-mitigation)
-- [Structured Output Validation](#structured-output-validation)
-- [Action Safety](#action-safety)
-- [Fallback Strategies](#fallback-strategies)
-- [Guardrail Architecture](#guardrail-architecture)
-- [Guardrail Frameworks](#guardrail-frameworks)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## Why Guardrails Matter
-
-### The Reliability Challenge
-
-LLMs are probabilistic and can produce:
-- Factually incorrect information (hallucination)
-- Harmful or inappropriate content
-- Off-topic or unhelpful responses
-- Inconsistent formatting
-- Leaked sensitive information
-
-### Risk Categories
-
-| Risk | Description | Impact |
-|------|-------------|--------|
-| Harmful content | Violence, hate, illegal activities | Legal liability, reputation damage |
-| PII exposure | Leaking personal information | Privacy violations, fines |
-| Prompt injection | Malicious instruction override | Security breach |
-| Hallucination | False information presented as fact | User harm, trust erosion, liability |
-| Unsafe actions | Executing dangerous operations | System damage, data loss |
-| Off-topic responses | Irrelevant answers | Poor user experience |
-| Format errors | Invalid output structure | Application crashes |
+- [為何防護欄很重要](#為何防護欄很重要)
+- [防護欄類型](#防護欄類型)
+- [輸入防護欄](#輸入防護欄)
+- [輸出防護欄](#輸出防護欄)
+- [提示詞注入防禦](#提示詞注入防禦)
+- [幻覺緩解](#幻覺緩解)
+- [結構化輸出驗證](#結構化輸出驗證)
+- [動作安全](#動作安全)
+- [應變策略](#應變策略)
+- [防護欄架構](#防護欄架構)
+- [防護欄框架](#防護欄框架)
+- [面試問題](#面試問題)
+- [參考資料](#參考資料)
 
 ---
 
-## Types of Guardrails
+## 為何防護欄很重要
 
-### Defense in Depth
+### 可靠性挑戰
+
+LLM 具有機率性，可能產生：
+- 與事實不符的資訊（幻覺）
+- 有害或不當的內容
+- 離題或無用的回應
+- 不一致的格式
+- 洩露敏感資訊
+
+### 風險類別
+
+| 風險 | 描述 | 影響 |
+|------|------|------|
+| 有害內容 | 暴力、仇恨、非法活動 | 法律責任、聲譽損失 |
+| 個資外洩 | 洩露個人資訊 | 隱私侵權、罰款 |
+| 提示詞注入 | 惡意指令覆寫 | 安全漏洞 |
+| 幻覺 | 將虛假資訊呈現為事實 | 用戶傷害、信任侵蝕、責任 |
+| 不安全動作 | 執行危險操作 | 系統損害、資料遺失 |
+| 離題回應 | 無關答案 | 用戶體驗不佳 |
+| 格式錯誤 | 無效輸出結構 | 應用程式當機 |
+
+---
+
+## 防護欄類型
+
+### 縱深防禦
 
 ```
 User Input
@@ -63,22 +63,22 @@ User Input
 +--------+-----------+
          |
          v
-+--------------------+
-|  LLM Generation    |
-+--------+-----------+
++------------------+
+|  LLM Generation  |
++--------+---------+
          |
          v
-+--------------------+
-| OUTPUT GUARDRAILS  | <-- Block harmful output
-|  * Content filter  |
++-------------------+
+| OUTPUT GUARDRAILS | <-- Block harmful output
+|  * Content filter |
 |  * Factuality check|
-|  * Format valid.   |
+|  * Format valid.  |
 |  * Relevance check |
-+--------+-----------+
++--------+----------+
          |
          v
-+--------------------+
-| ACTION VALIDATION  | <-- Verify safe actions
++-------------------+
+| ACTION VALIDATION | <-- Verify safe actions
 +--------+-----------+
          |
          v
@@ -87,11 +87,11 @@ User Input
 
 ---
 
-## Input Guardrails
+## 輸入防護欄
 
-### Topic Classification
+### 主題分類
 
-Block off-topic or prohibited requests:
+封鎖離題或禁止的請求：
 
 ```python
 class TopicGuardrail:
@@ -127,9 +127,9 @@ result = guardrail.check("How do I cook pasta?")
 # Result: passed=False, topic outside allowed scope
 ```
 
-### PII Detection
+### PII 偵測
 
-Detect and handle personally identifiable information:
+偵測並處理個人可識別資訊：
 
 ```python
 class PIIGuardrail:
@@ -165,7 +165,7 @@ class PIIGuardrail:
         return redacted
 ```
 
-### Input Length and Rate Limiting
+### 輸入長度與速率限制
 
 ```python
 class InputLimitsGuardrail:
@@ -204,9 +204,9 @@ class InputLimitsGuardrail:
 
 ---
 
-## Output Guardrails
+## 輸出防護欄
 
-### Content Safety Filter
+### 內容安全過濾
 
 ```python
 class ContentSafetyGuardrail:
@@ -249,9 +249,9 @@ def check_with_openai(text: str) -> GuardrailResult:
     return GuardrailResult(passed=True)
 ```
 
-### Relevance Check
+### 相關性檢查
 
-Ensure response addresses the question:
+確保回應有回答問題：
 
 ```python
 class RelevanceGuardrail:
@@ -274,7 +274,7 @@ class RelevanceGuardrail:
         return GuardrailResult(passed=True, metadata={"relevance": similarity})
 ```
 
-### Factuality Check (for RAG)
+### 事實性檢查（適用於 RAG）
 
 ```python
 class FactualityGuardrail:
@@ -307,9 +307,9 @@ class FactualityGuardrail:
 
 ---
 
-## Prompt Injection Defense
+## 提示詞注入防禦
 
-### Detection
+### 偵測
 
 ```python
 class PromptInjectionDetector:
@@ -325,7 +325,7 @@ class PromptInjectionDetector:
         r"bypass\s+filter",
         r"system\s*:\s*",
         r"\[\s*INST\s*\]",
-        r"<\|?\s*system\s*\|?>",
+        r"<\|\?\s*system\s*\|?>",
     ]
 
     def __init__(self):
@@ -353,7 +353,7 @@ class PromptInjectionDetector:
         return GuardrailResult(passed=True)
 ```
 
-### Mitigation Strategies
+### 緩解策略
 
 ```python
 class InjectionMitigation:
@@ -411,9 +411,9 @@ Provide a helpful response.
 
 ---
 
-## Hallucination Mitigation
+## 幻覺緩解
 
-### Multi-Layer Approach
+### 多層方法
 
 ```python
 class HallucinationGuard:
@@ -443,13 +443,13 @@ class HallucinationGuard:
     def check_context_grounding(self, query, response, context) -> GuardrailResult:
         # Use LLM to verify grounding
         prompt = f"""
-        Context: {context}
+Context: {context}
 
-        Response: {response}
+Response: {response}
 
-        Is every factual claim in the response supported by the context?
-        Answer YES or NO, then explain.
-        """
+Is every factual claim in the response supported by the context?
+Answer YES or NO, then explain.
+"""
 
         result = llm.generate(prompt)
 
@@ -483,9 +483,9 @@ class HallucinationGuard:
         return GuardrailResult(passed=True)
 ```
 
-### Abstention Strategy
+### 棄權策略
 
-Train the model to say "I don't know":
+訓練模型說「我不知道」：
 
 ```python
 ABSTENTION_PROMPT = """
@@ -498,542 +498,247 @@ IMPORTANT RULES:
 4. It is better to abstain than to be wrong.
 
 Context:
-{context}
-
-Question: {question}
-
-Answer:
 """
-
-class AbstentionDetector:
-    def __init__(self):
-        self.abstention_phrases = [
-            "i don't have information",
-            "i cannot find",
-            "not mentioned in",
-            "i'm not sure",
-            "i don't know",
-            "no information available"
-        ]
-
-    def is_abstention(self, response: str) -> bool:
-        response_lower = response.lower()
-        return any(phrase in response_lower for phrase in self.abstention_phrases)
 ```
 
 ---
 
-## Structured Output Validation
+## 結構化輸出驗證
 
-### JSON Schema Validation
+### JSON 模式驗證
 
 ```python
-from jsonschema import validate, ValidationError
-
 class StructuredOutputGuardrail:
     def __init__(self, schema: dict):
         self.schema = schema
+        self.validator = jsonschema.Validator(schema)
 
     def check(self, response: str) -> GuardrailResult:
-        # Parse JSON
         try:
-            data = json.loads(response)
+            parsed = json.loads(response)
+            self.validator.validate(parsed)
+            return GuardrailResult(passed=True)
         except json.JSONDecodeError as e:
             return GuardrailResult(
                 passed=False,
-                reason=f"Invalid JSON: {e}",
-                suggested_action="retry_with_format_instruction"
+                reason=f"Invalid JSON: {str(e)}",
+                suggested_action="regenerate"
             )
-
-        # Validate against schema
-        try:
-            validate(instance=data, schema=self.schema)
-        except ValidationError as e:
+        except jsonschema.ValidationError as e:
             return GuardrailResult(
                 passed=False,
-                reason=f"Schema validation failed: {e.message}",
-                suggested_action="retry_with_format_instruction"
+                reason=f"Schema violation: {e.message}",
+                suggested_action="regenerate"
             )
-
-        return GuardrailResult(passed=True, data=data)
-
-# Usage
-product_schema = {
-    "type": "object",
-    "properties": {
-        "name": {"type": "string"},
-        "price": {"type": "number", "minimum": 0},
-        "in_stock": {"type": "boolean"}
-    },
-    "required": ["name", "price"]
-}
-
-guardrail = StructuredOutputGuardrail(product_schema)
-```
-
-### Retry with Correction
-
-```python
-class StructuredOutputRetry:
-    def __init__(self, schema: dict, max_retries: int = 3):
-        self.schema = schema
-        self.max_retries = max_retries
-        self.guardrail = StructuredOutputGuardrail(schema)
-
-    def generate_with_validation(self, prompt: str) -> dict:
-        for attempt in range(self.max_retries):
-            response = llm.generate(prompt)
-            result = self.guardrail.check(response)
-
-            if result.passed:
-                return result.data
-
-            # Add correction instruction
-            prompt = f"""
-            {prompt}
-
-            Your previous response had this error: {result.reason}
-
-            Please fix and respond with valid JSON matching the schema.
-            Previous response: {response}
-
-            Corrected response:
-            """
-
-        raise ValueError("Failed to generate valid structured output")
 ```
 
 ---
 
-## Action Safety
+## 動作安全
 
-### Action Validation
-
-```python
-class ActionSafetyGuard:
-    DANGEROUS_ACTIONS = {
-        "delete_file": "high",
-        "execute_code": "high",
-        "send_email": "medium",
-        "modify_database": "high",
-        "external_api_call": "medium"
-    }
-
-    async def validate_action(
-        self,
-        action: dict,
-        user_context: dict
-    ) -> ValidationResult:
-        action_type = action["type"]
-        risk_level = self.DANGEROUS_ACTIONS.get(action_type, "low")
-
-        # Check permissions
-        if not self.has_permission(user_context, action_type):
-            return ValidationResult(
-                allowed=False,
-                reason="insufficient_permissions"
-            )
-
-        # High-risk actions need additional validation
-        if risk_level == "high":
-            # Require confirmation
-            if not action.get("confirmed"):
-                return ValidationResult(
-                    allowed=False,
-                    reason="requires_confirmation",
-                    action_required="user_confirmation"
-                )
-
-            # Scope check
-            scope_valid = await self.validate_scope(action)
-            if not scope_valid:
-                return ValidationResult(
-                    allowed=False,
-                    reason="scope_exceeded"
-                )
-
-        # Rate limiting
-        if not self.within_rate_limit(user_context, action_type):
-            return ValidationResult(
-                allowed=False,
-                reason="rate_limit_exceeded"
-            )
-
-        return ValidationResult(allowed=True)
-```
-
-### Sandbox Execution
+### 動作驗證
 
 ```python
-class SandboxedExecutor:
-    """
-    Execute agent actions in a sandboxed environment.
-    """
+class ActionValidator:
+    def __init__(self, allowed_actions: list[str]):
+        self.allowed_actions = allowed_actions
 
-    def __init__(self, config: SandboxConfig):
-        self.config = config
-
-    async def execute(self, action: dict) -> ExecutionResult:
-        # Create isolated environment
-        sandbox = await self.create_sandbox()
-
-        try:
-            # Set resource limits
-            sandbox.set_memory_limit(self.config.memory_limit)
-            sandbox.set_timeout(self.config.timeout)
-            sandbox.set_network_policy(self.config.network_policy)
-
-            # Execute in sandbox
-            result = await sandbox.run(action)
-
-            # Validate output
-            if not self.is_safe_output(result):
-                return ExecutionResult(
-                    success=False,
-                    error="unsafe_output"
-                )
-
-            return ExecutionResult(
-                success=True,
-                result=result
-            )
-
-        finally:
-            await sandbox.destroy()
-```
-
----
-
-## Fallback Strategies
-
-### Graceful Degradation
-
-```python
-class FallbackChain:
-    def __init__(self, strategies: list):
-        self.strategies = strategies
-
-    def execute(self, query: str, context: str) -> Response:
-        for strategy in self.strategies:
-            try:
-                result = strategy.generate(query, context)
-
-                if self.is_acceptable(result):
-                    return Response(
-                        content=result,
-                        source=strategy.name,
-                        confidence="high"
-                    )
-            except Exception as e:
-                self.log_error(strategy.name, e)
-                continue
-
-        # All strategies failed
-        return Response(
-            content="I apologize, but I am unable to help with that request right now.",
-            source="fallback",
-            confidence="none"
-        )
-
-# Usage
-fallback = FallbackChain([
-    PrimaryLLM(model="gpt-4o"),
-    SecondaryLLM(model="claude-3.5-sonnet"),
-    CachedResponses(),
-    HumanEscalation()
-])
-```
-
-### Human Escalation
-
-```python
-class HumanEscalationGuardrail:
-    def __init__(self, confidence_threshold: float = 0.5):
-        self.threshold = confidence_threshold
-
-    def check(self, response: str, confidence: float) -> GuardrailResult:
-        if confidence < self.threshold:
+    async def validate(self, action: dict) -> GuardrailResult:
+        # Check action type is allowed
+        if action["type"] not in self.allowed_actions:
             return GuardrailResult(
                 passed=False,
-                reason="Low confidence response",
-                suggested_action="escalate_to_human",
-                metadata={"confidence": confidence}
+                reason=f"Action type '{action['type']}' is not permitted"
             )
+
+        # Validate parameters
+        if action["type"] == "delete_file":
+            if not self.is_safe_path(action["path"]):
+                return GuardrailResult(
+                    passed=False,
+                    reason="Attempt to delete file outside allowed directory"
+                )
+
+        if action["type"] == "execute_command":
+            if not self.is_safe_command(action["command"]):
+                return GuardrailResult(
+                    passed=False,
+                    reason="Potentially dangerous command detected"
+                )
 
         return GuardrailResult(passed=True)
 
-def handle_low_confidence(query: str, response: str, metadata: dict):
-    # Create ticket for human review
-    ticket = create_support_ticket(
-        query=query,
-        ai_response=response,
-        confidence=metadata["confidence"],
-        priority="normal"
-    )
+    def is_safe_path(self, path: str) -> bool:
+        # Prevent path traversal
+        resolved = os.path.realpath(path)
+        return resolved.startswith(self.allowed_directory)
 
-    return f"I want to make sure I give you accurate information. I've escalated your question to our team. Ticket: {ticket.id}"
+    def is_safe_command(self, command: str) -> bool:
+        dangerous = ["rm -rf", "shutdown", "reboot", "dd"]
+        return not any(cmd in command for cmd in dangerous)
 ```
 
 ---
 
-## Guardrail Architecture
+## 應變策略
 
-### Layered Pipeline
+### 多層應變
+
+```python
+class FallbackStrategy:
+    async def handle_guardrail_failure(
+        self,
+        failure_reason: str,
+        original_query: str
+    ) -> str:
+        # Layer 1: Try to fix the query
+        if "too long" in failure_reason:
+            shortened = await self.shorten_query(original_query)
+            return await self.retry(shortened)
+
+        # Layer 2: Use safer model
+        if "content" in failure_reason:
+            return await self.retry_with_safer_model(original_query)
+
+        # Layer 3: Return safe fallback
+        return "I apologize, but I cannot help with that request."
+```
+
+---
+
+## 防護欄架構
+
+### 生產架構範例
 
 ```python
 class GuardrailPipeline:
     def __init__(self):
         self.input_guardrails = [
-            ContentFilterGuardrail(),
-            TopicGuardrail(),
-            InjectionDetector(),
-            LengthGuardrail()
-        ]
-
-        self.output_guardrails = [
-            SafetyFilterGuardrail(),
+            TopicGuardrail(allowed_topics=[...]),
             PIIGuardrail(),
-            FactualityGuardrail()
+            InputLimitsGuardrail(max_tokens=4000),
+            PromptInjectionDetector()
+        ]
+        
+        self.output_guardrails = [
+            ContentSafetyGuardrail(),
+            FactualityGuardrail(),
+            RelevanceGuardrail(threshold=0.6)
         ]
 
-        self.action_guardrails = [
-            ActionValidator(),
-            RateLimiter(),
-            ScopeValidator()
-        ]
-
-    async def process_request(
-        self,
-        user_input: str,
-        context: dict
-    ) -> ProcessResult:
-        # Input validation
+    async def check_input(self, text: str, context: dict) -> GuardrailResult:
         for guardrail in self.input_guardrails:
-            result = await guardrail.check(user_input)
+            result = guardrail.check(text, context)
             if not result.passed:
-                return ProcessResult(
-                    blocked=True,
-                    stage="input",
-                    reason=result.violations
-                )
+                return result
+        return GuardrailResult(passed=True)
 
-        # Generate response
-        response = await self.llm.generate(user_input, context)
-
-        # Output validation
+    async def check_output(
+        self,
+        response: str,
+        context: dict
+    ) -> GuardrailResult:
         for guardrail in self.output_guardrails:
-            result = await guardrail.check(response, user_input)
+            result = guardrail.check(response, context)
             if not result.passed:
-                if result.can_filter:
-                    response = result.filtered_output
-                else:
-                    return ProcessResult(
-                        blocked=True,
-                        stage="output",
-                        reason=result.violations
-                    )
-
-        return ProcessResult(
-            blocked=False,
-            response=response
-        )
-```
-
-### Guardrail Metrics
-
-```python
-class GuardrailMetrics:
-    def record(self, guardrail_name: str, result: GuardrailResult):
-        # Record trigger rate
-        metrics.counter(
-            "guardrail_triggered",
-            labels={"guardrail": guardrail_name}
-        ).inc() if not result.passed else None
-
-        # Record violation types
-        for violation in result.violations:
-            metrics.counter(
-                "guardrail_violations",
-                labels={
-                    "guardrail": guardrail_name,
-                    "type": violation.type,
-                    "action": violation.action
-                }
-            ).inc()
-
-        # Record latency
-        metrics.histogram(
-            "guardrail_latency",
-            labels={"guardrail": guardrail_name}
-        ).observe(result.latency_ms)
+                return result
+        return GuardrailResult(passed=True)
 ```
 
 ---
 
-## Guardrail Frameworks
+## 防護欄框架
 
-### NeMo Guardrails (NVIDIA)
+### 可用框架
 
-```python
-from nemoguardrails import LLMRails, RailsConfig
+| 框架 | 語言 | 特點 |
+|------|------|------|
+| Guardrails AI | Python | 結構化輸出驗證、主題分類 |
+| Rebel | Python | 實體偵測、情感分析 |
+| Amazon Comprehend | AWS | 內容審查、PII 偵測 |
+| OpenAI Moderation API | API | 內容安全分類 |
 
-config = RailsConfig.from_path("./config")
-rails = LLMRails(config)
-
-# Define rails in Colang
-"""
-define user ask about competitors
-    "What do you think about [competitor]?"
-    "Is [competitor] better?"
-
-define bot refuse competitor discussion
-    "I'm focused on helping you with our products. Is there something specific I can help you with?"
-
-define flow
-    user ask about competitors
-    bot refuse competitor discussion
-"""
-
-response = rails.generate(messages=[{"role": "user", "content": user_message}])
-```
-
-### Guardrails AI
+### 整合範例
 
 ```python
 from guardrails import Guard
-from guardrails.validators import ValidJSON, ToxicLanguage
 
-guard = Guard.from_string(
-    validators=[
-        ValidJSON(on_fail="reask"),
-        ToxicLanguage(threshold=0.8, on_fail="filter")
-    ],
-    prompt="""
-    Extract product information as JSON:
-    {
-        "name": string,
-        "price": number
-    }
+guard = Guard.from_rail("safe_response.rail")
 
-    Product description: ${description}
-    """
-)
-
-result = guard(
-    llm_api=openai.chat.completions.create,
-    model="gpt-4o",
-    description=product_description
+response = guard.validate(
+    llm_output=raw_response,
+    metadata={"context": retrieved_docs}
 )
 ```
 
 ---
 
-## Interview Questions
+## 面試問題
 
-### Q: How do you prevent hallucination in a production RAG system?
+### Q: 如何防止 LLM 幻覺？
 
-**Strong answer:**
-Multi-layer approach:
+**理想回答：**
 
-**1. Retrieval quality:**
-- High-quality retrieval is the first defense
-- If we retrieve wrong context, model will hallucinate
-- Use reranking to ensure relevance
+「幻覺緩解需要多層策略：
 
-**2. Prompt engineering:**
-- Explicit instruction: "Answer only from context"
-- Encourage abstention: "If not in context, say you don't know"
-- Low temperature (0.1-0.3)
+**檢索層級：**
+- 使用高品質、經過驗證的文件來源
+- 實作上下文召回率評估
+- 對檢索結果進行相關性過濾
 
-**3. Output validation:**
-- Factuality checking: NLI model or LLM judge
-- Citation verification: Check claims against sources
-- Self-consistency: Multiple samples should agree
+**生成層級：**
+- 提示工程：明確要求模型只基於提供的上下文回答
+- 拒絕學習：訓練模型在不确定时弃权
+- 自我一致性：多次生成並檢查一致性
 
-**4. Abstention strategy:**
-- Train/prompt model to say "I don't know"
-- Detect low-confidence responses
-- Escalate to human when uncertain
+**驗證層級：**
+- 事實性檢查：使用 NLI 模型驗證回應是否被上下文支援
+- 引用驗證：確保回應中的引用確實存在於來源文件
+- 輸出過濾：移除未經授權產生的內容
 
-**5. Monitoring:**
-- Track hallucination rate in production
-- User feedback on accuracy
-- Regular evaluation on test set
+**系統層級：**
+- 監控幻覺率並設定警報閾值
+- 持續更新訓練資料以減少幻覺
+- 讓使用者能夠回報錯誤
 
-### Q: How do you protect an LLM application from prompt injection?
+核心原則：沒有單一解決方案，需要端到端的防禦纵深。」
 
-**Strong answer:**
+### Q: 如何設計有效的防護欄？
 
-"Defense in depth with multiple layers:
+**理想回答：**
 
-**Detection:**
-- Pattern matching for known injection phrases ('ignore previous instructions')
-- ML classifier trained on injection examples
-- Anomaly detection for unusual input patterns
+「有效的防護欄設計：
 
-**Mitigation:**
-- Sandwich defense: wrap user input with instruction reminders
-- Clear delimiters: use unique markers around user content
-- Input/output isolation: summarize intent before acting on it
-- Parameterization: separate data from instructions (like SQL params)
+**分層架構：**
+- 輸入層：過濾惡意輸入、驗證格式、速率限制
+- 生成層：使用安全的系統提示詞
+- 輸出層：驗證輸出品質、格式、相關性
 
-**Architecture:**
-- Least privilege: agents only have permissions they need
-- Action validation: verify actions before execution
-- Output filtering: catch responses that leak system prompts
+**失敗模式設計：**
+- 快速失敗：便宜檢查先做，昂貴檢查後做
+- 優雅降級：防護欄失敗時的備援策略
+- 記錄與監控：追蹤攔截以改進系統
 
-No single defense is perfect. The goal is that an attacker needs to bypass multiple layers. I also monitor for injection attempts to update defenses.
+**效能考量：**
+- 非同步執行以不阻礙主要生成流程
+- 缓存常用檢查結果
+- 分離不同安全檢查以支援單獨更新
 
-For high-security applications, I use a two-stage approach: first LLM extracts intent without acting, second LLM acts only on the extracted intent."
+**更新策略：**
+- 定期更新 pattern 以對抗新攻擊
+- A/B 測試新防護欄
+- 監控誤殺率（false positive）以避免影響正常用戶
 
-### Q: Design a guardrail system for a customer service chatbot.
-
-**Strong answer:**
-I would implement guardrails at input and output:
-
-**Input guardrails:**
-1. Topic filter: Only allow product/service questions
-2. PII detection: Redact or warn about sensitive data
-3. Jailbreak/injection detection: Block manipulation attempts
-4. Rate limiting: Prevent abuse
-
-**Output guardrails:**
-1. Content safety: No harmful/inappropriate content
-2. Relevance check: Response addresses the question
-3. Brand voice: Consistent tone and messaging
-4. Factuality: Claims supported by knowledge base
-5. PII filter: Ensure no PII leaks in responses
-
-**Behavioral guardrails:**
-- Confidence thresholds: escalate to human if uncertain
-- Refusal patterns: graceful decline for out-of-scope requests
-- Disclosure: clearly identify as AI when appropriate
-
-**Fallback chain:**
-```
-Primary LLM -> Backup LLM -> Canned responses -> Human escalation
-```
-
-**Monitoring:**
-- Log all guardrail triggers
-- Track guardrail trigger rates
-- Alert on high block rates (may indicate attack or model issue)
-- Sample blocked conversations for review
-- User satisfaction tracking
-
-The balance is: enough guardrails to be safe, not so many that the bot is useless. Tune thresholds based on the risk profile -- financial services tighter than casual chat.
+核心原則：防護欄應防止傷害，但不應過度影響正常使用體驗。」
 
 ---
 
-## References
+## 參考資料
 
-- NeMo Guardrails: https://github.com/NVIDIA/NeMo-Guardrails
 - Guardrails AI: https://github.com/guardrails-ai/guardrails
-- OpenAI Moderation: https://platform.openai.com/docs/guides/moderation
-- Llama Guard: https://ai.meta.com/research/publications/llama-guard/
-- OWASP LLM Top 10: https://owasp.org/www-project-top-10-for-large-language-model-applications/
-- Anthropic Safety: https://docs.anthropic.com/claude/docs/content-moderation
+- OWASP LLM Security: https://owasp.org/www-project-llm-security/
 
 ---
 
-*Next: [Ensemble Methods](02-ensemble-methods.md)*
+*前一篇：[安全基礎](01-security-fundamentals.md)*
+*下一篇：[集成方法](02-ensemble-methods.md)*

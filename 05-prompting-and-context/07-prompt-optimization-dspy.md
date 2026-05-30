@@ -1,90 +1,91 @@
-# Prompt Optimization (DSPy)
+# 提示詞優化（DSPy）
 
-Prompting has moved from the "Hand-tuning" era to the "Programmatic" era. **DSPy (Declarative Self-improving Language Programs)** is the de-facto standard for building robust LLM pipelines where prompts are optimized automatically by algorithms. The 3.x line (DSPy 3.1.3 shipped Feb 5, 2026, with point releases through May 2026) introduces tighter integration with reasoning-native models and a cleaner async runtime.
+提示詞工程已從「手動調整」時代進入「程式化」時代。**DSPy（宣告式自我改進語言程式）**是構建穩健 LLM 管線的事實標準，其中提示詞由演算法自動優化。3.x 系列（DSPy 3.1.3 於 2026 年 2 月 5 日發布，截至 2026 年 5 月持續有點版本發布）引入了與推理原生模型更緊密的整合和更乾淨的 async 執行期。
 
-## Table of Contents
+## 目錄
 
-- [The DSPy Philosophy: Programming vs. Prompting](#philosophy)
-- [Signatures & Modules](#signatures-modules)
-- [Teleprompters (Optimizers)](#optimizers)
-- [The "Prompt as Weight" Analogy](#prompt-as-weight)
-- [Metric-Driven Optimization](#metrics)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The DSPy Philosophy: Programming vs. Prompting
-
-In traditional prompting, changing a model (e.g., from GPT-5.5 to Claude Sonnet 4.6 or Llama 4) requires re-writing all your prompts.
-**DSPy separates Logic from Formatting.**
-
-- **Logic**: Defined by **Modules** (e.g., ChainOfThought, ReAct).
-- **Optimization**: The system automatically finds the best prompt and examples for a *specific* model to fulfill that logic.
+- [DSPy 哲學：程式設計對比提示詞工程](#philosophy)
+- [簽名與模組](#signatures-modules)
+- [提示詞優化器（優化器）](#optimizers)
+- [「提示詞如權重」類比](#prompt-as-weight)
+- [指標驅動優化](#metrics)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Signatures & Modules
+## DSPy 哲學：程式設計對比提示詞工程
 
-Instead of writing a prompt, you define a **Signature**: what the input is and what the output should be.
+在傳統提示詞工程中，更改模型（例如從 GPT-5.5 改為 Claude Sonnet 或 Llama 4）需要重寫所有提示詞。
+**DSPy 將邏輯與格式分離。**
+
+- **邏輯**：由**模組**定義（例如 ChainOfThought、ReAct）。
+- **優化**：系統自動為*特定模型*找到履行該邏輯的最佳提示詞和範例。
+
+---
+
+## 簽名與模組
+
+您不是撰寫提示詞，而是定義**簽名**：輸入是什麼，輸出應該是什麼。
 
 ```python
-# Signature pattern
+# 簽名模式
 class MultiHopQA(dspy.Signature):
-    """Answer questions that require multiple context retrievals."""
+    """回答需要多次上下文檢索的問題。"""
     context = dspy.InputField()
     question = dspy.InputField()
-    answer = dspy.OutputField(desc="A concise 1-sentence answer")
+    answer = dspy.OutputField(desc="簡潔的一句話答案")
 
-# Logic is handled by a Module
+# 邏輯由模組處理
 qa_system = dspy.ChainOfThought(MultiHopQA)
 ```
 
 ---
 
-## Teleprompters (Optimizers)
+## 提示詞優化器（優化器）
 
-Teleprompters are algorithms that iterate on your program to improve accuracy.
-1. **BootstrapFewShot**: Automatically finds high-quality examples for your prompt.
-2. **MIPROv2**: A Bayesian optimizer that tries different instruction phrasings and selects the one that maximizes your score. Still the flagship optimizer in the 3.x line.
+提示詞優化器是迭代您的程式以提高準確率的演算法。
+1. **BootstrapFewShot**：自動為您的提示詞找到高質量範例。
+2. **MIPROv2**：貝葉斯優化器，嘗試不同指令措辭並選擇使分數最大化的那一個。仍是 3.x 系列的主力優化器。
 
-**Why it matters**: You no longer guess if "Be helpful" or "Think carefully" is better. The optimizer proves it with data.
-
----
-
-## The "Prompt as Weight" Analogy
-
-In DSPy, your prompt is like a weight in a neural network. You don't "hardcode" weights; you train them.
-- If you change your model, you just **Re-compile** (re-train) your program. The optimizer will find new few-shot examples that the new model understands better.
+**為什麼重要**：您不再猜測「樂於助人」或「仔細思考」哪個更好。優化器用資料證明它。
 
 ---
 
-## Metric-Driven Optimization
+## 「提示詞如權重」類比
 
-Optimization requires a **Metric** (a function that returns a score).
-- **Exact Match**: `prediction.answer == target.answer`
-- **LLM-as-Judge**: Use a larger model (Claude Opus 4.7, GPT-5.5 reasoning) to grade the output of a smaller model (Llama 4 8B, Claude Haiku 4.5).
-
----
-
-## Interview Questions
-
-### Q: How does DSPy solve the "fragility" of prompt engineering?
-
-**Strong answer:**
-DSPy moves the complexity of "formatting" and "grounding" away from the human and into the compiler. When we hand-write prompts, we are effectively "hard-coding" behavior that is specific to one model at one specific time (point-in-time tuning). If that model is updated or swapped, the prompt breaks. DSPy treats the prompt as a learnable parameter. By defining a clear **Signature** and a **Metric**, we allow the system to "search" for the most effective prompt through thousands of simulated iterations, making the final system much more resilient to model changes.
-
-### Q: What is a "Teleprompter" in the context of DSPy?
-
-**Strong answer:**
-A Teleprompter is a programmatic optimizer. Its job is to take a DSPy program (which might be a complex chain of modules) and a small set of training examples, and then "compile" them into an optimized version. It does this by generating potential "thinking patterns" and examples, testing them against a metric, and selecting the most effective ones. In short, a Teleprompter is the "Gradient Descent" of the prompt engineering world.
+在 DSPy 中，您的提示詞就像神經網路中的權重。您不「硬編碼」權重；您訓練它們。
+- 若您更改模型，您只需**重新編譯**（重新訓練）您的程式。優化器將找到新模型更能理解的新少樣本範例。
 
 ---
 
-## References
+## 指標驅動優化
+
+優化需要一個**指標**（返回分數的函式）。
+- **完全匹配**：`prediction.answer == target.answer`
+- **LLM 即裁判**：使用較大模型（Claude Opus、GPT-5.5 推理）為較小模型（Llama 4 8B、Claude Haiku）的輸出評分。
+
+---
+
+## 面試題目
+
+### Q：DSPy 如何解決提示詞工程的「脆弱性」問題？
+
+**理想回答：**
+DSPy 將「格式」和「接地」的複雜性從人類轉移到編譯器。當我們手寫提示詞時，我們有效地「硬編碼」了特定於一個模型在特定時間點的行為（時間點調優）。若該模型被更新或替換，提示詞就會失效。DSPy 將提示詞視為可學習的參數。透過定義清晰的**簽名**和**指標**，我們允許系統通過數千次模擬迭代「搜尋」最有效的提示詞，使最終系統對模型變化更具彈性。
+
+### Q：在 DSPy 語境中，「提示詞優化器」是什麼？
+
+**理想回答：**
+提示詞優化器是一個程式化優化器。它的任務是獲取一個 DSPy 程式（可能是一個複雜的模組鏈）和一組小的訓練範例，然後將它們「編譯」成優化版本。它通過生成潛在的「思考模式」和範例、根據指標測試它們，並選擇最有效的來完成這項工作。簡單來說，提示詞優化器是提示詞工程世界的「梯度下降」。
+
+---
+
+## 參考文獻
+
 - Khattab et al. "DSPy: Compiling Declarative Language Models" (2023/2024)
 - Stanford NLP. "DSPy Documentation and Tutorials" (2025)
 
 ---
 
-*Next: [Prompt Injection and Defense](08-prompt-injection-defense.md)*
+*下一篇：[提示詞注入與防禦](08-prompt-injection-defense.md)*

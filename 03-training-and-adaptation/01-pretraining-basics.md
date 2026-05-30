@@ -1,108 +1,139 @@
-# Pretraining Basics
+# 預訓練基礎
 
-Pretraining is the most computationally expensive phase of building an LLM, where a model learns general knowledge and language patterns from massive datasets.
+預訓練是構建 LLM 中運算最昂貴的階段，模型從海量資料集中學習通用知識與語言模式。
 
-## Table of Contents
+## 目錄
 
-- [The Pretraining Objective](#the-pretraining-objective)
-- [Data Curriculum and Quality](#data-curriculum-and-quality)
-- [Scaling Laws (Inference-Optimal)](#scaling-laws)
-- [Computational Requirements](#computational-requirements)
-- [Training Stability](#training-stability)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [預訓練目標](#預訓練目標)
+- [資料課程與品質](#資料課程與品質)
+- [擴展定律（推理最優）](#擴展定律)
+- [計算需求](#計算需求)
+- [訓練穩定性](#訓練穩定性)
+- [面試問題](#面試問題)
+- [參考資料](#參考資料)
 
 ---
 
-## The Pretraining Objective
+## 預訓練目標
 
-Most modern LLMs are **Decoder-only** and use **Causal Language Modeling (CLM)**:
+現代 LLM 大多是**僅解碼器（Decoder-only）**，使用**因果語言建模（Causal Language Modeling，CLM）**：
 
 ```python
-# Objective: Minimize Cross-Entropy Loss
+# 目標：最小化交叉熵損失
 Loss = -sum(log P(token_i | token_1, ..., token_{i-1}))
 ```
 
-The model predicts the next token given the context. This simple objective, at scale, leads to emergent reasoning capabilities.
+模型根據上下文預測下一個 token。這個簡單的目標，在規模化後，催生出 emergent推理能力。
 
 ---
 
-## Data Curriculum and Quality
+## 資料課程與品質
 
-The focus has shifted from "More Data" to "Better Curriculum."
+重點已從「更多資料」轉向「更好的課程」。
 
-### The 100T Token Horizon
-Frontier models (Llama 4, GPT-5.5, Claude Opus 4.7, Gemini 3.1 Pro) are trained on 15T to 100T tokens. At this scale, **Deduplication** and **Quality Filtering** are the primary differentiators.
+### 100T Token 地平線
 
-### Data Mixture Standard
-| Component | Percentage | Purpose |
+前沿模型（Llama 4、GPT-4o、Claude 4、DeepSeek-R1、Gemini 3.1 Pro）的訓練資料規模達到 15T 至 100T token。在此規模下，**去重**與**品質過濾**是主要差異化因素。
+
+### 資料混合標準
+
+| 組成部分 | 比例 | 目的 |
 |-----------|------------|---------|
-| Web (CommonCrawl) | 50-60% | General knowledge, diverse styles |
-| Code (Github, StackOverflow)| 15-20% | **Critical for Logic & Reasoning** |
-| Books (Project Gutenberg) | 10% | Narrative coherence, long context |
-| Academic (ArXiv, PubMed) | 10% | Specialized technical knowledge |
-| Synthetic (Model-generated) | 5-10% | Math, Logic, and specific instruction paths |
+| 網頁（CommonCrawl） | 50-60% | 通用知識、多樣風格 |
+| 程式碼（GitHub、StackOverflow）| 15-20% | **對邏輯與推理至關重要** |
+| 書籍（Project Gutenberg） | 10% | 敘事連貫性、長上下文 |
+| 學術（ArXiv、PubMed） | 10% | 專業技術知識 |
+| 合成（模型生成） | 5-10% | 數學、邏輯、特定指令路徑 |
 
-**Nuance: The "Code Effect":**
-Research shows that increasing code in the pretraining mix improves a model's performance on **non-coding** reasoning tasks (e.g., math, logic puzzles) by teaching structured thinking.
-
----
-
-## Scaling Laws: Training vs. Inference Optimal
-
-### The Chinchilla Paradigm (2022-2024)
-`Data Tokens (D) ≈ 20 * Parameters (N)`
-For a 70B model, this suggests ~1.4T tokens.
-
-### The Inference-Optimal Paradigm
-Modern models (Llama 3, Llama 4) are **heavily overtrained** relative to Chinchilla.
-- **Why?**: Training cost is paid once; inference cost is paid billions of times.
-- **Result**: Small models (8B) are now trained on 15T+ tokens, making them as capable as older 70B models but much cheaper to serve.
-
-| Strategy | Token/Param Ratio | Best For |
-|----------|-------------------|----------|
-| Chinchilla | 20:1 | Research / Proof of Concept |
-| **Inference-Optimal** | **200:1 to 500:1**| Production deployment |
+**細節：「程式碼效應」：**
+研究表明，在預訓練混合中增加程式碼比重，能提升模型在**非編碼**推理任務上的表現（如數學、邏輯謎題）——因為程式碼教會了結構化思維。
 
 ---
 
-## Training Stability
+## 擴展定律：訓練最優 vs. 推理最優
 
-Training at the "Ultra" scale (100k+ GPUs) faces massive stability issues.
+### Chinchilla 範式（2022-2024）
 
-### 1. Loss Spikes
-Sudden jumps in loss that can ruin a training run.
-- **Standard fix**: **Periodic Checkpointing** and **Automatic Rollbacks**.
-- **Architecture fix**: **Residual Scaling** (initializing weights such that the residual branch starts at near-zero).
+`資料 Token 數（D）≈ 20 * 參數數量（N）`
 
-### 2. Precision: FP8 vs BF16
-- **BF16**: The 2023-2024 stability standard.
-- **FP8**: The current production standard. Supported natively by H100/B200, it halves memory usage and doubles throughput while maintaining training stability through **Stochastic Rounding**.
+對於 70B 模型，這意味著約 1.4T tokens。
 
----
+### 推理最優範式
 
-## Interview Questions
+現代模型（Llama 3、Llama 4）相較 Chinchilla 標準**嚴重過度訓練**。
+- **為什麼？**：訓練成本只需支付一次；推理成本需支付數十億次。
+- **結果**：8B 等小模型現在在 15T+ tokens 上訓練，使其具有與舊 70B 模型相當的能力，但服務成本低得多。
 
-### Q: Why train an 8B model on 15T tokens if Chinchilla says 160B tokens is optimal?
-
-**Strong answer:**
-Chinchilla optimality focuses on the best use of a fixed **training** compute budget. However, in production, we care about the **Total Cost of Ownership (TCO)**, which is dominated by inference. By overtraining a small model, we "bake in" more intelligence into fewer parameters. This results in a model that is significantly more efficient to serve (higher TPS, lower VRAM) while maintaining frontier-level quality.
-
-### Q: What is the "curriculum" in LLM pretraining?
-
-**Strong answer:**
-Curriculum refers to the order and mixture of data. A common modern pattern is:
-1. **General Knowledge Phase:** 80% of tokens (Web, Books).
-2. **Reasoning Focus Phase:** 15% tokens (Code, Math, Logic).
-3. **High-Quality "Cooling" Phase:** The last 1-5% of tokens are extremely high-quality, human-curated, or textbook data. This "cooling" phase helps the model jitter less and follow instructions better before any fine-tuning starts.
+| 策略 | Token/參數比 | 最適用途 |
+|----------|-------------------|---------|
+| Chinchilla | 20:1 | 研究 / 概念驗證 |
+| **推理最優** | **200:1 至 500:1**| 生產部署 |
 
 ---
 
-## References
+## 計算需求
+
+### 估算訓練運算成本
+
+```
+用於訓練 GPT-3 等級模型（175B）的估算：
+
+所需 FLOPs ≈ 6 * N * D
+其中 N = 參數數量，D = 訓練 tokens 數量
+
+175B 參數，300B tokens：
+6 * 175B * 300B ≈ 3.15 * 10^23 FLOPs
+
+在 1 PetaFLOP/s 的速度下：
+3.15 * 10^23 / 10^15 ≈ 315,000,000 秒 ≈ 10 年
+```
+
+前沿模型在「超級運算」規模（100K+ GPU）上訓練，訓練成本達數億美元。
+
+---
+
+## 訓練穩定性
+
+在「超級」規模（100K+ GPU）上訓練面臨巨大的穩定性問題。
+
+### 1. 損失峰值（Loss Spikes）
+
+突然的損失跳躍可能毀掉整個訓練執行。
+- **標準修復**：**定期檢查點**與**自動回滾**。
+- **架構修復**：**殘差縮放**（初始化權重，使殘差分支接近零）。
+
+### 2. 精度：FP8 vs. BF16
+
+- **BF16**：2023-2024 的穩定性標準。
+- **FP8**：當前生產標準。原生支援於 H100/B200，記憶體用量減半、吞吐量加倍，同時透過**隨機捨入（Stochastic Rounding）**維持訓練穩定性。
+
+---
+
+## 面試問題
+
+### Q：為什麼要用 15T tokens 訓練 8B 模型，而 Chinchilla 說 160B tokens 才是最優？
+
+**最佳答案：**
+
+Chinchilla 最優性專注於在固定**訓練**運算預算下的最佳利用。然而在生產中，我們關心的是被推理成本主導的**總持有成本（TCO）**。透過過度訓練小模型，我們將更多智慧「烘焙」進更少的參數中。這使得模型在服務時效率更高（更高的 TPS、更低的 VRAM），同時保持前沿級品質。
+
+### Q：LLM 預訓練中的「課程（curriculum）」是什麼？
+
+**最佳答案：**
+
+課程指的是資料的順序與混合。一種常見的現代模式是：
+1. **通用知識階段：** 80% 的 tokens（網頁、書籍）。
+2. **推理聚焦階段：** 15% 的 tokens（程式碼、數學、邏輯）。
+3. **高品質「冷卻」階段：** 最後 1-5% 的 tokens 是極高品質、人類策展或教材資料。這種「冷卻」階段幫助模型在微調開始前減少波動並更好地服從指令。
+
+---
+
+## 參考資料
+
 - Kaplan et al. "Scaling Laws for Neural Language Models" (2020)
 - Hoffmann et al. "Training Compute-Optimal Large Language Models" (Chinchilla, 2022)
 - Meta AI. "The Llama 3/4 Herd of Models" (2024/2025)
 
 ---
 
-*Next: [Fine-Tuning Strategies](02-fine-tuning-strategies.md)*
+*下一篇：[微調策略](02-fine-tuning-strategies.md)*

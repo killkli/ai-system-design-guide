@@ -1,42 +1,42 @@
-# LLM Observability
+# LLM 可觀測性
 
-Observability for LLM systems requires adapting the three pillars of logs, metrics, and traces for the unique characteristics of AI applications.
+LLM 系統的可觀測性需要調整日誌、指標和追蹤這三個支柱，以適應 AI 應用程式的獨特特性。
 
-## Table of Contents
+## 目錄
 
-- [Why LLM Observability is Different](#why-llm-observability-is-different)
-- [The Three Pillars](#the-three-pillars)
-- [Key Metrics](#key-metrics)
-- [Tracing LLM Pipelines](#tracing-llm-pipelines)
-- [Quality Monitoring](#quality-monitoring)
-- [Cost Tracking](#cost-tracking)
-- [Alerting Strategy](#alerting-strategy)
-- [Observability Tools](#observability-tools)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## Why LLM Observability is Different
-
-Traditional observability focuses on:
-- Request/response patterns
-- Latency and throughput
-- Error rates
-- Resource utilization
-
-LLM systems add:
-- **Quality is a first-class metric**: A fast, available system producing bad outputs is failing
-- **Non-determinism**: Same input can produce different outputs
-- **Token economics**: Cost scales with usage in complex ways
-- **Multi-component pipelines**: RAG has retrieval, reranking, generation steps
-- **Subjective correctness**: Often no ground truth to compare against
+- [為什麼 LLM 可觀測性不同](#為什麼-llm-可觀測性不同)
+- [三個支柱](#三個支柱)
+- [關鍵指標](#關鍵指標)
+- [追蹤 LLM 管道](#追蹤-llm-管道)
+- [品質監控](#品質監控)
+- [成本追蹤](#成本追蹤)
+- [警報策略](#警報策略)
+- [可觀測性工具](#可觀測性工具)
+- [面試題目](#面試題目)
+- [參考文獻](#參考文獻)
 
 ---
 
-## The Three Pillars
+## 為什麼 LLM 可觀測性不同
 
-### Logging
+傳統可觀測性專注於：
+- 請求/響應模式
+- 延遲和吞吐量
+- 錯誤率
+- 資源利用率
+
+LLM 系統增加了：
+- **品質是一等公民指標**：一個快速、可用的系統產生不良輸出就是失敗
+- **非確定性**：相同輸入可能產生不同輸出
+- **代幣經濟學**：成本以複雜方式隨使用量擴展
+- **多組件管道**：RAG 有檢索、重排名、生成步驟
+- **主觀正確性**：通常沒有可比較的基本事實
+
+---
+
+## 三個支柱
+
+### 日誌記錄
 
 ```python
 class LLMLogger:
@@ -54,7 +54,7 @@ class LLMLogger:
             "model": model,
             "parameters": parameters,
             "input_tokens": self.count_tokens(messages),
-            # Hash for privacy, full content in secure store
+            # 為隱私雜湊，完整內容在安全儲存中
             "content_hash": self.hash_content(messages)
         }
         self.logger.info(json.dumps(log_entry))
@@ -79,64 +79,64 @@ class LLMLogger:
         self.logger.info(json.dumps(log_entry))
 ```
 
-**What to log:**
-- Request ID for correlation
-- Model and parameters
-- Token counts
-- Latency (TTFT and total)
-- Content (hashed if privacy-sensitive)
+**要記錄的內容：**
+- 用於關聯的請求 ID
+- 模型和參數
+- Token 數量
+- 延遲（TTFT 和總計）
+- 內容（如果是隱私敏感的則雜湊）
 
-### Metrics
+### 指標
 
 ```python
 from prometheus_client import Counter, Histogram, Gauge
 
-# Request metrics
+# 請求指標
 llm_requests_total = Counter(
     "llm_requests_total",
-    "Total LLM requests",
+    "LLM 請求總數",
     ["model", "status"]
 )
 
 llm_latency_seconds = Histogram(
     "llm_latency_seconds",
-    "LLM request latency",
+    "LLM 請求延遲",
     ["model"],
     buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0]
 )
 
 llm_ttft_seconds = Histogram(
     "llm_ttft_seconds",
-    "Time to first token",
+    "到第一個 token 的時間",
     ["model"],
     buckets=[0.05, 0.1, 0.2, 0.5, 1.0, 2.0]
 )
 
-# Token metrics
+# Token 指標
 tokens_used_total = Counter(
     "tokens_used_total",
-    "Total tokens consumed",
+    "消耗的 token 總數",
     ["model", "direction"]  # direction: input/output
 )
 
-# Cost metrics
+# 成本指標
 llm_cost_dollars = Counter(
     "llm_cost_dollars",
-    "LLM cost in dollars",
+    "美元計費的 LLM 成本",
     ["model"]
 )
 
-# Quality metrics (sampled)
+# 品質指標（抽樣）
 quality_score = Gauge(
     "llm_quality_score",
-    "Sampled quality score",
+    "抽樣品質分數",
     ["model", "task_type"]
 )
 ```
 
-### Traces
+### 追蹤
 
-End-to-end tracing for RAG pipelines:
+RAG 管道的端到端追蹤：
 
 ```python
 from opentelemetry import trace
@@ -147,23 +147,23 @@ async def rag_query(query: str) -> str:
     with tracer.start_as_current_span("rag_query") as span:
         span.set_attribute("query", query)
         
-        # Embedding step
+        # 嵌入步驟
         with tracer.start_as_current_span("embed_query") as embed_span:
             query_embedding = await embed(query)
             embed_span.set_attribute("embedding_dim", len(query_embedding))
         
-        # Retrieval step
+        # 檢索步驟
         with tracer.start_as_current_span("vector_search") as search_span:
             results = await vector_db.search(query_embedding, top_k=10)
             search_span.set_attribute("results_count", len(results))
             search_span.set_attribute("top_score", results[0].score if results else 0)
         
-        # Reranking step
+        # 重排名步驟
         with tracer.start_as_current_span("rerank") as rerank_span:
             reranked = await reranker.rerank(query, results)
             rerank_span.set_attribute("reranked_count", len(reranked))
         
-        # Generation step
+        # 生成步驟
         with tracer.start_as_current_span("generate") as gen_span:
             response = await llm.generate(query, context=reranked[:5])
             gen_span.set_attribute("model", llm.model)
@@ -174,44 +174,44 @@ async def rag_query(query: str) -> str:
 
 ---
 
-## Key Metrics
+## 關鍵指標
 
-### Operational Metrics
+### 操作指標
 
-| Metric | Description | Typical Alert Threshold |
+| 指標 | 描述 | 典型警報閾值 |
 |--------|-------------|------------------------|
-| Request rate | Requests per second | Anomaly detection |
-| Error rate | Failed requests / total | > 5% |
-| Latency p50 | Median response time | > 2s |
-| Latency p95 | 95th percentile | > 5s |
-| Latency p99 | 99th percentile | > 10s |
-| TTFT | Time to first token | > 1s |
-| Token throughput | Tokens per second | < baseline |
+| 請求率 | 每秒請求數 | 異常檢測 |
+| 錯誤率 | 失敗請求 / 總數 | > 5% |
+| 延遲 p50 | 中位響應時間 | > 2秒 |
+| 延遲 p95 | 第 95 百分位 | > 5秒 |
+| 延遲 p99 | 第 99 百分位 | > 10秒 |
+| TTFT | 到第一個 token 的時間 | > 1秒 |
+| Token 吞吐量 | 每秒 token 數 | < 基線 |
 
-### Quality Metrics
+### 品質指標
 
-| Metric | Description | Collection Method |
+| 指標 | 描述 | 收集方法 |
 |--------|-------------|-------------------|
-| Quality score | LLM-as-judge rating | Sampled (1-5%) |
-| Faithfulness | RAG answer grounded in context | Sampled |
-| Relevance | Answer addresses the question | Sampled |
-| User satisfaction | Thumbs up/down, ratings | User feedback |
-| Task completion | Did user achieve goal? | Implicit signals |
+| 品質分數 | LLM 作為裁判評級 | 抽樣（1-5%） |
+| 忠實度 | RAG 答案基於上下文 | 抽樣 |
+| 相關性 | 答案回答問題 | 抽樣 |
+| 使用者滿意度 | 讚/踩、評分 | 使用者回饋 |
+| 任務完成 | 使用者是否達到目標？ | 隱含信號 |
 
-### Cost Metrics
+### 成本指標
 
-| Metric | Description | Granularity |
+| 指標 | 描述 | 粒度 |
 |--------|-------------|-------------|
-| Cost per request | Average cost | Per model |
-| Daily cost | Total daily spend | Overall + per model |
-| Cost per user action | Cost to complete user goal | Per task type |
-| Token efficiency | Value delivered per token | Per use case |
+| 每請求成本 | 平均成本 | 每模型 |
+| 每日成本 | 每日總支出 | 整體 + 每模型 |
+| 每使用者操作成本 | 完成使用者目標的成本 | 每任務類型 |
+| Token 效率 | 每 token 提供的價值 | 每用例 |
 
 ---
 
-## Quality Monitoring
+## 品質監控
 
-### Sampling Strategy
+### 抽樣策略
 
 ```python
 class QualitySampler:
@@ -226,11 +226,11 @@ class QualitySampler:
         context: list[str],
         response: str
     ):
-        # Sample randomly
+        # 隨機抽樣
         if random.random() > self.sample_rate:
             return
         
-        # Evaluate quality
+        # 評估品質
         scores = await self.judge.evaluate(
             query=query,
             context=context,
@@ -238,18 +238,18 @@ class QualitySampler:
             criteria=["relevance", "faithfulness", "helpfulness"]
         )
         
-        # Record metrics
+        # 記錄指標
         for criterion, score in scores.items():
             quality_score.labels(
                 model=self.model,
                 criterion=criterion
             ).set(score)
         
-        # Store for analysis
+        # 儲存以供分析
         await self.store_evaluation(request_id, scores)
 ```
 
-### Drift Detection
+### 漂移檢測
 
 ```python
 class QualityDriftDetector:
@@ -270,12 +270,12 @@ class QualityDriftDetector:
             self.baseline_scores = self.current_scores.copy()
             return
         
-        # Statistical test for drift
+        # 漂移的統計檢驗
         baseline_mean = np.mean(self.baseline_scores)
         current_mean = np.mean(self.current_scores)
         
-        # Simple threshold-based detection
-        drift_threshold = 0.1  # 10% degradation
+        # 簡單的基於閾值的檢測
+        drift_threshold = 0.1  # 10% 下降
         if (baseline_mean - current_mean) / baseline_mean > drift_threshold:
             self.alert_drift(baseline_mean, current_mean)
     
@@ -291,13 +291,13 @@ class QualityDriftDetector:
 
 ---
 
-## Cost Tracking
+## 成本追蹤
 
-### Real-Time Cost Calculation
+### 即時成本計算
 
 ```python
 class CostTracker:
-    # Pricing per 1M tokens (verify current rates)
+    # 每百萬 token 的定價（驗證當前費率）
     PRICING = {
         "gpt-4o": {"input": 2.50, "output": 10.00},
         "gpt-4o-mini": {"input": 0.15, "output": 0.60},
@@ -318,18 +318,18 @@ class CostTracker:
         output_cost = (output_tokens / 1_000_000) * pricing["output"]
         total_cost = input_cost + output_cost
         
-        # Record metrics
+        # 記錄指標
         llm_cost_dollars.labels(model=model).inc(total_cost)
         tokens_used_total.labels(model=model, direction="input").inc(input_tokens)
         tokens_used_total.labels(model=model, direction="output").inc(output_tokens)
         
-        # Log for analysis
+        # 記錄日誌以供分析
         self.log_cost(request_id, model, input_tokens, output_tokens, total_cost)
         
         return total_cost
 ```
 
-### Cost Attribution
+### 成本歸因
 
 ```python
 class CostAttributor:
@@ -341,7 +341,7 @@ class CostAttributor:
         use_case: str,
         cost: float
     ):
-        # Store for billing and analysis
+        # 儲存以供計費和分析
         attribution = {
             "request_id": request_id,
             "user_id": user_id,
@@ -353,83 +353,83 @@ class CostAttributor:
         
         self.store(attribution)
         
-        # Update running totals
+        # 更新運行總計
         self.update_user_total(user_id, cost)
         self.update_team_total(team, cost)
         
-        # Check budgets
+        # 檢查預算
         if self.exceeds_budget(team):
             self.alert_budget_exceeded(team)
 ```
 
 ---
 
-## Alerting Strategy
+## 警報策略
 
-### Alert Configuration
+### 警報配置
 
 ```yaml
 alerts:
-  # Availability
+  # 可用性
   - name: high_error_rate
     condition: error_rate > 0.05
     for: 5m
     severity: critical
-    runbook: "Check provider status, verify API keys, review recent changes"
+    runbook: "檢查提供商狀態、驗證 API 金鑰、審查最近的變更"
     
-  # Latency
+  # 延遲
   - name: high_latency_p95
     condition: latency_p95 > 10s
     for: 5m
     severity: warning
-    runbook: "Check model, reduce context size, verify provider status"
+    runbook: "檢查模型、減少上下文大小、驗證提供商狀態"
     
-  # Cost
+  # 成本
   - name: cost_spike
     condition: hourly_cost > 2 * rolling_avg_hourly_cost
     for: 1h
     severity: warning
-    runbook: "Check for traffic spike, review recent deployments, verify caching"
+    runbook: "檢查流量峰值、審查最近的部署、驗證緩存"
     
-  # Quality
+  # 品質
   - name: quality_degradation
     condition: avg_quality_score < 3.5 over 1h
     for: 30m
     severity: warning
-    runbook: "Review recent changes, check model performance, sample responses"
+    runbook: "審查最近的變更、檢查模型效能、抽樣響應"
     
-  # Resource
+  # 資源
   - name: rate_limit_approaching
     condition: rate_limit_usage > 0.8
     for: 15m
     severity: warning
-    runbook: "Consider model routing, implement backpressure"
+    runbook: "考慮模型路由、實施背壓"
 ```
 
-### Alert Prioritization
+### 警報優先順序
 
-| Severity | Response Time | Examples |
+| 嚴重性 | 響應時間 | 範例 |
 |----------|---------------|----------|
-| Critical | < 15 min | Service down, > 50% error rate |
-| High | < 1 hour | > 10% error rate, P99 > 30s |
-| Warning | < 4 hours | Quality degradation, cost spike |
-| Info | Next business day | Trend changes, capacity planning |
+| 關鍵 | < 15 分鐘 | 服務癱瘓、> 50% 錯誤率 |
+| 高 | < 1 小時 | > 10% 錯誤率、P99 > 30秒 |
+| 警告 | < 4 小時 | 品質下降、成本峰值 |
+| 資訊 | 下一個工作日 | 趨勢變化、容量規劃 |
 
 ---
 
-## Observability Tools
+## 可觀測性工具
 
-### LLM-Specific Tools
+### LLM 特定工具
 
-| Tool | Focus | Best For |
+| 工具 | 焦點 | 最適合 |
 |------|-------|----------|
-| LangSmith | LangChain tracing | LangChain-based apps |
-| Langfuse | Open source tracing | Self-hosted, privacy |
-| Weights & Biases | Experiment tracking | ML teams |
-| Arize Phoenix | LLM monitoring | Production monitoring |
-| Helicone | API proxy logging | Simple integration |
+| LangSmith | LangChain 追蹤 | 基於 LangChain 的應用 |
+| Langfuse | 開源追蹤 | 自托管、隱私 |
+| Weights & Biases | 實驗追蹤 | ML 團隊 |
+| Arize Phoenix | LLM 監控 | 生產監控 |
+| Helicone | API 代理日誌 | 簡單整合 |
 
-### Integration Example: Langfuse
+### 整合示例：Langfuse
 
 ```python
 from langfuse import Langfuse
@@ -437,20 +437,20 @@ from langfuse import Langfuse
 langfuse = Langfuse()
 
 async def traced_rag_query(query: str) -> str:
-    # Start trace
+    # 開始追蹤
     trace = langfuse.trace(name="rag_query", input=query)
     
-    # Embedding span
+    # 嵌入範圍
     embed_span = trace.span(name="embed")
     embedding = await embed(query)
     embed_span.end()
     
-    # Retrieval span
+    # 檢索範圍
     retrieve_span = trace.span(name="retrieve")
     results = await vector_db.search(embedding)
     retrieve_span.end(output={"count": len(results)})
     
-    # Generation span
+    # 生成範圍
     gen_span = trace.generation(
         name="generate",
         model="gpt-4o",
@@ -459,7 +459,7 @@ async def traced_rag_query(query: str) -> str:
     response = await llm.generate(query, context=results)
     gen_span.end(output=response)
     
-    # End trace
+    # 結束追蹤
     trace.update(output=response)
     
     return response
@@ -467,66 +467,72 @@ async def traced_rag_query(query: str) -> str:
 
 ---
 
-## Interview Questions
+## 面試題目
 
-### Q: What metrics would you track for a production LLM system?
+### Q：您會為生產 LLM 系統追蹤哪些指標？
 
-**Strong answer:**
+**強烈回答：**
 
-"I organize metrics into three categories:
+「我將指標組織為三個類別：
 
-**Operational metrics:** These are table stakes for any service.
-- Request rate and error rate
-- Latency percentiles: p50, p95, p99
-- Time to first token (TTFT) for streaming
-- Availability
+**操作指標：** 這是任何服務的基本要求。
+- 請求率和錯誤率
+- 延遲百分位：p50、p95、p99
+- 到第一個 token 的時間（TTFT）用於串流
+- 可用性
 
-**Quality metrics:** This is what makes LLM observability unique.
-- Sampled quality scores using LLM-as-judge (1-5% sample rate)
-- For RAG: faithfulness and relevance scores
-- User feedback: thumbs up/down, explicit ratings
-- Task completion rate where measurable
+**品質指標：** 這是 LLM 可觀測性獨特之處。
+- 使用 LLM 作為裁判的抽樣品質分數（1-5% 抽樣率）
+- 對於 RAG：忠實度和相關性分數
+- 使用者回饋：讚/踩、明確評分
+- 任務完成率（可測量時）
 
-**Cost metrics:**
-- Cost per request by model
-- Daily/weekly cost trends
-- Cost per successful user action
-- Token efficiency
+**成本指標：**
+- 按模型計算的每請求成本
+- 每日/每週成本趨勢
+- 每成功使用者操作的成本
+- Token 效率
 
-I set alerts for operational issues (error rate > 5%, P95 > SLA) and quality drift (average score drops 10% from baseline). Cost alerts for spikes help catch runaway usage.
+我為操作問題（錯誤率 > 5%、P95 > SLA）和品質漂移（平均分數比基線下降 10%）設定警報。成本警報有助於捕捉失控的使用量。
 
-The key insight is that a fast, available LLM system producing bad outputs is still failing. Quality must be a first-class metric."
+關鍵洞見是，一個快速、可用的 LLM 系統產生不良輸出仍然是在失敗。品質必須是一等公民指標。」
 
-### Q: How do you detect quality degradation in production?
+### Q：如何檢測生產中的品質下降？
 
-**Strong answer:**
+**強烈回答：**
 
-"I use several approaches:
+「檢測品質下降需要多層方法：
 
-**Continuous sampling:** I evaluate 1-5% of requests using LLM-as-judge. This gives me a quality signal without evaluating everything.
+1. **持續抽樣**：隨機抽樣 1-5% 的請求進行深度評估
+   - 使用 LLM 作為裁判評估品質
+   - 追蹤趨勢而非單個值
 
-**Drift detection:** I maintain a baseline quality distribution and use statistical tests to detect when current scores drift significantly. A 10% degradation triggers a warning.
+2. **自動化閾值**：
+   - 當平均分數低於 3.5（5 分制）時發出警告
+   - 當分數比基線下降 10% 時發出警報
 
-**User feedback:** Thumbs up/down, explicit ratings if available. This is ground truth for user satisfaction.
+3. **使用者回饋循環**：
+   - 追蹤讚/踩比率
+   - 監控具有低評分的特定查詢類型
 
-**Implicit signals:** Task completion, retry rate, escalation rate, session length. If users are struggling more, quality may have dropped.
+4. **分段分析**：
+   - 按任務類型、使用者群組、模型版本追蹤
+   - 隔離特定維度的下降
 
-**What to do when I detect degradation:**
-1. Check for recent deployments or prompt changes
-2. Sample specific responses to diagnose the issue
-3. Check if it is model-specific (provider issue) or universal
-4. Roll back if necessary, then investigate
+5. **漂移檢測**：
+   - 保持基線分數窗口
+   - 當當前分數與基線顯著偏離時警報
 
-I also maintain a golden test set of queries with expected behaviors that I run on every deployment to catch regressions before production."
-
----
-
-## References
-
-- OpenTelemetry: https://opentelemetry.io/
-- Langfuse: https://langfuse.com/docs
-- LangSmith: https://docs.smith.langchain.com/
+關鍵是不要只看平均值——追蹤分布並注意尾部（即低分數的比例）。」
 
 ---
 
-*Next: [CI/CD for LLM Applications](../11-infrastructure-and-mlops/02-cicd.md)*
+## 參考文獻
+
+- OpenTelemetry LLM Instrumentation
+- Arize AI: LLM Observability Guide
+- Langfuse Documentation
+
+---
+
+*上一篇：[LLM 評估](01-llm-evaluation.md)*

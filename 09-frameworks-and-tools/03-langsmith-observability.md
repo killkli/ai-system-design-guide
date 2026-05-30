@@ -1,79 +1,80 @@
-# LangSmith Observability
+# LangSmith 可觀測性
 
-In 2023, LLM observability was "logging strings." Now it is **Full Trajectory Debugging** and **Automated Evaluation Pipelines**. LangSmith is the LangChain-native option in a crowded "LLMOps" layer that also includes Langfuse (acquired by ClickHouse in January 2026), LangWatch, Braintrust, and Arize Phoenix.
+2023 年，LLM 可觀測性是「記錄字串」。現在它是**完整軌跡偵錯**和**自動化評估管線**。LangSmith 是 LangChain 原生的選項，位於擁擠的「LLMOps」層中，該層還包括 Langfuse（於 2026 年 1 月被 ClickHouse 收購）、LangWatch、Braintrust 和 Arize Phoenix。
 
-## Table of Contents
+## 目錄
 
-- [The Observability Pyramid](#pyramid)
-- [Tracing and Trajectories](#tracing)
-- [Unit Testing for LLMs (Datasets)](#datasets)
-- [Automated Evaluators (LLM-as-Judge)](#evaluators)
-- [Managing Deployment: A/B Testing](#ab-testing)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Observability Pyramid
-
-1. **Top (Value)**: Is the user task getting completed? (Success Rate)
-2. **Middle (Flow)**: Which agent node is the bottleneck? (Latency/Cost per node)
-3. **Bottom (Raw)**: What were the exact prompt/completion pairs? (Traces)
+- [可觀測性金字塔](#pyramid)
+- [追蹤和軌跡](#tracing)
+- [LLM 單元測試（資料集）](#datasets)
+- [自動化評估器（LLM 即評審）](#evaluators)
+- [管理部署：A/B 測試](#ab-testing)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Tracing and Trajectories
+## 可觀測性金字塔
 
-LangSmith automatically captures every node in a **LangGraph** or **Chain**.
-- **Metadata Tagging**: Tag every trace with `user_id`, `model_tier`, and `is_canary`.
-- **The Debugger**: You can \"Play back\" a trace in the LangSmith UI, modifying the prompt and seeing how the response changes. This works without re-running the entire application.
-
----
-
-## Unit Testing for LLMs (Datasets)
-
-Building an LLM app without a **Dataset** is "vibe-based development."
-- **Gold Standard Datasets**: A collection of `(Input, Expected_Output)` pairs.
-- **Standard workflow**: Whenever a user provides negative feedback, that interaction is automatically pumped into a "Correction Dataset" for future testing.
+1. **頂部（價值）**：使用者的任務是否完成了？（成功率）
+2. **中部（流程）**：哪個代理節點是瓶頸？（每節點延遲/成本）
+3. **底部（原始）**：確切的 prompt/completion 配對是什麼？（追蹤）
 
 ---
 
-## Automated Evaluators
+## 追蹤和軌跡
 
-You cannot manually check 1,000 log entries every morning.
-- **LLM-as-Judge**: Using a superior model (Claude Opus 4.7, GPT-5.5 reasoning, DeepSeek-R2) to score the production model on categories like **Tone**, **Accuracy**, and **Safe Action execution**.
-- **Custom Evaluators**: Python functions that check for regex patterns, JSON schema validity, or Toxicity scores.
-
----
-
-## A/B Testing
-
-LangSmith allows for **Experiment Branching**.
-- Run 2% of traffic on a new "System Prompt" version.
-- Compare the **Success Rate** and **Token Cost** in real-time.
-- Automatically roll back if the failure rate exceeds a threshold.
+LangSmith 自動捕獲 **LangGraph** 或 **Chain** 中的每個節點。
+- **中繼資料標記**：使用 `user_id`、`model_tier` 和 `is_canary` 標記每個追蹤。
+- **偵錯器**：您可以在 LangSmith UI 中「回放」追蹤，修改提示詞並查看回應如何變化。這不需要重新執行整個應用程式。
 
 ---
 
-## Interview Questions
+## LLM 單元測試（資料集）
 
-### Q: Why is "Trace Attribution" critical for Staff-level engineers?
-
-**Strong answer:**
-In complex multi-agent systems, the final output might be bad, but the error happened 10 steps ago in a "Researcher" node. Without **Trace Attribution**, you're just guessing where to fix the prompt. Attribution allows me to see the **Line of Reasoning**. I can see that the "Researcher" failed to find the right URL, which led to the "Summarizer" hallucinating. This allows for **Targeted Optimization** instead of broad "Prompt Engineering."
-
-### Q: How do you justify the cost of an observability platform like LangSmith?
-
-**Strong answer:**
-The cost is offset by **Developer Productivity** and **Token Efficiency**. A single day of an engineer "guessing" why a model is failing costs significantly more than a monthly subscription. Moreover, by using LangSmith to find "Meandering" agents (those taking too many steps), I can optimize the graphs to reduce the average number of steps from 8 to 5, which directly results in a **30-40% reduction in LLM API bills**.
+在沒有**資料集**的情況下建構 LLM 應用程式是「基於感覺的開發」。
+- **黃金標準資料集**：一組 `(輸入、預期輸出)` 配對。
+- **標準工作流程**：每當使用者提供負面回饋時，該互動會自動進入「修正資料集」以供未來測試。
 
 ---
 
-## References
-- LangChain Team. "LangSmith: The Unified Evaluation Platform" (2025)
-- Microsoft. "Tracing and Debugging Multi-Agent Systems" (2025)
-- Weights & Biases. "Integrating LLOps into the CI/CD Pipeline" (2024/2025)
+## 自動化評估器
+
+您無法每天手動檢查 1,000 個日誌項目。
+- **LLM 即評審**：使用更優秀的模型（Claude Opus 4.7、GPT-5.5 推理、DeepSeek-R2）來評分生產模型在**語調**、**準確性**和**安全行動執行**等類別上的表現。
+- **自訂評估器**：檢查正規表達式模式、JSON schema 有效性或毒性分數的 Python 函式。
 
 ---
 
-*Next: [LlamaIndex and Data-Centric AI](04-llamaindex.md)*
+## A/B 測試
+
+LangSmith 允許**實驗分支**。
+- 在新的「系統提示詞」版本上執行 2% 的流量。
+- 即時比較**成功率**和**Token 成本**。
+- 如果失敗率超過閾值，自動回滾。
+
+---
+
+## 面試題目
+
+### Q：為何「追蹤歸因」對 Staff 等級工程師至關重要？
+
+**強烈回答：**
+在複雜的多代理系統中，最終輸出可能不好，但錯誤發生在 10 步前的一個「研究者」節點。如果沒有**追蹤歸因**，您只能猜測哪裡需要修復提示詞。歸因讓我能夠看到**推理脈絡**。我能夠看到「研究者」未能找到正確的 URL，這導致「摘要者」產生幻覺。這使得**定向優化**而非廣泛的「提示詞工程」成為可能。
+
+### Q：如何證明 LangSmith 之類的可觀測性平台的成本是合理的？
+
+**強烈回答：**
+成本由**開發者生產力**和**Token 效率**抵消。一天工程師「猜測」模型為何失敗的成本遠高於月訂閱。此外，透過 LangSmith 找到「漫遊」代理（那些花費太多步驟的代理），我可以優化圖形將平均步驟數從 8 減少到 5，這直接導致**LLM API 帳單減少 30-40%**。
+
+---
+
+## 參考文獻
+
+- LangChain 團隊。〈LangSmith：統一評估平台〉（2025）
+- Microsoft。〈追蹤和偵錯多代理系統〉（2025）
+- Weights & Biases。〈將 LLOps 整合到 CI/CD 管線中〉（2024/2025）
+
+---
+
+*下一篇：[LlamaIndex 和資料驅動 AI](04-llamaindex.md)*

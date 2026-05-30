@@ -1,75 +1,75 @@
-# Case Study: Document Intelligence Pipeline
+# 案例研究：文件智慧 pipeline
 
-## The Problem
+## 問題背景
 
-A legal tech company needs to process **50,000 contracts per month**, extracting key terms (parties, dates, obligations, termination clauses) and loading them into a searchable database.
+一間法律科技公司需要每月處理 **50,000 份合約**，擷取關鍵條款（當事人、日期、義務、終止條款）並載入可搜尋的資料庫。
 
-**Constraints given in the interview:**
-- Documents range from 2 to 200 pages
-- Mix of scanned PDFs and native digital
-- Multi-language (English, German, French, Spanish)
-- Extraction accuracy: 95%+ on key fields
-- Cost target: under $0.50 per document
-
----
-
-## The Interview Question
-
-> "Design a pipeline that takes a 100-page contract PDF and extracts structured data like parties, effective date, termination conditions, and payment terms into JSON."
+**面試中给出的限制條件：**
+- 文件範圍從 2 頁到 200 頁
+- 混合掃描 PDF 和原生數位文件
+- 多語言（英文、德文、法文、西班牙文）
+- 關鍵欄位擷取準確率：95%+
+- 成本目標：每份文件低於 $0.50
 
 ---
 
-## Solution Architecture
+## 面試問題
+
+> 「設計一個 pipeline，接收 100 頁合約 PDF 並將當事人、生效日期、終止條件和付款條款等結構化資料擷取為 JSON。」
+
+---
+
+## 解決方案架構
 
 ```mermaid
 flowchart TB
-    subgraph Intake["Document Intake"]
-        PDF[Contract PDF] --> CLASSIFY{Native or Scanned?}
-        CLASSIFY -->|Native| PARSE[PyMuPDF Parser]
-        CLASSIFY -->|Scanned| OCR[Vision-LLM OCR<br/>Gemini 3 Flash]
+    subgraph Intake["文件攔截"]
+        PDF[合約 PDF] --> CLASSIFY{原生或掃描？}
+        CLASSIFY -->|原生| PARSE[PyMuPDF 解析器]
+        CLASSIFY -->|掃描| OCR[Vision-LLM OCR<br/>Gemini 3 Flash]
     end
 
-    subgraph Structure["Structure Recovery"]
-        PARSE --> MARKDOWN[Markdown Conversion]
+    subgraph Structure["結構恢復"]
+        PARSE --> MARKDOWN[Markdown 轉換]
         OCR --> MARKDOWN
-        MARKDOWN --> SECTION[Section Detection<br/>Headers, Clauses]
+        MARKDOWN --> SECTION[區段偵測<br/>標題、條款]
     end
 
-    subgraph Extract["Extraction Layer"]
-        SECTION --> PARALLEL{{"Parallel Extractors"}}
-        PARALLEL --> E1[Parties Extractor]
-        PARALLEL --> E2[Dates Extractor]
-        PARALLEL --> E3[Obligations Extractor]
-        PARALLEL --> E4[Termination Extractor]
+    subgraph Extract["擷取層"]
+        SECTION --> PARALLEL{{"平行擷取器"}}
+        PARALLEL --> E1[當事人擷取器]
+        PARALLEL --> E2[日期擷取器]
+        PARALLEL --> E3[義務擷取器]
+        PARALLEL --> E4[終止擷取器]
     end
 
-    subgraph Validate["Validation"]
-        E1 --> MERGE[Merge Results]
+    subgraph Validate["驗證"]
+        E1 --> MERGE[合併結果]
         E2 --> MERGE
         E3 --> MERGE
         E4 --> MERGE
-        MERGE --> VALIDATE[Cross-Field Validation]
-        VALIDATE --> OUTPUT[Structured JSON]
+        MERGE --> VALIDATE[跨欄位驗證]
+        VALIDATE --> OUTPUT[結構化 JSON]
     end
 ```
 
 ---
 
-## Key Design Decisions
+## 關鍵設計決策
 
-### 1. Vision-LLM for OCR Instead of Traditional OCR
+### 1. Vision-LLM 取代傳統 OCR
 
-**Answer:** Scanned contracts often have stamps, handwritten annotations, and complex layouts (tables, multi-column). Traditional OCR (Tesseract) produces garbled output. Gemini 3 Flash "sees" the layout and produces clean Markdown with tables preserved. Cost is higher but accuracy gain is worth it.
+**答案：** 掃描合約通常有印章、手寫註釋和複雜版面（表格、多欄）。傳統 OCR（Tesseract）輸出雜亂。Gemini 3 Flash 「看見」版面並產生保留表格的乾淨 Markdown。成本較高但準確率提升值得投資。
 
-| Method | 100-page Scanned Contract | Accuracy | Cost |
-|--------|---------------------------|----------|------|
-| Tesseract | Noisy, broken tables | 60% | $0.02 |
-| AWS Textract | Better, still struggles with layout | 75% | $0.15 |
-| Gemini 3 Flash | Clean Markdown, tables intact | 92% | $0.35 |
+| 方法 | 100 頁掃描合約 | 準確率 | 成本 |
+|------|----------------|--------|------|
+| Tesseract | 雜訊、斷裂表格 | 60% | $0.02 |
+| AWS Textract | 較好但仍掙扎於版面 | 75% | $0.15 |
+| Gemini 3 Flash | 乾淨 Markdown，表格完整 | 92% | $0.35 |
 
-### 2. Parallel Extractors vs Single-Pass
+### 2. 平行擷取器 vs 單次通過
 
-**Answer:** A single prompt asking for all fields produces worse results than specialized extractors. Each extractor has a focused prompt and schema:
+**答案：** 單一提示要求所有欄位比專業擷取器產生更差結果。每個擷取器都有專注提示和結構定義：
 
 ```python
 parties_schema = {
@@ -84,7 +84,7 @@ parties_schema = {
     }
 }
 
-# Each extractor runs in parallel
+# 每個擷取器平行執行
 async def extract_all(document: str):
     results = await asyncio.gather(
         extract_parties(document, parties_schema),
@@ -95,47 +95,47 @@ async def extract_all(document: str):
     return merge_results(results)
 ```
 
-### 3. Cross-Field Validation
+### 3. 跨欄位驗證
 
-**Answer:** Extraction errors often reveal themselves through inconsistencies:
-- If `effective_date` is after `termination_date`, something is wrong
-- If `party_a` name appears in `obligations` but spelled differently, flag for review
-- If `payment_amount` is extracted but `payment_frequency` is null, incomplete
+**答案：** 擷取錯誤常透過不一致性顯現：
+- 如果 `effective_date` 在 `termination_date` 之後，有問題
+- 如果 `party_a` 名稱出現在 `obligations` 但拼法不同，標記需審查
+- 如果擷取到 `payment_amount` 但 `payment_frequency` 為空，不完整
 
 ---
 
-## Handling 200-Page Documents
+## 處理 200 頁文件
 
-The context window challenge:
+上下文窗口挑戰：
 
 ```mermaid
 flowchart LR
-    subgraph Chunking["Smart Chunking"]
-        DOC[200-page Contract] --> DETECT[Section Detector]
-        DETECT --> SECTIONS[Logical Sections<br/>Recitals, Terms, Exhibits]
+    subgraph Chunking["智慧分塊"]
+        DOC[200 頁合約] --> DETECT[區段偵測器]
+        DETECT --> SECTIONS[邏輯區段<br/>序言、條款、附件]
     end
 
-    subgraph Process["Selective Processing"]
-        SECTIONS --> FILTER{Relevant Section?}
-        FILTER -->|Yes| EXTRACT[Extract Fields]
-        FILTER -->|No| SKIP[Skip / Store Reference]
+    subgraph Process["選擇性處理"]
+        SECTIONS --> FILTER{相關區段？}
+        FILTER -->|是| EXTRACT[擷取欄位]
+        FILTER -->|否| SKIP[跳過 / 儲存參照]
     end
 
-    subgraph Merge["Result Assembly"]
-        EXTRACT --> RESULTS[Partial Results]
-        SKIP --> REFS[Section References]
-        RESULTS --> FINAL[Final JSON]
+    subgraph Merge["結果組裝"]
+        EXTRACT --> RESULTS[部分結果]
+        SKIP --> REFS[區段參照]
+        RESULTS --> FINAL[最終 JSON]
         REFS --> FINAL
     end
 ```
 
-**Key insight:** Not all 200 pages contain extractable fields. Exhibits (attached original documents) are stored as references, not processed. The "Terms and Conditions" section is often 80% of the document but contains most key fields.
+**關鍵洞察：** 並非所有 200 頁都包含可擷取欄位。附件（附加原始文件）儲存為參照而非處理。「條款與條件」區段通常佔文件 80% 但包含大多數關鍵欄位。
 
 ---
 
-## Multilingual Handling
+## 多語言處理
 
-German contracts use different structures than English ones. We maintain language-specific extractors:
+德文合約使用與英文不同的結構。我們維護語言特定擷取器：
 
 ```python
 EXTRACTORS = {
@@ -145,53 +145,53 @@ EXTRACTORS = {
         "termination": EnglishTerminationExtractor()
     },
     "de": {
-        "parties": GermanPartiesExtractor(),  # Handles "GmbH", "AG" patterns
-        "dates": GermanDatesExtractor(),       # DD.MM.YYYY format
-        "termination": GermanTerminationExtractor()  # "Kündigung" patterns
+        "parties": GermanPartiesExtractor(),  # 處理 "GmbH"、"AG" 模式
+        "dates": GermanDatesExtractor(),       # DD.MM.YYYY 格式
+        "termination": GermanTerminationExtractor()  # "Kündigung" 模式
     }
 }
 ```
 
 ---
 
-## Cost Breakdown
+## 成本細項
 
-| Stage | Cost per 100-page Doc |
-|-------|----------------------|
-| OCR (Gemini 3 Flash, if scanned) | $0.18 |
-| Section detection (GPT-4o-mini) | $0.03 |
-| Field extraction (4 parallel, GPT-4o-mini) | $0.12 |
-| Validation | $0.02 |
-| **Total (scanned)** | **$0.35** |
-| **Total (native PDF)** | **$0.17** |
+| 階段 | 每 100 頁文件成本 |
+|------|-------------------|
+| OCR（Gemini 3 Flash，如為掃描） | $0.18 |
+| 區段偵測（GPT-4o-mini） | $0.03 |
+| 欄位擷取（4 個平行，GPT-4o-mini） | $0.12 |
+| 驗證 | $0.02 |
+| **總計（掃描）** | **$0.35** |
+| **總計（原生 PDF）** | **$0.17** |
 
-Average (60% native, 40% scanned): **$0.24 per document** (under $0.50 target)
-
----
-
-## Interview Follow-Up Questions
-
-**Q: What if the extraction confidence is low?**
-
-A: We output a confidence score per field. Fields below 0.8 are flagged for human review. The UI shows a "review queue" where humans validate only uncertain fields, not entire documents. This reduces human effort to an average of 30 seconds per document.
-
-**Q: How do you handle contracts with non-standard layouts?**
-
-A: We maintain a "layout library" of known contract templates. The section detector first tries to match against known templates. If no match, it falls back to heuristic detection (looking for numbered sections, ALL CAPS headers, etc.). Unknown layouts are flagged and added to the library after human review.
-
-**Q: What about contracts where key terms are defined in exhibits?**
-
-A: We detect cross-references ("as defined in Exhibit A") and resolve them. The extraction prompt includes relevant exhibit content when the main document references it. This prevents "null" extractions when the answer is in an attachment.
+平均（60% 原生、40% 掃描）：**每文件 $0.24**（低於 $0.50 目標）
 
 ---
 
-## Key Takeaways for Interviews
+## 面試後續問題
 
-1. **Vision-LLMs beat traditional OCR** for complex layouts (tables, annotations)
-2. **Parallel specialized extractors outperform single-pass** for structured extraction
-3. **Cross-field validation catches extraction errors** before they reach the database
-4. **Not all pages need processing**: detect relevant sections, skip exhibits
+**問：如果擷取信心度低怎麼辦？**
+
+答：我們輸出每個欄位的信心評分。低於 0.8 的欄位標記需人工審查。UI 顯示「審查佇列」，人工只需驗證不確定的欄位，而非整份文件。這將人工工作量減少到平均每文件 30 秒。
+
+**問：如何處理非標準版面的合約？**
+
+答：我們維護已知合約模板的「版面資料庫」。區段偵測器首先嘗試匹配已知模板。如果沒有匹配，回退到啟發式偵測（尋找編號區段、全大寫標題等）。未知版面被標記並在人工審查後加入資料庫。
+
+**問：關鍵條款定義在附件中的合約如何處理？**
+
+答：我們偵測交叉參照（「如附件 A 中定義」）並解析它們。當主文件參照時，擷取提示包含相關附件內容。這防止了當答案在附件中時出現「空」擷取。
 
 ---
 
-*Related chapters: [OCR and Layout](../10-document-processing/01-ocr-and-layout.md), [Structured Generation](../05-prompting-and-context/06-structured-generation.md)*
+## 面試關鍵要點
+
+1. **Vision-LLM 勝過傳統 OCR**：複雜版面（表格、註釋）
+2. **平行專業擷取器優於單次通過**：結構化擷取
+3. **跨欄位驗證在錯誤到達資料庫前捕捉擷取錯誤**
+4. **並非所有頁面都需要處理**：偵測相關區段，跳過附件
+
+---
+
+*相關章節：[OCR 與版面](../10-document-processing/01-ocr-and-layout.md)，[結構化生成](../05-prompting-and-context/06-structured-generation.md)*

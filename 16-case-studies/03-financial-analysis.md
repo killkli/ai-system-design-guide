@@ -1,213 +1,213 @@
-# Case Study: Financial Analysis with Ensemble Verification
+# 案例研究：結合集成驗證的財務分析
 
-This case study covers designing a high-reliability AI system for generating equity research reports where accuracy is critical.
+本案例研究涵蓋設計一套高可靠性 AI 系統，用於生成股票研究報告，其中準確率至關重要。
 
-## Table of Contents
+## 目錄
 
-- [Problem Statement](#problem-statement)
-- [Requirements Analysis](#requirements-analysis)
-- [Architecture Design](#architecture-design)
-- [Ensemble Pipeline](#ensemble-pipeline)
-- [Fact Verification](#fact-verification)
-- [Quality Gates](#quality-gates)
-- [Results and Metrics](#results-and-metrics)
-- [Interview Walkthrough](#interview-walkthrough)
-
----
-
-## Problem Statement
-
-**Company:** Investment firm generating equity research reports
-
-**Challenge:**
-- Reports influence multi-million dollar investment decisions
-- Zero tolerance for hallucinated financial data
-- Regulatory scrutiny on AI-generated analysis
-- Current manual process: 8 hours per report, $500 cost
-
-**Goal:**
-- Reduce report generation time to < 30 minutes
-- Maintain accuracy at 99.5%+
-- Clear audit trail for compliance
-- Cost target: < $50 per report
+- [問題陳述](#問題陳述)
+- [需求分析](#需求分析)
+- [架構設計](#架構設計)
+- [集成管道](#集成管道)
+- [事實驗證](#事實驗證)
+- [品質閘道](#品質閘道)
+- [結果與指標](#結果與指標)
+- [面試演練](#面試演練)
 
 ---
 
-## Requirements Analysis
+## 問題陳述
 
-### Accuracy Requirements
+**公司：** 生成股票研究報告的投資公司
 
-| Data Type | Tolerance | Verification Method |
+**挑戰：**
+- 報告影響數百萬美元的投資決策
+- 對虛構財務資料零容忍
+- 監管機構對 AI 生成分析的審查
+- 目前手動流程：每份報告 8 小時，$500 成本
+
+**目標：**
+- 將報告生成時間縮短至 < 30 分鐘
+- 維持 99.5%+ 準確率
+- 清晰的合規審計追蹤
+- 成本目標：每份報告 < $50
+
+---
+
+## 需求分析
+
+### 準確率需求
+
+| 資料類型 | 容許差異 | 驗證方法 |
 |-----------|-----------|---------------------|
-| Financial metrics (EPS, PE) | 0% error | Source verification |
-| Percentage changes | ±0.1% | Cross-validation |
-| Date references | 100% accuracy | Source extraction |
-| Company names | 100% accuracy | Entity matching |
-| Analyst quotes | Verbatim or flagged | Quote extraction |
+| 財務指標（EPS、PE）| 0% 誤差 | 來源驗證 |
+| 百分比變化 | ±0.1% | 交叉驗證 |
+| 日期參考 | 100% 準確率 | 來源擷取 |
+| 公司名稱 | 100% 準確率 | 實體匹配 |
+| 分析師引述 | 逐字或標記 | 引述擷取 |
 
-### Compliance Requirements
+### 合規需求
 
-- All claims must cite source documents
-- No forward-looking statements without disclaimers
-- Clear AI-generated disclosure
-- Full audit trail of generation process
-- Human review for publication
+- 所有聲稱必須引用來源文件
+- 無附带免責的前瞻性聲明
+- 明確的 AI 生成揭露
+- 生成流程的完整審計追蹤
+- 發布前的人工審查
 
 ---
 
-## Architecture Design
+## 架構設計
 
-### High-Level Pipeline
+### 高層級管道
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│               FINANCIAL ANALYSIS PIPELINE                        │
+│               財務分析管道                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  Stage 1: Data Extraction (Self-Consistency k=5)                │
-│  └── Extract key metrics from filings with majority vote        │
+│  階段 1：資料擷取（自一致性 k=5）                │
+│  └── 使用多數投票從文件中擷取關鍵指標        │
 │                                                                  │
-│  Stage 2: Analysis Generation (Mixture of Agents)               │
-│  ├── Model A: Quantitative analysis focus                       │
-│  ├── Model B: Qualitative/narrative focus                       │
-│  ├── Model C: Risk factor analysis                              │
-│  └── Aggregator: Synthesize into coherent report                │
+│  階段 2：分析生成（代理混合）               │
+│  ├── 模型 A：定量分析重點                       │
+│  ├── 模型 B：定性/敘事重點                   │
+│  ├── 模型 C：風險因素分析                      │
+│  └── 聚合器：合成為連貫報告                │
 │                                                                  │
-│  Stage 3: Fact Verification (Multi-Agent Debate)                │
-│  └── 3 models debate each factual claim, flag disagreements     │
+│  階段 3：事實驗證（多代理辯論）                │
+│  └── 3 個模型 辯論每個事實聲稱，標記分歧     │
 │                                                                  │
-│  Stage 4: Final Review (Panel of Judges)                        │
-│  └── Quality score determines auto-publish vs human review      │
+│  階段 4：最終審查（裁判小組）                        │
+│  └── 品質分數決定自動發布 vs 人工審查      │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-The pipeline as a flow. Each stage uses a different model class on purpose: extraction wants multimodal (charts and tables), generation wants narrative quality, audit wants reasoning depth, panel wants cheap-but-many for diversity:
+管道作為流程。每個階段故意使用不同類型的模型：擷取需要多模態（圖表和表格），生成需要敘事品質，審計需要推理深度，小組需要便宜但多樣以確保多樣性：
 
 ```mermaid
 flowchart LR
-    S1[Stage 1: Extraction<br/>Gemini 3 Pro<br/>Self-Consistency k=5] --> S2
-    S2[Stage 2: Analysis<br/>Mixture of Agents<br/>Quant + Narrative + Risk] --> S3
-    S3[Stage 3: Verification<br/>Multi-Agent Debate<br/>3 models per claim] --> S4
-    S4[Stage 4: Final Review<br/>Panel of Judges<br/>Quality score] --> D{Auto-publish<br/>threshold met}
-    D -->|yes| P[Publish]
-    D -->|no| H[Human Review Queue]
+    S1[階段 1：擷取<br/>Gemini 3 Pro<br/>自一致性 k=5] --> S2
+    S2[階段 2：分析<br/>代理混合<br/>量化 + 敘事 + 風險] --> S3
+    S3[階段 3：驗證<br/>多代理辯論<br/>每聲稱 3 個模型] --> S4
+    S4[階段 4：最終審查<br/>裁判小組<br/>品質分數] --> D{自動發布<br/>閾值滿足}
+    D -->|是| P[發布]
+    D -->|否| H[人工審查佇列]
 ```
 
-### Data Flow
+### 資料流
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   10-K/Q    │     │  Earnings   │     │  Analyst    │
-│   Filings   │     │  Calls      │     │  Reports    │
+│   10-K/Q    │     │  財報   │     │  分析師    │
+│   申報文件   │     │  電話      │     │  報告       │
 └──────┬──────┘     └──────┬──────┘     └──────┬──────┘
        │                   │                   │
        └───────────────────┴───────────────────┘
                            │
                            ▼
                    ┌───────────────┐
-                   │     Data      │
-                   │   Ingestion   │
+                   │     資料     │
+                   │   攝取       │
                    └───────┬───────┘
                            │
                            ▼
                    ┌───────────────┐
-                   │   Extraction  │
-                   │  (k=5 SC)     │
+                   │   擷取  │
+                   │  (k=5 自一致性)     │
                    └───────┬───────┘
                            │
                            ▼
               ┌────────────┴────────────┐
-              │    Structured Data      │
-              │    (verified metrics)   │
+              │    結構化資料      │
+              │    （已驗證指標）   │
               └────────────┬────────────┘
                            │
                            ▼
                    ┌───────────────┐
                    │    MoA        │
-                   │  Generation   │
+                   │  生成   │
                    └───────┬───────┘
                            │
                            ▼
                    ┌───────────────┐
-                   │    Debate     │
-                   │  Verification │
+                   │    辯論     │
+                   │  驗證 │
                    └───────┬───────┘
                            │
                            ▼
                    ┌───────────────┐
-                   │    Panel      │
-                   │    Review     │
+                   │    小組      │
+                   │    審查     │
                    └───────┬───────┘
                            │
                ┌───────────┴───────────┐
                ▼                       ▼
         ┌─────────────┐         ┌─────────────┐
-        │ Auto-Publish│         │Human Review │
-        │ (high conf) │         │ (low conf)  │
+        │ 自動發布│         │人工審查 │
+        │ (高信心) │         │ (低信心)  │
         └─────────────┘         └─────────────┘
 ```
 
-The data lineage in Mermaid, showing how three input sources converge into one verified output:
+Mermaid 中的資料譜系，顯示三個輸入來源如何匯聚為一個已驗證輸出：
 
 ```mermaid
 flowchart TD
-    F1[10-K and 10-Q Filings] --> ING[Data Ingestion]
-    F2[Earnings Calls] --> ING
-    F3[Analyst Reports] --> ING
-    ING --> EX[Extraction<br/>k=5 Self-Consistency]
-    EX --> SD[(Structured Data<br/>verified metrics)]
-    SD --> MOA[MoA Generation<br/>3 specialized agents]
-    MOA --> DEB[Debate Verification<br/>flag disagreements]
-    DEB --> PAN[Panel Review<br/>quality score]
-    PAN --> AP[Auto-Publish<br/>high confidence]
-    PAN --> HR[Human Review<br/>low confidence]
+    F1[10-K 和 10-Q 申報文件] --> ING[資料攝取]
+    F2[財報電話] --> ING
+    F3[分析師報告] --> ING
+    ING --> EX[擷取<br/>k=5 自一致性]
+    EX --> SD[(結構化資料<br/>已驗證指標)]
+    SD --> MOA[MoA 生成<br/>3 個專業代理]
+    MOA --> DEB[辯論驗證<br/>標記分歧]
+    DEB --> PAN[小組審查<br/>品質分數]
+    PAN --> AP[自動發布<br/>高信心]
+    PAN --> HR[人工審查<br/>低信心]
 ```
 
 ---
 
-## Ensemble Pipeline
+## 集成管道
 
-### Stage 1: Multimodal Data Extraction (Gemini 3 Pro)
+### 階段 1：多模態資料擷取（Gemini 3 Pro）
 
 ```python
 class FinancialDataExtractor:
     """
-    Using Gemini 3 Pro to handle complex 10-K tables and charts natively.
+    使用 Gemini 3 Pro 原生處理複雜 10-K 表格和圖表。
     """
     async def extract_metrics(self, doc_pages: list[bytes]) -> dict:
-        # Gemini 3 Pro processes charts/tables as images + text natively
+        # Gemini 3 Pro 原生處理圖表/表格作為圖像 + 文字
         response = await genai.GenerativeModel("gemini-3.0-pro").generate_content(
             [{"text": "Extract all balance sheet items into JSON."}, *doc_pages]
         )
         return json.loads(response.text)
 ```
 
-### Stage 2: Analysis Generation (Claude 4.5 Opus)
+### 階段 2：分析生成（Claude 4.5 Opus）
 
 ```python
 class AnalysisEngine:
     """
-    Claude 4.5 Opus for deep qualitative synthesis and narrative coherence.
+    Claude 4.5 Opus 用於深度定性綜合和敘事連貫性。
     """
     async def generate_report(self, data: dict) -> str:
-        # High-cost, high-reliability generation for equity research
+        # 高成本、高可靠性生成用於股票研究
         return await self.anthropic.messages.create(
             model="claude-4.5-opus-20251101",
             messages=[{"role": "user", "content": f"Analyze: {data}"}]
         )
 ```
 
-### Stage 3: Audit & Verification (o3 Reasoning Model)
+### 階段 3：審計與驗證（o3 推理模型）
 
 ```python
 class AuditorAgent:
     """
-    Using o3 (OpenAI) with high reasoning budget to audit claims.
-    Thinking mode is used to detect subtle accounting contradictions.
+    使用 o3（OpenAI）高推理預算審計聲稱。
+    思考模式用於檢測微妙的會計矛盾。
     """
     async def audit_claim(self, claim: str, raw_data: str) -> dict:
-        # o3 'Thinking' mode enables deep logical inference over financial data
+        # o3「思考」模式實現財務資料上的深度邏輯推理
         response = await self.openai.chat.completions.create(
             model="o3-2025-12",
             reasoning_effort="high",
@@ -216,46 +216,46 @@ class AuditorAgent:
         return self.parse_audit(response)
 ```
 
-### Stage 3: Fact Verification with Multi-Agent Debate
+### 階段 3：多代理辯論的事實驗證
 
-The debate stage is what catches the subtle hallucinations a single model misses. Three independent debaters verify each claim in parallel; consensus wins, dissent flags the claim for human review:
+辯論階段是捕捉單一模型忽略的微妙幻覺的關鍵。三個獨立辯論者平行驗證每個聲稱；共識獲勝，異議將聲稱標記進行人工審查：
 
 ```mermaid
 sequenceDiagram
-    participant CE as Claim Extractor
-    participant D1 as Debater A<br/>Claude 4.5 Opus
-    participant D2 as Debater B<br/>GPT-5.2
-    participant D3 as Debater C<br/>Gemini 3 Pro
-    participant CON as Consensus Logic
-    participant OUT as Verification Result
+    participant CE as 聲稱擷取器
+    participant D1 as 辯論者 A<br/>Claude 4.5 Opus
+    participant D2 as 辯論者 B<br/>GPT-5.2
+    participant D3 as 辯論者 C<br/>Gemini 3 Pro
+    participant CON as 共識邏輯
+    participant OUT as 驗證結果
 
-    CE->>CE: extract factual claims<br/>from report
-    Note over CE,D3: For each claim, debaters verify independently
-    par Independent verification
-        CE->>D1: claim + source docs
-        D1-->>CON: verdict (supported/inferred/unsupported/contradicted)
+    CE->>CE: 從報告中擷取事實聲稱
+    Note over CE,D3: 對於每個聲稱，辯論者獨立驗證
+    par 獨立驗證
+        CE->>D1: 聲稱 + 來源文件
+        D1-->>CON: 裁決（支持/推斷/不支持/矛盾）
     and
-        CE->>D2: claim + source docs
-        D2-->>CON: verdict
+        CE->>D2: 聲稱 + 來源文件
+        D2-->>CON: 裁決
     and
-        CE->>D3: claim + source docs
-        D3-->>CON: verdict
+        CE->>D3: 聲稱 + 來源文件
+        D3-->>CON: 裁決
     end
-    CON->>CON: check consensus
-    alt all agree supported
-        CON->>OUT: verified
-    else any contradiction
-        CON->>OUT: flagged for human review
-    else split verdicts
-        CON->>OUT: low confidence
+    CON->>CON: 檢查共識
+    alt 全部同意支持
+        CON->>OUT: 已驗證
+    else 任何矛盾
+        CON->>OUT: 標記進行人工審查
+    else 分裂裁決
+        CON->>OUT: 低信心
     end
 ```
 
 ```python
 class FactVerificationDebate:
     """
-    Extract claims from the report and have multiple models
-    debate their accuracy.
+    從報告中擷取聲稱並讓多個模型
+    辯論其準確率。
     """
     
     def __init__(self, debaters: list, rounds: int = 2):
@@ -264,7 +264,7 @@ class FactVerificationDebate:
         self.claim_extractor = ClaimExtractor()
     
     async def verify_report(self, report: str, source_docs: list[str]) -> dict:
-        # Extract factual claims
+        # 擷取事實聲稱
         claims = await self.claim_extractor.extract(report)
         
         verification_results = []
@@ -296,13 +296,13 @@ Is this claim:
 Provide your verdict with evidence.
 """
         
-        # Each debater verifies independently
+        # 每個辯論者獨立驗證
         verdicts = await asyncio.gather(*[
             debater.generate(verification_prompt)
             for debater in self.debaters
         ])
         
-        # Check consensus
+        # 檢查共識
         parsed_verdicts = [self.parse_verdict(v) for v in verdicts]
         consensus = self.check_consensus(parsed_verdicts)
         
@@ -316,24 +316,24 @@ Provide your verdict with evidence.
 
 ---
 
-## Quality Gates
+## 品質閘道
 
-### Automated Quality Checks
+### 自動化品質檢查
 
 ```python
 class QualityGate:
     def __init__(self):
         self.thresholds = {
-            "claim_verification_rate": 0.95,  # 95% claims verified
-            "data_accuracy": 0.99,            # 99% metrics accurate
-            "panel_score": 4.0,               # 4/5 minimum
-            "disputed_claims_max": 2          # Max 2 disputed claims
+            "claim_verification_rate": 0.95,  # 95% 聲稱已驗證
+            "data_accuracy": 0.99,            # 99% 指標準確
+            "panel_score": 4.0,               # 最低 4/5
+            "disputed_claims_max": 2          # 最多 2 個爭議聲稱
         }
     
     async def evaluate(self, report_data: dict) -> dict:
         checks = {}
         
-        # Check claim verification rate
+        # 檢查聲稱驗證率
         verified_rate = len(report_data["verified_claims"]) / len(report_data["all_claims"])
         checks["claim_verification"] = {
             "passed": verified_rate >= self.thresholds["claim_verification_rate"],
@@ -341,7 +341,7 @@ class QualityGate:
             "threshold": self.thresholds["claim_verification_rate"]
         }
         
-        # Check data accuracy
+        # 檢查資料準確率
         data_accuracy = report_data["extraction_accuracy"]
         checks["data_accuracy"] = {
             "passed": data_accuracy >= self.thresholds["data_accuracy"],
@@ -349,7 +349,7 @@ class QualityGate:
             "threshold": self.thresholds["data_accuracy"]
         }
         
-        # Check panel score
+        # 檢查小組分數
         panel_score = report_data["panel_score"]
         checks["panel_score"] = {
             "passed": panel_score >= self.thresholds["panel_score"],
@@ -357,7 +357,7 @@ class QualityGate:
             "threshold": self.thresholds["panel_score"]
         }
         
-        # Determine routing
+        # 決定路由
         all_passed = all(c["passed"] for c in checks.values())
         
         return {
@@ -367,7 +367,7 @@ class QualityGate:
         }
 ```
 
-### Human Review Interface
+### 人工審查介面
 
 ```python
 class HumanReviewQueue:
@@ -384,105 +384,105 @@ class HumanReviewQueue:
         
         await self.review_queue.enqueue(review_item)
         
-        # Notify reviewers
+        # 通知審查者
         await self.notify_reviewers(review_item)
 ```
 
 ---
 
-## Results and Metrics
+## 結果與指標
 
-### Performance Comparison
+### 效能比較
 
-| Metric | Manual Process | AI Pipeline | Improvement |
+| 指標 | 手動流程 | AI 管道 | 改善 |
 |--------|---------------|-------------|-------------|
-| Time per report | 8 hours | 25 minutes | 19x faster |
-| Cost per report | $500 | $42 | 92% reduction |
-| Factual error rate | 2.1% | 0.4% | 81% reduction |
-| Human review load | 100% | 28% | 72% reduction |
+| 每報告時間 | 8 小時 | 25 分鐘 | 19 倍更快 |
+| 每報告成本 | $500 | $42 | 減少 92% |
+| 事實錯誤率 | 2.1% | 0.4% | 減少 81% |
+| 人工審查負擔 | 100% | 28% | 減少 72% |
 
-### Quality Metrics
+### 品質指標
 
-| Quality Dimension | Target | Achieved |
+| 品質維度 | 目標 | 達到 |
 |-------------------|--------|----------|
-| Data extraction accuracy | 99% | 99.3% |
-| Claim verification rate | 95% | 96.8% |
-| Panel quality score | 4.0/5.0 | 4.2/5.0 |
-| Regulatory compliance | 100% | 100% |
+| 資料擷取準確率 | 99% | 99.3% |
+| 聲稱驗證率 | 95% | 96.8% |
+| 小組品質分數 | 4.0/5.0 | 4.2/5.0 |
+| 法規合規 | 100% | 100% |
 
-### Cost Breakdown (Dec 2025)
+### 成本細項（2025 年 12 月）
 
-| Component | Cost | Percentage |
+| 元件 | 成本 | 百分比 |
 |-----------|------|------------|
-| Data extraction (Gemini 3 Pro) | $5 | 11% |
-| Analysis (Claude 4.5 Opus) | $20 | 44% |
-| o3 Thinking-Audit (High) | $15 | 33% |
-| Infrastructure & Vector Ops | $5 | 12% |
-| **Total** | **$45** | 100% |
+| 資料擷取（Gemini 3 Pro）| $5 | 11% |
+| 分析（Claude 4.5 Opus）| $20 | 44% |
+| o3 思考審計（高）| $15 | 33% |
+| 基礎設施與向量操作 | $5 | 12% |
+| **總計** | **$45** | 100% |
 
-*Note: o3 auditing represents 33% of the cost but catches 98% of hallucinations that Claude 4.5 misses, justifying the 'Thinking' token premium.*
-
----
-
-## Interview Walkthrough
-
-**Interviewer:** "Design an AI system for generating financial research reports with very high accuracy requirements."
-
-**Strong response:**
-
-1. **Clarify accuracy requirements** (1 min)
-   - "What's the acceptable error rate for financial data?"
-   - "What's the regulatory compliance requirement?"
-   - "Is latency or accuracy the priority?"
-
-2. **Acknowledge the core challenge** (1 min)
-   - "The key challenge is that hallucinations are unacceptable for financial data. A single wrong number could mislead investment decisions. I need ensemble methods for reliability."
-
-3. **High-level architecture** (3 min)
-   - "I would use a multi-stage pipeline with different ensemble techniques at each stage:"
-   - "Data extraction: Self-consistency with k=5 for unanimous agreement on numbers"
-   - "Analysis: Mixture of Agents for diverse perspectives"
-   - "Verification: Multi-agent debate to catch hallucinations"
-   - "Quality gate: Panel of judges to score before publishing"
-
-4. **Deep dive on fact verification** (3 min)
-   - "For fact verification, I extract every factual claim from the report"
-   - "Three diverse models debate whether each claim is supported by sources"
-   - "If they disagree, the claim is flagged for human review"
-   - "This catches subtle errors that single-model verification misses"
-
-5. **Cost-quality tradeoff** (2 min)
-   - "This pipeline is 10-20x more expensive than single-model generation"
-   - "But for financial reports, the cost of errors (legal, reputational) far exceeds the cost of verification"
-   - "I would implement confidence-based routing: auto-publish high-confidence reports, human-review low-confidence ones"
-
-6. **Monitoring** (1 min)
-   - "I would track extraction accuracy, claim verification rate, and panel scores continuously"
-   - "Drift detection would alert if accuracy drops"
-   - "Full audit trail for compliance"
+*注意：o3 審計佔成本的 33%，但捕捉了 Claude 4.5 忽略的 98% 的幻覺，證明了「思考」tokens 溢價的合理性。*
 
 ---
 
-## Key Learnings
+## 面試演練
 
-1. **Self-consistency alone is insufficient** for numerical data extraction. Unanimous agreement (k/k votes) should be required.
+**面試官：**「設計一個具有非常高準確率需求的財務研究報告生成 AI 系統。」
 
-2. **Multi-agent debate most effective** for catching subtle reasoning errors and hallucinations.
+**強勢回應：**
 
-3. **Source attribution is critical** for both accuracy and compliance. Every claim must link to source documents.
+1. **釐清準確率需求**（1 分鐘）
+   - 「財務資料的可接受誤差率是多少？」
+   - 「法規合規要求是什麼？」
+   - 「延遲還是準確率優先？」
 
-4. **Confidence-based routing** is essential for cost management. Not every report needs full ensemble verification.
+2. **承認核心挑戰**（1 分鐘）
+   - 「關鍵挑戰是幻覺對財務資料是不可接受的。單一錯誤數字可能誤導投資決策。我需要集成方法來提高可靠性。」
 
-5. **Human-in-the-loop is still necessary** for disputed claims and edge cases. Design for graceful escalation.
+3. **高層級架構**（3 分鐘）
+   - 「我會使用多階段管道，在每個階段使用不同的集成技術：」
+   - 「資料擷取：k=5 自一致性以獲得數字的一致同意」
+   - 「分析：代理混合以獲得多樣觀點」
+   - 「驗證：多代理辯論以捕捉幻覺」
+   - 「品質閘道：小組評分後發布」
+
+4. **事實驗證深入探討**（3 分鐘）
+   - 「對於事實驗證，我從報告中擷取每個事實聲稱」
+   - 「三個多樣模型辯論每個聲稱是否被來源支持」
+   - 「如果他們不同意，聲稱將被標記進行人工審查」
+   - 「這捕捉了單一模型驗證會忽略的微妙錯誤」
+
+5. **成本品質權衡**（2 分鐘）
+   - 「此管道比單一模型生成昂貴 10-20 倍」
+   - 「但對於財務報告，錯誤的成本（法律、名譽）遠超驗證成本」
+   - 「我會實施基於信心的路由：高信心報告自動發布，低信心人工審查」
+
+6. **監控**（1 分鐘）
+   - 「我會持續追蹤擷取準確率、聲稱驗證率和小組分數」
+   - 「漂移檢測會在準確率下降時發出警報」
+   - 「完整的審計追蹤以確保合規」
 
 ---
 
-## References
+## 關鍵學習
 
-- Verga et al. "Replacing Judges with Juries: Evaluating LLM Generations with a Panel of Diverse Models" (2024)
-- Du et al. "Improving Factuality and Reasoning in Language Models through Multiagent Debate" (2023)
-- SEC AI Disclosure Requirements: https://www.sec.gov/
+1. **僅靠自一致性對數值資料擷取不足**。需要全票同意（k/k 票）。
+
+2. **多代理辯論在捕捉微妙推理錯誤和幻覺方面最有效**。
+
+3. **來源歸因對準確率和合規都至關重要**。每個聲稱必須鏈接到來源文件。
+
+4. **基於信心的路由對成本管理至關重要**。並非每份報告都需要完整集成驗證。
+
+5. **人工在環仍然對爭議聲稱和邊緣案例是必要的**。設計優雅升級。
 
 ---
 
-*Next: [Code Assistant Case Study](03-code-assistant.md)*
+## 參考資料
+
+- Verga 等人。「用多元模型小組替換裁判：評估 LLM 生成」（2024）
+- Du 等人。「通過多代理辯論提高語言模型的事實性和推理」（2023）
+- SEC AI 揭露要求：https://www.sec.gov/
+
+---
+
+*下一篇：[程式碼助理案例研究](03-code-assistant.md)*

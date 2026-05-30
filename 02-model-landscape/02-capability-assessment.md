@@ -1,508 +1,386 @@
-# Capability Assessment
+# 能力評估
 
-This chapter covers how to evaluate and compare model capabilities for your specific use case. Generic benchmarks rarely tell the full story; this guide helps you conduct meaningful assessments.
+模型能力評估是 AI 系統設計的基礎。本章涵蓋評估方法論、關鍵基準測試，以及如何將實驗室分數轉化為實際的系統設計決策。
 
-## Table of Contents
+## 目錄
 
-- [Why Benchmarks Are Not Enough](#why-benchmarks-are-not-enough)
-- [Evaluation Dimensions](#evaluation-dimensions)
-- [Building Custom Evaluations](#building-custom-evaluations)
-- [Common Evaluation Pitfalls](#common-evaluation-pitfalls)
-- [Practical Assessment Process](#practical-assessment-process)
-- [Internal Elo-based Evaluation](#internal-elo-based-evaluation)
-- [Reasoning Calibration & Efficiency](#reasoning-calibration)
-- [A/B Testing Models](#ab-testing-models)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [評估方法論](#評估方法論)
+- [核心基準測試地圖](#核心基準測試地圖)
+- [評估協議](#評估協議)
+- [能力光譜](#能力光譜)
+- [實驗室到生產的轉化](#實驗室到生產的轉化)
+- [面試問題](#面試問題)
+- [參考資料](#參考資料)
 
 ---
 
-## Why Benchmarks Are Not Enough
+## 評估方法論
 
-### The Benchmark Problem
+### 評估的三個層次
 
-Public benchmarks (MMLU, HumanEval, GSM8K) have limitations:
+| 層次 | 定義 | 範例 |
+|------|------|------|
+| **間接評估（上游）** | 使用基準測試——在人工設計的任務上測試模型 | MMLU、HumanEval、SWE-bench |
+| **直接評估（下游）** | 在你的實際任務、資料與流程上測試 | 你的客服聊天機器人、你的程式碼庫 |
+| **紅隊評估（對抗）** | 由專家團隊試圖使模型失敗 | 安全滲透測試、複雜推理失敗模式 |
 
-| Issue | Impact |
-|-------|--------|
-| Training data contamination | Models may have seen test questions |
-| Task mismatch | Benchmarks may not reflect your use case |
-| Aggregate scores hide variance | Model A may beat B overall but lose on your domain |
-| Gaming | Models optimized for benchmarks over real tasks |
-| Outdated | Benchmarks lag behind model capabilities |
+**原則：** 實驗室分數是起點，不是終點。在你的資料上進行直接評估是不可談判的。
 
-### What Benchmarks Tell You
+### 評估設計的常見錯誤
 
-```
-Benchmark results tell you: "Model X scored 88% on MMLU"
-
-What you need to know: "Will Model X correctly answer my 
-customers' questions about our product documentation?"
-```
-
-**Rule of thumb:** Use benchmarks for initial filtering, then conduct your own evaluation.
+1. **只報告平均值**：P50 看似不錯，但 P99 可能完全不可用。生產系統在邊界條件下失敗。
+2. **只測試快樂路徑**：測試涵蓋所有失敗模式與對抗輸入。
+3. **沒有情境化**：一個在 MMLU 上落後 2% 的模型可能在你的特定領域遠遠落後或領先。
+4. **忽略漂移**：模型供應商可能改變模型行為而不公告。先進供應商有「版本穩定性」承諾。
 
 ---
 
-## Evaluation Dimensions
+## 核心基準測試地圖
 
-### Dimension 1: Task Performance
+### 理解基準測試的局限性
 
-| Task Type | Evaluation Approach | Key Metric |
-|-----------|---------------------|------------|
-| **Autonomous Coding** | CWE/SWE-bench (Verified) | % issues resolved autonomously |
-| **Long-Horizon Planning** | Agentic Loop testing | Success rate on 10+ step plans |
-| **Reasoning Depth** | Thinking mode analysis | Logic consistency across CoT steps |
-| **Long Context RAG** | Needle-in-a-Haystack (2M+) | Recall efficiency at scale |
-| **Native Multimodal** | Interleaved Vision/Voice/Text | Sync accuracy across modalities |
+每個基準測試都是現實的**壓縮版**。理解基準測試測量什麼（和沒有測量什麼）對正確解讀分數至關重要。
 
-### Dimension 2: Agentic Mastery
+| 基準 | 真正測量什麼 | 不測量什麼 |
+|------|------------|-----------|
+| **MMLU** | 57 個領域的粗淺知識 | 深度推理、多步驟問題 |
+| **HumanEval** | Python 函式完成 | 整個系統設計、多檔案重構 |
+| **GSM8K** | 八年級數學 | 物理世界推理、複雜證明 |
+| **SWE-bench** | 實際 GitHub 問題修復 | 新功能編碼、系統架構 |
+| **ARC-AGI** | 視覺類比推理 | 視覺問答、文件理解 |
 
-How well does the model use tools and follow multi-step instructions?
+### 2026 年 5 月旗艦基準
+
+#### SWE-bench（SWE-bench Verified）
+
+軟體工程基準測試中的旗艦。模型閱讀真實 GitHub issue 並必須生成可通過測試的修補。
+
+| 排名 | 模型 | 分數 | 備註 |
+|------|------|------|------|
+| 1 | Claude Mythos Preview | 93.9% | 受限取用 |
+| 2 | GPT-5.5 | 88.7% | 2026 年 4 月 |
+| 3 | Claude Opus 4.8 | 88.6% | 2026 年 5 月 |
+| 4 | Claude Opus 4.7 | 87.6% | 2026 年 4 月 |
+| 5 | Claude Sonnet 4.6 | ~87% | 2026 年 2 月 |
+
+**解讀：** 超過 85% 的 SWE-bench Verified 分數代表在生產級編碼代理方面已達到基本能力。80% 以下的分數表示模型仍會在常見任務上失敗。
+
+#### ARC-AGI-2
+
+視覺推理基準。測試模型在視覺類比問題上的泛化能力。
+
+| 排名 | 模型 | 分數 |
+|------|------|------|
+| 1 | GPT-5.5 | 85.0% |
+| 2 | Claude Opus 4.8 | ~83% |
+| 3 | Gemini 3.1 Pro | ~81% |
+
+#### GPQA Diamond
+
+博士級科學推理。模型閱讀科學論文並回答專業問題。
+
+| 排名 | 模型 | 分數 |
+|------|------|------|
+| 1 | Gemini 3.1 Pro | 94.3% |
+| 2 | Claude Opus 4.8 | ~91% |
+| 3 | GPT-5.5 | ~89% |
+
+**解讀：** 超過 90% 的 GPQA 分數表示模型可以處理專業研究輔助任務。
+
+#### MMLU（Massive Multitask Language Understanding）
+
+涵蓋 57 個領域的粗淺知識基准。
+
+**2026 年 5 月領先群：**
+- GPT-5.5：~92%
+- Claude Opus 4.8 / 4.7 / 4.6：~91%
+- Gemini 3.1 Pro：~90%
+- DeepSeek V4 Pro：~88%
+
+**解讀：** 前沿模型在 MMLU 上已饱和（差異 < 3%）。此基準不再能區分前沿模型。
+
+#### AIME 2025（數學競賽）
+
+美國數學邀請賽（AMC）難度的數學競賽問題。
+
+| 排名 | 模型 | 分數 |
+|------|------|------|
+| 1 | Kimi K2-Thinking-0905 | 100% |
+| 2 | GPT-5.5 | ~88% |
+| 3 | Claude Opus 4.8 | ~87% |
+
+#### Terminal-Bench 2.1
+
+DevOps 與終端操作基準。模型在模擬終端環境中執行命令。
+
+| 排名 | 模型 | 分數 |
+|------|------|------|
+| 1 | GPT-5.5 | 78.2% |
+| 2 | Claude Opus 4.8 | 74.6% |
+| 3 | Claude Opus 4.7 | ~72% |
+
+---
+
+## 評估協議
+
+### 建立黃金標準評估集
+
+```
+步驟 1：收集來源資料
+- 從你的生產日誌中抽取真實查詢（脫敏後）
+- 涵蓋所有意圖類型與複雜度等級
+
+步驟 2：建立基準答案
+- 領域專家（PhD 或資深工程師）標註每個查詢的「理想答案」
+- 使用多評分者共識以減少主觀性
+
+步驟 3：建立對抗範例
+- 常見失敗模式
+- 邊界條件
+- 過去生產事故中的查詢
+
+步驟 4：確定驗收標準
+- 每個意圖類型的最低可接受分數
+- P99 延遲約束
+- 拒答率上限
+```
+
+### 評估指標
+
+#### 分數類指標
+
+| 指標 | 定義 | 使用場景 |
+|------|------|----------|
+| **精確匹配（EM）** | 輸出與參考答案完全匹配 | 結構化輸出（MCP、SQL） |
+| **ROUGE-L** | 與參考答案的重疊度 | 摘要、开放式生成 |
+| **BERTScore** | 語義相似度 | 意圖分類、開放式生成 |
+| **pass@k** | 在 k 次嘗試中至少一次通過 | 程式碼生成（HumanEval） |
+
+#### 人類評估協議
+
+```
+評分維度：
+1. 正確性（任務是否正確完成？）
+2. 幫助性（回應是否有用？）
+3. 清晰度（輸出是否易於理解？）
+4. 安全性（輸出是否有害或有毒？）
+
+評分尺度：
+- 5：完美——無需修改
+- 4：良好——需要微小修改
+- 3：可接受——需要顯著修改
+- 2：差——任務未完成
+- 1：失敗——完全錯誤或有害
+```
+
+---
+
+## 能力光譜
+
+### 能力維度雷達圖
+
+每個應用需要不同維度的能力組合：
+
+```
+能力光譜（1-5分）
+
+                    Claude Opus 4.8
+                         ▲
+                        / \
+                       /   \
+                      /     \
+            編碼 ◄────┼────► 推理
+                      \     /
+                       \   /
+                        \ /
+                         ▼
+                   Gemini 3.1 Flash
+```
+
+### 按應用維度評分
+
+| 維度 | 定義 | 為何重要 |
+|------|------|----------|
+| **推理** | 多步邏輯、數學證明、複雜規劃 | 代理、複雜查詢 |
+| **編碼** | 程式碼生成、偵錯、重構 | 軟體開發自動化 |
+| **事實性** | 減少幻覺、提供準確引用 | RAG、知識問答 |
+| **一致性** | 相同輸入的輸出穩定性 | 對話系統 |
+| **工具使用** | 可靠呼叫 API、函式、插件 | 代理自動化 |
+| **上下文學習** | 少樣本泛化 | 快速任務適應 |
+| **長上下文** | 在大文件中的召回/推理 | RAG、文件分析 |
+| **安全/對齊** | 拒絕有害請求、遵守護欄 | 面向公眾的應用 |
+| **延遲** | 首 token 時間（TTFT） | 即時應用 |
+| **成本** | 每千token成本 | 大規模部署 |
+
+### 關鍵維度評估
+
+#### 推理能力評估
+
+```
+評估方法：
+1. 數學（GSM8K、AIME、MATH-500）
+2. 形式邏輯（LogiLang、BigBench Hard）
+3. 多步推理（BBH 任務子集）
+
+解讀：
+- > 90% on AIME：博士級數學推理
+- > 85% on GSM8K：八年級數學可靠
+- > 70% on BBH：超越簡單模式的泛化能力
+```
+
+#### 工具使用可靠性
+
+工具使用失敗是生產代理系統失敗的首要原因。
+
+```
+評估方法：
+1. 設定已知答案的合成環境（如天氣 API）
+2. 測量工具呼叫成功率
+3. 測量參數填充準確性
+4. 測量工具呼叫後的恢復能力
+
+常見失敗模式：
+- 無法從上下文提取正確參數
+- 調用錯誤的函式
+- 串列化格式錯誤（如 JSON 中的日期格式）
+```
+
+---
+
+## 實驗室到生產的轉化
+
+### 為何實驗室分數可能誤導
+
+**分數的假設：** 每個基準測試都假設模型在測試分數上表現良好等於在現實世界表現良好。
+
+**問題：**
+1. **測試集洩漏**：模型可能在訓練時見過與測試集相似的資料
+2. **分布偏移**：基準測試可能不代表你的輸入分布
+3. **任務差異**：修復 GitHub issue 與設計新功能是不同的
+4. **複合錯誤**：多步驟任務中任何一步失敗都導致最終失敗
+
+### 橋接方法
+
+```
+步驟 1：映射你的任務到基準測試
+- 程式碼生成 → SWE-bench / HumanEval / MBPP
+- 數學推理 → GSM8K / AIME / GPQA
+- 視覺推理 → ARC-AGI / MathVista
+- DevOps → Terminal-Bench / SWE-bench
+
+步驟 2：建立你的代理評估
+- 在隔離環境中運行代理（如 Docker 容器）
+- 測量端到端任務成功率
+- 追蹤每個工具呼叫的成功率
+
+步驟 3：Shadow 模式部署
+- 同時運行新舊系統
+- 記錄分歧
+- 人類審核分歧案例以識別模式
+
+步驟 4：漸進式流量切換
+- 從 1% 流量開始
+- 監控錯誤率與使用者滿意度
+- 每小時審核錯誤
+- 達到統計顯著性後再增加流量
+```
+
+### 生產監控的評估集成
 
 ```python
-def evaluate_agentic_flow(agent, task_environment):
-    """
-    Measure success on 'Autonomous Agent' tasks:
-    1. Plan generation
-    2. Tool selection accuracy
-    3. Error recovery
-    4. Feedback loop utilization
-    """
-    results = []
-    for scenario in task_environment.scenarios:
-        traj = agent.run(scenario.goal)
-        results.append({
-            "success": traj.reached_goal,
-            "steps": len(traj.steps),
-            "tool_errors": traj.count_invalid_tool_calls()
+class EvaluationMonitor:
+    def __init__(self):
+        self.eval_queue = deque(maxlen=10000)
+    
+    def log_response(self, query: str, response: str, 
+                    expected: str = None):
+        self.eval_queue.append({
+            "query": query,
+            "response": response,
+            "expected": expected,
+            "timestamp": time.time()
         })
-    return aggregate(results)
-```
-
-### Dimension 3: Reasoning Reliability
-
-Does the "Thinking" mode improve output accuracy vs standard generation?
-
-| Mode | Accuracy (Math) | Accuracy (Code) | Avg Latency | Tokens / Output |
-|------|-----------------|-----------------|-------------|-----------------|
-| **Standard** | 72% | 68% | 1.2s | 400 |
-| **Thinking** | 94% | 89% | 12.5s | 2400 |
-| **Hybrid** | Variable | Variable | User-defined | Configurable |
-
-### Reasoning Calibration
-
-**The "Over-Thinking" Problem:**
-Models often spend 2000+ "thinking" tokens on a question that could be answered with 10 tokens (e.g., "What is 2+2?").
-
-**Principal-level Nuance:**
-Evaluate models based on **Logic Efficiency**: `Accuracy / (Inference Tokens)`.
-Production systems use **Model Arbitration**: a small model (Gemini 3.1 Flash, Claude Haiku 4.5, GPT-5.5-mini) detects whether a query needs "Thinking" mode. This avoids the 10x latency and cost penalty for simple queries.
-
----
-
-## Internal Elo-based Evaluation
-
-**Moving beyond static rubrics.**
-Rubrics (1-5 scales) are prone to "judge fatigue" and "score drifting." Modern systems use **Pairwise Elo** for internal golden sets.
-
-**The Workflow:**
-1. **Blind Side-by-Side:** Model A and Model B generate answers for the same query.
-2. **The Judge:** An "Ultra" model (Claude Opus 4.7, GPT-5.5 reasoning, or human) selects the winner.
-3. **Elo Update:** Update the internal leaderboard.
-
-```python
-def update_elo(winner_elo, loser_elo, k=32):
-    expected_winner = 1 / (1 + 10 ** ((loser_elo - winner_elo) / 400))
-    new_winner_elo = winner_elo + k * (1 - expected_winner)
-    new_loser_elo = loser_elo + k * (0 - (1 - expected_winner))
-    return new_winner_elo, new_loser_elo
-```
-
-**Why it wins:** It provides a **relative** ranking that is much more robust to changes in judge personality or model versioning.
-
-### Dimension 4: Context Recall
-
-With 2M+ context windows, simple "needle-in-a-haystack" is no longer enough. We now measure **Contextual Reasoning** across the window.
-
-| Metric | Measurement | Target |
-|--------|-------------|--------|
-| **Window Recall** | Factual recall at 90% window depth | > 98% |
-| **Cross-Doc Reasoning** | Logic linking Doc A (pos 10k) to Doc B (pos 1M) | > 90% |
-| **Contextual Noise Resistance** | Accuracy when 90% of window is irrelevant "filler" | > 95% |
-
----
-
-## Building Custom Evaluations
-
-### Step 1: Define Evaluation Criteria
-
-```python
-evaluation_criteria = {
-    "correctness": {
-        "weight": 0.4,
-        "description": "Is the answer factually correct?",
-        "scale": [1, 2, 3, 4, 5],
-        "rubric": {
-            5: "Completely correct, no errors",
-            4: "Mostly correct, minor issues",
-            3: "Partially correct, some errors",
-            2: "Mostly incorrect",
-            1: "Completely wrong or nonsensical"
-        }
-    },
-    "relevance": {
-        "weight": 0.3,
-        "description": "Does the answer address the question?",
-        "scale": [1, 2, 3, 4, 5]
-    },
-    "completeness": {
-        "weight": 0.2,
-        "description": "Are all parts of the question addressed?",
-        "scale": [1, 2, 3, 4, 5]
-    },
-    "conciseness": {
-        "weight": 0.1,
-        "description": "Is the answer appropriately concise?",
-        "scale": [1, 2, 3, 4, 5]
-    }
-}
-```
-
-### Step 2: Create Test Set
-
-```python
-test_set = [
-    {
-        "id": "q001",
-        "query": "What is the refund policy for subscription cancellation?",
-        "context": "[relevant documentation]",
-        "ground_truth": "Full refund within 30 days, prorated after",
-        "difficulty": "easy",
-        "category": "policy"
-    },
-    {
-        "id": "q002",
-        "query": "How do I integrate the API with a Python async application?",
-        "context": "[API documentation]",
-        "ground_truth": "[expected code pattern]",
-        "difficulty": "medium",
-        "category": "technical"
-    },
-    # ... 50-100+ test cases
-]
-```
-
-**Test set guidelines:**
-- Cover all major use cases
-- Include easy, medium, hard examples
-- Balance across categories
-- Include edge cases
-- Have clear ground truth answers
-
-### Step 3: Implement Evaluation
-
-```python
-class ModelEvaluator:
-    def __init__(self, models: list[str], test_set: list[dict]):
-        self.models = models
-        self.test_set = test_set
-        self.results = {}
     
-    def evaluate_all(self):
-        for model in self.models:
-            self.results[model] = self.evaluate_model(model)
-        return self.results
-    
-    def evaluate_model(self, model: str) -> dict:
-        scores = []
-        latencies = []
+    def run_periodic_eval(self):
+        """每小時對採樣運行完整人類評估"""
+        sample = random.sample(self.eval_queue, 100)
+        scores = human_evaluate(sample)
         
-        for case in self.test_set:
-            start = time.time()
-            response = self.generate(model, case)
-            latency = time.time() - start
-            latencies.append(latency)
-            
-            # Score using LLM judge or human
-            score = self.score_response(case, response)
-            scores.append(score)
-        
-        return {
-            "mean_score": mean(scores),
-            "score_by_category": self.group_by_category(scores),
-            "p50_latency": percentile(latencies, 50),
-            "p99_latency": percentile(latencies, 99)
-        }
-    
-    def score_response(self, case: dict, response: str) -> float:
-        # Option 1: LLM-as-judge
-        return self.llm_judge(case, response)
-        
-        # Option 2: Exact match
-        # return exact_match(response, case["ground_truth"])
-        
-        # Option 3: Semantic similarity
-        # return cosine_sim(embed(response), embed(case["ground_truth"]))
-```
-
-### Step 4: LLM-as-Judge
-
-```python
-def llm_judge(case: dict, response: str) -> dict:
-    prompt = f"""Evaluate this response to a customer query.
-
-Query: {case['query']}
-Expected Answer: {case['ground_truth']}
-Model Response: {response}
-
-Rate the response on these criteria (1-5 scale):
-1. Correctness: Is it factually accurate?
-2. Relevance: Does it answer the question?
-3. Completeness: Are all aspects covered?
-4. Conciseness: Is it appropriately brief?
-
-Output JSON:
-{{"correctness": X, "relevance": X, "completeness": X, "conciseness": X, "reasoning": "..."}}
-"""
-    
-    result = judge_model.generate(prompt)
-    return parse_json(result)
+        if scores["quality"] < 0.85:
+            alert_ops(f"Quality dropped to {scores['quality']}")
 ```
 
 ---
 
-## Common Evaluation Pitfalls
+## 面試問題
 
-### Pitfall 1: Small Test Set
+### Q：為何一個模型在 MMLU 上領先，但在我的客服聊天機器人上表現更差？
 
-**Problem:** 20 test cases is not enough for reliable comparison.
+**最佳答案：**
 
-**Solution:** Aim for 100+ cases, stratified by difficulty and category.
+「這是個很常見的問題，有幾個可能原因：
 
-### Pitfall 2: Ambiguous Ground Truth
+**1. 任務分布不匹配**
+MMLU 測試粗淺的事實回憶，而客服聊天需要：
+- 特定領域的語氣一致性
+- 處理情緒化的使用者
+- 在對話歷史中追踪上下文
+- 執行特定操作（如退款、預訂）
 
-**Problem:** "Reasonable" answers get marked wrong.
+**2. 評估指標差異**
+MMLU 是封閉式問題（有標準答案），而客服聊天是開放式生成。模型可能在『感覺正確』但實際不正確的情況下獲得高分。
 
+**3. 工具使用失敗**
+如果我的聊天機器人需要呼叫 API，一個在 MMLU 上表現良好的模型可能在工具呼叫上失敗——這在 MMLU 中根本沒有測試。
+
+**我的診斷方法：**
+1. 在我的資料上建立直接評估（黃金標準集）
+2. 按意圖類型分層分析——可能只有某些意圖落後
+3. 檢查人類評估與自動指標之間的相關性
+4. 識別具體失敗模式以確定是能力問題還是對齊問題
+
+最終，MMLU 分數是入學考試，我的任務是我的工作——它們不一樣。」
+
+### Q：如何评估一个模型是否适合实时语音代理？
+
+**最佳答案：**
+
+「語音代理對延遲和一致性的要求最嚴苛。評估需要專門的協議：
+
+**延遲維度：**
 ```
-Query: "What is the capital of Australia?"
-Ground truth: "Canberra"
-Model answer: "The capital of Australia is Canberra."
-Exact match: FAIL (but clearly correct)
+- Time to First Token（TTFT）：目標 < 500ms
+- Inter-token Latency（ITL）：目標 < 50ms P99
+- End-to-end Latency：取決於對話複雜度
 ```
 
-**Solution:** Use semantic matching or LLM judge, not exact match.
+**語音代理專屬評估：**
+1. **口語流暢度**：回應是否適合大聲朗讀（避免格式化 artifact）
+2. **語速可控性**：模型是否生成過長的回應而不適合對話
+3. **打斷處理**：使用者打斷時，模型是否正確停止並切換
+4. **插入物處理**：當多個語音活動重疊時的穩健性
+5. **翻譯一致性**：跨語言時術語翻譯是否一致
 
-### Pitfall 3: Evaluation Set Leakage
+**語音代理基準：**
+目前沒有行業標準語音代理基準。靠自己建立黃金標準至關重要。
 
-**Problem:** Using same cases for development and evaluation.
+**生產中的特殊考量：**
+- 網路延遲：語音封包延遲可達 100-300ms
+- ASR 錯誤傳播：ASR 錯誤會級聯到 LLM
+- 錯誤恢復：LLM 是否能從明顯的 ASR 錯誤中恢復
 
-**Solution:** Keep a held-out test set that you never use for prompt tuning.
-
-### Pitfall 4: Ignoring Variance
-
-**Problem:** Running each test once ignores model randomness.
-
-**Solution:** Run multiple times with temperature > 0, report confidence intervals.
-
-### Pitfall 5: Cost Blindness
-
-**Problem:** Best model is 10x more expensive.
-
-**Solution:** Always report quality-adjusted cost.
-
-```python
-def quality_adjusted_cost(model_results):
-    return {
-        model: {
-            "quality": results["mean_score"],
-            "cost_per_1k": results["cost_per_1k_queries"],
-            "quality_per_dollar": results["mean_score"] / results["cost_per_1k"]
-        }
-        for model, results in model_results.items()
-    }
-```
+我會用真實對話記錄（脫敏後）建立評估集，並聘請人類評分員模擬打斷與干擾。」
 
 ---
 
-## Practical Assessment Process
+## 參考資料
 
-### Week 1: Setup and Initial Filtering
-
-```
-Day 1-2: Define evaluation criteria and create test set
-Day 3-4: Benchmark 4-6 candidate models
-Day 5: Analyze results, filter to top 2-3
-```
-
-### Week 2: Deep Evaluation
-
-```
-Day 1-2: Expand test set for top candidates
-Day 3: Test edge cases and robustness
-Day 4: Measure latency and throughput
-Day 5: Calculate total cost of ownership
-```
-
-### Week 3: Production Validation
-
-```
-Day 1-2: Shadow mode deployment
-Day 3-4: A/B test if traffic allows
-Day 5: Final decision and documentation
-```
-
-### Decision Template
-
-```markdown
-## Model Evaluation Report
-
-### Candidates Evaluated
-- Model A: GPT-4o
-- Model B: Claude 3.5 Sonnet
-- Model C: Llama 3.1 70B
-
-### Evaluation Results
-
-| Metric | Model A | Model B | Model C |
-|--------|---------|---------|---------|
-| Overall Score | 4.2/5 | 4.3/5 | 3.9/5 |
-| Category 1 | ... | ... | ... |
-| P50 Latency | 450ms | 520ms | 180ms |
-| Cost/1K queries | $0.85 | $1.10 | $0.25 |
-
-### Recommendation
-Model B (Claude 3.5 Sonnet) for quality-critical paths
-Model C (Llama 3.1 70B) for high-volume, cost-sensitive paths
-
-### Rationale
-[Detailed reasoning]
-```
+- SWE-bench：https://www.swebench.com/
+- ARC-AGI：https://arcprize.org/
+- GPQA：https://github.com/super-computing-magic/GPQA
+- LMSys Leaderboard：https://chat.lmsys.org/
+- Helios Benchmark：https://collected.principles.com/
 
 ---
 
-## A/B Testing Models
-
-### When to A/B Test
-
-- High traffic (1000+ queries/day)
-- Clear success metrics
-- Acceptable risk of quality variation
-- Need production validation
-
-### A/B Test Design
-
-```python
-class ModelABTest:
-    def __init__(self, model_a: str, model_b: str, traffic_split: float = 0.5):
-        self.model_a = model_a
-        self.model_b = model_b
-        self.traffic_split = traffic_split
-        self.results = {"a": [], "b": []}
-    
-    def route_request(self, request_id: str) -> str:
-        # Deterministic routing for consistency
-        hash_val = hash(request_id) % 100
-        if hash_val < self.traffic_split * 100:
-            return self.model_a
-        return self.model_b
-    
-    def record_outcome(self, request_id: str, metrics: dict):
-        model = self.route_request(request_id)
-        bucket = "a" if model == self.model_a else "b"
-        self.results[bucket].append(metrics)
-    
-    def analyze(self):
-        return {
-            "model_a": {
-                "name": self.model_a,
-                "mean_score": mean([r["score"] for r in self.results["a"]]),
-                "sample_size": len(self.results["a"])
-            },
-            "model_b": {
-                "name": self.model_b,
-                "mean_score": mean([r["score"] for r in self.results["b"]]),
-                "sample_size": len(self.results["b"])
-            },
-            "p_value": self.calculate_significance()
-        }
-```
-
-### Metrics to Track
-
-| Metric Type | Examples |
-|-------------|----------|
-| Quality | User ratings, expert review, LLM judge |
-| Engagement | Click-through, time on page, follow-up queries |
-| Business | Conversion, support escalation, resolution rate |
-| Operational | Latency, errors, cost |
-
----
-
-## Interview Questions
-
-### Q: How would you evaluate models for a customer support chatbot?
-
-**Strong answer:**
-I would structure evaluation in layers:
-
-**1. Offline evaluation (80% of effort):**
-- Create test set from real support tickets (200+ cases)
-- Cover all categories: billing, technical, returns, general
-- Include easy, medium, hard difficulty
-- Measure: accuracy, helpfulness, safety
-
-**2. Evaluation method:**
-- Use LLM-as-judge for subjective metrics
-- Human review for sample (20%)
-- Track instruction following (format, length)
-
-**3. Metrics:**
-```python
-metrics = {
-    "resolution_accuracy": "Does answer solve the problem?",
-    "safety": "No harmful/wrong advice?", 
-    "tone": "Professional and empathetic?",
-    "escalation_appropriate": "Knows when to involve human?"
-}
-```
-
-**4. Production validation:**
-- Shadow mode: run new model, compare outputs
-- A/B test: 10% traffic to new model
-- Monitor: CSAT, escalation rate, resolution time
-
-### Q: What is wrong with using MMLU to compare models for your use case?
-
-**Strong answer:**
-MMLU has several problems for specific use cases:
-
-**1. Domain mismatch:** MMLU tests academic knowledge. My customer support bot needs product knowledge.
-
-**2. Format mismatch:** MMLU is multiple choice. My use case is free-form generation.
-
-**3. Contamination:** Models may have trained on MMLU questions.
-
-**4. Aggregation hides variance:** Model A might beat B on MMLU but lose on the specific categories I care about.
-
-**5. No context testing:** MMLU does not test RAG or long-context abilities.
-
-**Better approach:** 
-- Use MMLU for initial filtering (saves time)
-- Build custom evaluation for final decision
-- Test on actual use case data
-- Include operational metrics (latency, cost)
-
----
-
-## References
-
-- Zheng et al. "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena" (2023)
-- LMSYS Chatbot Arena: https://chat.lmsys.org/
-- HELM: https://crfm.stanford.edu/helm/
-- LMSys Evaluation: https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge
-- OpenAI Evals: https://github.com/openai/evals
-
----
-
-*Previous: [Model Taxonomy](01-model-taxonomy.md) | Next: [Pricing and Costs](03-pricing-and-costs.md)*
+*前一篇：[模型分類學](01-model-taxonomy.md) | 下一篇：[定價與成本](03-pricing-and-costs.md)*

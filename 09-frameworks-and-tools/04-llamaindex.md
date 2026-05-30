@@ -1,86 +1,86 @@
 # LlamaIndex
 
-While LangChain focuses on "Orchestration," **LlamaIndex** is the master of **Data-Centric AI**. It has evolved from a RAG library into a framework for **Workflows** and **Agentic Data Manipulation**.
+當 LangChain 專注於「編排」時，**LlamaIndex** 是**資料驅動 AI** 的專家。它已從一個 RAG 函式庫演變為一個用於**工作流程**和**代理式資料操作**的框架。
 
-## Table of Contents
+## 目錄
 
-- [The Data Framework Philosophy](#philosophy)
-- [LlamaIndex Workflows](#workflows)
-- [Advanced Indexing: Beyond Vector Search](#indexing)
-- [LlamaCloud and Managed Ingestion](#llamacloud)
-- [Agents as Tools](#agents-as-tools)
-- [LlamaIndex Workflows: Event-Driven Application Framework](#llamaindex-workflows-event-driven-application-framework)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Data Framework Philosophy
-
-LlamaIndex is built on the belief that **the data is more important than the model**.
-- **The Node**: Every chunk of data is a "Node" with rich metadata (relationships, summaries, and parent-child links).
-- **The Retriever**: LlamaIndex provides the most diverse set of retrievers (Summary, Knowledge Graph, Tree, and Keyword).
+- [資料框架哲學](#philosophy)
+- [LlamaIndex 工作流程](#workflows)
+- [進階索引：超越向量搜尋](#indexing)
+- [LlamaCloud 和託管攝入](#llamacloud)
+- [作為工具的代理](#agents-as-tools)
+- [LlamaIndex 工作流程：事件驅動應用程式框架](#llamaindex-workflows-event-driven-application-framework)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## LlamaIndex Workflows
+## 資料框架哲學
 
-In late 2024, LlamaIndex introduced **Workflows**, its answer to LangGraph.
-- **Event-Driven Architecture**: Nodes communicate by emitting `Events`.
-- **Concurrency**: Workflows are natively async and handle large-scale parallel data processing better than linear chains.
+LlamaIndex 基於一個信念：**資料比模型更重要**。
+- **節點**：每個資料區塊都是一個具有豐富中繼資料的「節點」（關係、摘要和父子連結）。
+- **檢索器**：LlamaIndex 提供最多樣化的檢索器集（摘要、知識圖譜、樹狀結構和關鍵字）。
+
+---
+
+## LlamaIndex 工作流程
+
+2024 年底，LlamaIndex 引入了**工作流程**，這是它對 LangGraph 的答案。
+- **事件驅動架構**：節點透過發出 `Events` 進行通訊。
+- **並發**：工作流程原生支援非同步，並且比線性鏈更好地處理大規模平行資料處理。
 
 ```python
-# Conceptual Workflow
+# 概念性工作流程
 class RAGWorkflow(Workflow):
     @step
     async def ingest(self, ev: StartEvent) -> RetrievalEvent:
-        # Custom logic...
+        # 自訂邏輯...
         return RetrievalEvent(results=nodes)
 ```
 
 ---
 
-## Advanced Indexing
+## 進階索引
 
-1. **Property Graphs**: Linking vector chunks to graph nodes for RAG.
-2. **Context-Aware Splitters**: Grouping text by "Meaning" rather than "Token count" (using smaller LLMs to find optimal breakpoints).
-3. **Dynamic Pathing**: The retriever decides *which* index to query based on the complexity of the question.
-
----
-
-## LlamaCloud and Managed Ingestion
-
-For enterprise scale, LlamaIndex focuses on **LlamaCloud**.
-- **Managed Ingestion**: Handling PDF parsing, OCR, and Table extraction as a service.
-- **Parsing as a Model**: Using Vision-LLMs (Gemini 3.1 Pro, Claude Opus 4.7, GPT-5.5) to "Understand" layouts instead of using rule-based parsers.
+1. **屬性圖**：將向量區塊連結到圖形節點以進行 RAG。
+2. **上下文感知切割器**：按「意義」而非「Token 數量」分組文字（使用較小的 LLM 來尋找最佳斷點）。
+3. **動態路徑**：檢索器根據問題的複雜度決定*查詢哪個*索引。
 
 ---
 
-## Agents as Tools
+## LlamaCloud 和託管攝入
 
-LlamaIndex treats agents as **high-level retrievers**.
-- You can "wrap" a complex LlamaIndex query engine as a tool and give it to a LangGraph agent.
-- **Benefit**: The agent gets "Smart Data Access" without needing to know the technical details of the vector DB or Graph schema.
+對於企業規模，LlamaIndex 專注於 **LlamaCloud**。
+- **託管攝入**：處理 PDF 解析、OCR 和表格萃取作為服務。
+- **解析作為模型**：使用 Vision-LLM（Gemini 3.1 Pro、Claude Opus 4.7、GPT-5.5）來「理解」版面配置，而不是使用基於規則的解析器。
 
 ---
 
-## LlamaIndex Workflows: Event-Driven Application Framework
+## 作為工具的代理
 
-The pitch in 2024 was "Workflows is our LangGraph." The pitch today is different: Workflows is a general-purpose event-driven framework for any AI application, with RAG as one possible use. The 1.x line of `llama-index-core` ships Workflows as the primary application surface, while the index / retriever classes have moved into integration packages around it ([LlamaIndex workflows docs](https://developers.llamaindex.ai/python/framework/understanding/workflows/)).
+LlamaIndex 將代理視為**高階檢索器**。
+- 您可以將複雜的 LlamaIndex 查詢引擎「包裝」為工具並將其提供給 LangGraph 代理。
+- **好處**：代理獲得「智慧資料存取」而無需知道向量資料庫或圖形 schema 的技術細節。
 
-### What Changed Architecturally
+---
 
-| Dimension | Pre-Workflows LlamaIndex | Workflows-First LlamaIndex |
+## LlamaIndex 工作流程：事件驅動應用程式框架
+
+2024 年的策略是「工作流程就是我們的 LangGraph」。今天的策略不同：工作流程是一個適用於任何 AI 應用程式的通用事件驅動框架，RAG 是其中一種可能的用途。`llama-index-core` 的 1.x 系列將工作流程作為主要應用程式介面，而索引/檢索器類別已移至圍繞它的整合套件（[LlamaIndex 工作流程文件](https://developers.llamaindex.ai/python/framework/understanding/workflows/)）。
+
+### 架構上的變化
+
+| 維度 | 工作流程前 LlamaIndex | 工作流程優先 LlamaIndex |
 |-----------|--------------------------|-----------------------------------|
-| Primary abstraction | Query engine, chat engine | `Workflow` class with `@step` methods |
-| Control flow | Linear; nested query engines | Steps consume / emit typed `Event` subclasses |
-| State | Implicit in engine instances | Explicit `Context` with serializable state |
-| Concurrency | Cooperative via async query engines | First-class: emit several events, fan out, join |
-| Persistence | None | Context can be `pickle`d or stored as JSON for resume |
-| Streaming | Per-engine | `ctx.write_event_to_stream()` from any step |
-| Human-in-the-loop | Manual | `InputRequiredEvent` / `HumanResponseEvent` pattern |
+| 主要抽象 | 查詢引擎、聊天引擎 | 具有 `@step` 方法的 `Workflow` 類別 |
+| 控制流 | 線性；巢狀查詢引擎 | 步驟消耗/發出型別 `Event` 子類別 |
+| 狀態 | 引擎執行個體中的隱式 | 明確的 `Context`，具有可序列化狀態 |
+| 並發 | 透過非同步查詢引擎的協作 | 一級：發出多個事件，扇出，聯結 |
+| 持久性 | 無 | Context 可以是 `pickle` 的或存儲為 JSON 以便恢復 |
+| 串流 | 每引擎 | 從任何步驟 `ctx.write_event_to_stream()` |
+| 人在迴路中 | 手動 | `InputRequiredEvent` / `HumanResponseEvent` 模式 |
 
-### The Event-Driven Mental Model
+### 事件驅動思維模型
 
 ```python
 from llama_index.core.workflow import (
@@ -113,72 +113,73 @@ class GraphRAG(Workflow):
         return StopEvent(result=await self.llm.acomplete(...))
 ```
 
-Two properties fall out of this design:
+這個設計產生兩個特性：
 
-1. The engine dispatches purely on **event type**, so adding a new branch is adding a new `Event` subclass and a step that consumes it. No central router to edit.
-2. **Concurrency is data-driven**: a step that emits three `RetrievedEvent`s automatically fans out three downstream `judge` invocations, and the joining step collects them with `ctx.collect_events`.
+1. 引擎純粹基於**事件類型**進行分派，因此新增分支就是新增一個新的 `Event` 子類別和一個消費它的步驟。沒有中央路由器需要編輯。
+2. **並發是資料驅動的**：發出三個 `RetrievedEvent` 的步驟會自動扇出三個下游 `judge` 調用，聯結步驟使用 `ctx.collect_events` 收集它們。
 
-### Workflows vs LangGraph
+### 工作流程對比 LangGraph
 
 ```mermaid
 flowchart LR
-    A[Need stateful multi-step LLM app] --> B{What is the dominant complexity?}
-    B -->|Data ingestion, parsing, retrieval, indexing| C[LlamaIndex Workflows]
-    B -->|Multi-agent reasoning, supervisor patterns, HITL approvals| D[LangGraph]
-    B -->|Both, equal weight| E[Use both: LlamaIndex for the RAG/data side as a tool inside LangGraph]
-    C --> F[Smaller graph surface, integrates LlamaParse / LlamaCloud natively]
-    D --> G[Typed state, time-travel debugging, mature checkpoint store]
+    A[需要 有狀態 多步驟 LLM 應用] --> B{主要複雜度是什麼？}
+    B -->|資料擷取、解析、檢索、索引| C[LlamaIndex 工作流程]
+    B -->|多代理推理、supervisor 模式、HIITL 批准| D[LangGraph]
+    B -->|兩者，權重相等| E[兩者都用：LlamaIndex 用於 RAG/資料端作為 LangGraph 中的工具]
+    C --> F[更小的圖表面，整合 LlamaParse / LlamaCloud 原生]
+    D --> G[型別化狀態、時間回溯偵錯、成熟的檢查點存放區]
 ```
 
-| Dimension | LlamaIndex Workflows (1.x) | LangGraph (1.x) |
+| 維度 | LlamaIndex 工作流程 (1.x) | LangGraph (1.x) |
 |-----------|----------------------------|-----------------|
-| Control flow primitive | Event dispatch | Graph nodes and edges, plus a typed reducer state |
-| State model | Free-form `Context` (dict-like) | Pydantic / TypedDict state with reducers |
-| Resume / time travel | Pickleable context, basic resume | First-class checkpoints, branch from any node ([LangGraph persistence docs](https://docs.langchain.com/oss/python/langgraph/persistence)) |
-| Native integrations | LlamaParse, LlamaCloud, all LlamaHub loaders | LangSmith eval, all LangChain integrations |
-| Best-fit complexity | Data-shaped: parse, embed, retrieve, refine | Logic-shaped: plan, act, reflect, delegate |
-| Multi-agent helpers | `AgentWorkflow`, function-calling agents ([LlamaIndex AgentWorkflow](https://developers.llamaindex.ai/python/framework/understanding/agent/multi_agent/)) | `create_supervisor`, `create_react_agent`, swarm patterns |
-| Streaming UI | `ctx.write_event_to_stream` + AG-UI protocol | `astream_events` v2, AG-UI protocol |
+| 控制流原語 | 事件分派 | 圖形節點和邊，加上型別化 reducer 狀態 |
+| 狀態模型 | 自由形式的 `Context`（類字典） | 具有 reducer 的 Pydantic / TypedDict 狀態 |
+| 恢復/時間回溯 | 可 pickle 的 context，基本恢復 | 一級檢查點，從任何節點分支（[LangGraph 持久性文件](https://docs.langchain.com/oss/python/langgraph/persistence)） |
+| 原生整合 | LlamaParse、LlamaCloud、所有 LlamaHub 載入器 | LangSmith eval、所有 LangChain 整合 |
+| 最適合複雜度 | 資料導向：解析、嵌入、檢索、優化 | 邏輯導向：規劃、執行、反思、委派 |
+| 多代理幫手 | `AgentWorkflow`、函式呼叫代理（[LlamaIndex AgentWorkflow](https://developers.llamaindex.ai/python/framework/understanding/agent/multi_agent/)） | `create_supervisor`、`create_react_agent`、swarm 模式 |
+| 串流 UI | `ctx.write_event_to_stream` + AG-UI 協定 | `astream_events` v2、AG-UI 協定 |
 
-When you should reach for LlamaIndex Workflows over LangGraph:
+何時應選擇 LlamaIndex 工作流程而非 LangGraph：
 
-- The hard part is **data ingestion**, not reasoning. LlamaCloud, LlamaParse, and the property-graph stack are all native, not adapter-bridged ([LlamaCloud overview](https://www.llamaindex.ai/llamacloud)).
-- You want **document-driven parallelism**: parse 1000 PDFs, fan out an embedding step per chunk, join into one index update.
-- You are building inside the **TypeScript** ecosystem on `llama-index-ts` and want feature parity with the Python core.
+- 艱難的部分是**資料擷取**，而不是推理。LlamaCloud、LlamaParse 和屬性圖堆疊都是原生的，不是橋接的（[LlamaCloud 概述](https://www.llamaindex.ai/llamacloud)）。
+- 您想要**文件驅動的平行處理**：解析 1000 個 PDF，每個區塊扇出一個嵌入步驟，聯結到一個索引更新。
+- 您在 **TypeScript** 生態系統中使用 `llama-index-ts` 並希望與 Python 核心的功能對等。
 
-When LangGraph wins:
+LangGraph 獲勝的情況：
 
-- The hard part is the **agent control loop** itself: many agents, supervisor patterns, durable interrupts, replay.
-- You need **time-travel debugging** out of the box. LlamaIndex resume is good for crash recovery but not for branching from an arbitrary historical state the way LangGraph checkpoints do.
-- You are already on the LangSmith eval stack and want trace-level integration without bridging.
+- 艱難的部分是**代理控制迴圈**本身：許多代理、supervisor 模式、耐用的中斷、回放。
+- 您需要**開箱即用的時間回溯偵錯**。LlamaIndex 恢復功能對崩潰恢復很好，但不像 LangGraph 檢查點那樣能從任意歷史狀態分支。
+- 您已經在使用 LangSmith eval 堆疊並希望在不橋接的情況下進行追蹤級整合。
 
-### Real-World Posture
+### 現實世界的姿勢
 
-Plenty of senior architectures run both: LlamaIndex Workflows for the data plane (ingestion, indexing, hybrid retrieval, reranking) wrapped as a tool, and LangGraph for the agent control plane on top. This is the pattern called out in the [AIMultiple framework comparison](https://research.aimultiple.com/agentic-ai-frameworks/) and in LlamaIndex's own [hybrid integration cookbook](https://developers.llamaindex.ai/python/framework/understanding/workflows/).
+許多資深架構師同時執行兩者：LlamaIndex 工作流程用於資料平面（擷取、索引、混合檢索、重新排序）作為工具包裝，和 LangGraph 用於其上的代理控制平面。這是 [AIMultiple 框架比較](https://research.aimultiple.com/agentic-ai-frameworks/) 和 LlamaIndex 自己的[混合整合 cookbook](https://developers.llamaindex.ai/python/framework/understanding/workflows/) 中指出的模式。
 
-If you only pick one for a new greenfield app, the question reduces to: **is your team going to spend more time on data plumbing or on agent orchestration?** The answer drives the framework.
-
----
-
-## Interview Questions
-
-### Q: LangChain and LlamaIndex now both have "Graph/Workflow" features. How do you choose?
-
-**Strong answer:**
-I choose **LlamaIndex Workflows** for **Data-Intensive** tasks where the main complexity is ingestion, multimodal parsing, and complex retrieval. Its event-driven architecture is more performant for massive parallel data processing. I choose **LangGraph** for **Logic-Intensive** multi-agent systems where the complexity is in the "Reasoning" and "Human-in-the-loop" logic. In many senior architectures, we use **Both**: LlamaIndex for the RAG engine and LangGraph for the overall agentic supervisor.
-
-### Q: What is the "Property Graph" in LlamaIndex and why is it superior to basic Vector RAG?
-
-**Strong answer:**
-A Property Graph combines the **Semantic flexibility** of vectors with the **Structural precision** of a database. In basic RAG, you might find a chunk about "Project Alpha," but you don't know who owns it. In a Property Graph, the vector chunk is a node linked to a `User` node and a `Timeline` node. This allows for **Global Reasoning** (e.g., "Find all documents written by Tom in the last month about Project Alpha"). Basic RAG would likely miss many related nodes because they don't contain the exact keyword "Alpha."
+如果您只為新的綠地應用程式選擇一個，問題會歸結為：**您的團隊將在資料管線還是代理編排上花費更多時間？** 答案決定框架。
 
 ---
 
-## References
-- LlamaIndex. "The Workflows Framework: Event-Driven Agents" (2025)
-- Jerry Liu. "Data-Centric AI in the LLM Era" (2024/2025)
-- LlamaHub. "The Repository of 1000+ Data Loaders" (2025)
+## 面試題目
+
+### Q：LangChain 和 LlamaIndex 現在都有「圖形/工作流程」功能。您如何選擇？
+
+**強烈回答：**
+我為**資料密集型**任務選擇 **LlamaIndex 工作流程**，其中主要複雜性在於擷取、多模態解析和複雜檢索。它的事件驅動架構在大量平行資料處理方面表現更好。我為**邏輯密集型**多代理系統選擇 **LangGraph**，其中複雜性在於「推理」和「人在迴路中」邏輯。在許多資深架構中，我們**兩者都使用**：LlamaIndex 用於 RAG 引擎，LangGraph 用於整體代理監督器。
+
+### Q：LlamaIndex 中的「屬性圖」是什麼，為何優於基本的向量 RAG？
+
+**強烈回答：**
+屬性圖結合了向量的**語意靈活性**和資料庫的**結構精確性**。在基本 RAG 中，您可能找到關於「Alpha 專案」的區塊，但您不知道誰擁有它。在屬性圖中，向量區塊是一個節點，連結到一個 `User` 節點和一個 `Timeline` 節點。這允許**全局推理**（例如，「找出 Tom 在過去一個月寫的關於 Alpha 專案的所有文件」）。基本 RAG 可能會錯過許多相關節點，因為它們不包含確切的關鍵字「Alpha」。
 
 ---
 
-*Next: [DSPy: Programming Language Models](05-dspy.md)*
+## 參考文獻
+
+- LlamaIndex。〈工作流程框架：事件驅動代理〉（2025）
+- Jerry Liu。〈LLM 時代的資料驅動 AI〉（2024/2025）
+- LlamaHub。〈1000+ 資料載入器的倉庫〉（2025）
+
+---
+
+*下一篇：[DSPy：程式化語言模型](05-dspy.md)*

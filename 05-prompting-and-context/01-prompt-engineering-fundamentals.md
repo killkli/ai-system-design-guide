@@ -1,106 +1,107 @@
-# Prompt Engineering Fundamentals
+# 提示詞工程基礎
 
-Prompt engineering is the design of inputs to steer LLM behavior. It has evolved from "trial and error" to a disciplined architectural practice, with frameworks like DSPy treating it as a compilation problem rather than a writing exercise.
+提示詞工程是設計輸入以引導 LLM 行為的領域。它已從「試誤」演進為紀律嚴明的架構實踐，類似 DSPy 的框架將其視為編譯問題而非寫作練習。
 
-## Table of Contents
+## 目錄
 
-- [The Core Philosophy (Intent + Constraint)](#core-philosophy)
-- [The Instruction Hierarchy](#instruction-hierarchy)
-- [Role Prompting](#role-prompting)
-- [Instruction Clarity and Delimiters](#clarity)
-- [Zero-Shot vs. Few-Shot Efficiency](#zero-vs-few)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Core Philosophy: Intent + Constraint
-
-Effective prompting is about maximizing **Intent Disclosure** while minimizing **Output Variance**.
-
-1. **Intent**: Precisely what the model should do.
-2. **Constraint**: Exactly what the model should *avoid* (Safety, Tone, Format).
-
-**Principle**: "Prompting is Programming in Natural Language." Treat your prompts like code (Version control, Unit tests).
+- [核心哲學：意圖 + 約束](#core-philosophy)
+- [指令階層](#instruction-hierarchy)
+- [角色提示](#role-prompting)
+- [指令清晰度與分隔符](#clarity)
+- [零樣本與少樣本效率](#zero-vs-few)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## The Instruction Hierarchy
+## 核心哲學：意圖 + 約束
 
-Production systems use a tiered message structure:
+有效的提示詞工程是最大化**意圖揭露**同時最小化**輸出變異量**。
 
-| Role | Responsibility | Nuance |
-|------|----------------|--------|
-| **System** | High-level rules, persona, safety. | Stickiest for frontier models (H-rank). |
-| **Developer** | Technical overrides (e.g., formatting). | Newer role for "un-opinionated" models. |
-| **User** | The specific, dynamic query. | Susceptible to injection; must be isolated. |
-| **Assistant**| History of previous turns. | Source of "recency bias." |
+1. **意圖**：模型具體應該做什麼。
+2. **約束**：模型應*避免*什麼（安全、風格、格式）。
+
+**原則**：「提示詞工程就是自然語言程式設計」。將提示詞視為程式碼對待（版本控制、單元測試）。
 
 ---
 
-## Role Prompting
+## 指令階層
 
-Assigning a persona is no longer just "You are a teacher." It is a **Capabilities Anchor**.
+生產系統使用分層訊息結構：
 
-- **Weak**: "You are a coder."
-- **Strong**: "You are a Staff Software Engineer at a Tier-1 tech company specializing in high-concurrency Rust systems. You prioritize memory safety and zero-cost abstractions."
-
-**Why it works**: It focuses the model's attention on the specific subset of its training data related to that high-level expertise, reducing irrelevant hallucinations.
+| 角色 | 職責 | 專業細節 |
+|------|------|----------|
+| **系統** | 高層級規則、人格、安全。 | 對前沿模型（H-Rank）最頑強。 |
+| **開發者** | 技術覆寫（例如格式）。 | 對「無預設立場」模型的新角色。 |
+| **使用者** | 具體、動態的查詢。 | 易受注入；必須隔離。 |
+| **助理** | 上一輪對話的歷史。 | 「近因偏誤」的來源。 |
 
 ---
 
-## Instruction Clarity and Delimiters
+## 角色提示
 
-Current frontier models process massive contexts. Delimiters help the model distinguish between instructions and data.
+賦予人格不再只是「你是老師」。這是一個**能力錨點**。
+
+- **弱**：你是程式設計師。
+- **強**：你是一家專精高併發 Rust 系統的一線科技公司的資深軟體工程師。你注重記憶體安全性和零成本抽象。
+
+**為什麼有效**：它將模型的注意力集中在與該高層級專業相關的訓練資料子集上，減少不相關的幻覺。
+
+---
+
+## 指令清晰度與分隔符
+
+目前的前沿模型處理大規模上下文視窗的分隔符，幫助模型區分指令和資料。
 
 ```markdown
-# Instructions
-Analyze the following text for PII.
+# 指令
+分析以下文字中的 PII。
 
-# Data to Analyze
+# 要分析的資料
 --- START OF USER DATA ---
 $USER_INPUT_HERE
 --- END OF USER DATA ---
 
-# Output Schema
+# 輸出結構描述
 { "pii_found": boolean, "types": [] }
 ```
 
-**Delimiters to use**: XML tags (`<context>`, `</context>`), Markdown headers (`#`), or triple quotes (`"""`).
+**使用的分隔符**：XML 標籤（`<context>`、`</context>`）、Markdown 標題（`#`）或三引號（`"""`）。
 
 ---
 
-## Zero-Shot vs. Few-Shot Efficiency
+## 零樣本與少樣本效率
 
-| Aspect | Zero-Shot | Few-Shot |
-|--------|-----------|----------|
-| **Latency** | Lowest (Short prompt) | Higher (Example tokens) |
-| **Accuracy**| Variable | High (Format stability) |
-| **Use Case**| Simple chat, Summarization | Specific formatting, Subtle logic |
+| 面向 | 零樣本 | 少樣本 |
+|------|--------|--------|
+| **延遲** | 最低（短提示詞） | 較高（範例 Token） |
+| **準確率** | 可變 | 高（格式穩定性） |
+| **使用場景** | 簡單對話、摘要 | 特定格式、微妙邏輯 |
 
-**Strategy**: If the model is a "Frontier Reasoning" model (Claude Opus 4.7, GPT-5.5 with extended thinking, DeepSeek-R2), use **Zero-Shot + Clear Chain-of-Thought**. If it's a small model (8B), use **Few-Shot** to ground it.
-
----
-
-## Interview Questions
-
-### Q: Why do system prompts carry more weight than user prompts in modern LLMs?
-
-**Strong answer:**
-System prompts are typically prioritized by the model's architectural training (RLHF) and may be injected into a special "instruction-only" embedding space in some architectures. From a design perspective, the system prompt defines the "Constitution" of the interaction. If a user prompt contradicts a system prompt (e.g., asking for a bomb recipe), a well-aligned model is trained to prioritize the system's "Safety Constraint" over the user's "Task Intent."
-
-### Q: What is the "Step-by-Step" prompt optimization?
-
-**Strong answer:**
-In 2022, "Think step by step" was a magic phrase to trigger Chain-of-Thought (CoT). The modern approach is **Programmatic CoT**. Instead of a vague phrase, we provide explicit reasoning milestones: "1. Identify the core problem. 2. List the constraints. 3. Propose 3 solutions. 4. Select the best one and justify." This provides a "deterministic path" for the model's internal attention, leading to much more reliable outputs for production agents.
+**策略**：若模型是「前沿推理」模型（Claude Opus、具延伸思考的 GPT-5.5、DeepSeek-R2），使用**零樣本 + 清晰思維鏈**。若是小型模型（8B），使用**少樣本**來接地。
 
 ---
 
-## References
+## 面試題目
+
+### Q：為什麼系統提示詞在現代 LLM 中比使用者提示詞份量更重？
+
+**理想回答：**
+系統提示詞通常通過模型的架構訓練（RLHF）獲得優先級，在某些架構中可能被注入到特殊的「僅指令」嵌入空間。從設計角度來看，系統提示詞定義了互動的「憲章」。若使用者提示詞與系統提示詞矛盾（例如要求炸彈食譜），訓練良好的模型會被訓練為優先考慮系統的「安全約束」而非使用者的「任務意圖」。
+
+### Q：什麼是「逐步思考」提示詞優化？
+
+**理想回答：**
+2022 年，「一步一步思考」是一個觸發思維鏈（CoT）的魔術短語。現代方法是**程式化 CoT**。不是模糊的短語，而是提供明確的推理里程碑：「1. 識別核心問題。2. 列出約束條件。3. 提出 3 個解決方案。4. 選擇最佳方案並說明理由。」這為模型的內部注意力提供了一條「確定性路徑」，為生產代理帶來更可靠的輸出。
+
+---
+
+## 參考文獻
+
 - OpenAI. "Prompt Engineering Guide" (2024-2025)
 - Anthropic. "Claude Prompt Engineering Documentation" (2024)
 - Google DeepMind. "The Power of Prompting" (2023)
 
 ---
 
-*Next: [Few-Shot and In-Context Learning](02-few-shot-and-icl.md)*
+*下一篇：[少樣本與上下文學習](02-few-shot-and-icl.md)*

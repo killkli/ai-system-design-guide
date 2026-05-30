@@ -1,89 +1,90 @@
-# Memory Architectures
+# 記憶架構
 
-LLM memory has evolved from "history buffers" to a **Three-Tiered Cognitive Architecture**. This hierarchy mimics human cognitive systems (L1-L3) to balance speed, cost, and recall capacity. Production agent stacks now lean on dedicated memory layers (Mem0, Zep, Letta, Cognee) on top of vector stores rather than rolling their own.
+LLM 記憶已從「歷史緩衝區」演進至**三層認知架構**。此層級模擬人類認知系統（L1-L3）以平衡速度、成本與召回能力。生產代理堆疊現在在向量存放區之上依賴專用記憶層（Mem0、Zep、Letta、Cognee），而非自己捲動。
 
-## Table of Contents
+## 目錄
 
-- [The Three-Tiered Hierarchy](#hierarchy)
-- [Tier 1: Working Memory (Context)](#tier-1)
-- [Tier 2: Episodic Memory (Events)](#tier-2)
-- [Tier 3: Semantic Memory (Knowledge)](#tier-3)
-- [Memory Consolidation Patterns](#consolidation)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Three-Tiered Hierarchy
-
-| Tier | Type | Human Analogy | Technology | Latency |
-|------|------|---------------|------------|---------|
-| **L1** | Working Memory | Immediate focus | Context Window / KV Cache | <50ms |
-| **L2** | Episodic Memory | Past experiences | Vector DB / Local Graph | 100-300ms |
-| **L3** | Semantic Memory | General knowledge | Global Graph / SQL / Mem0 | >500ms |
+- [三層級架構](#hierarchy)
+- [第 1 層：工作記憶（上下文）](#tier-1)
+- [第 2 層：情節記憶（事件）](#tier-2)
+- [第 3 層：語義記憶（知識）](#tier-3)
+- [記憶濃縮模式](#consolidation)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Tier 1: Working Memory (L1)
+## 三層級架構
 
-L1 is the **active focus** of the model. 
-- **Context Window**: 128K - 2M tokens on current frontier models (Claude Opus 4.7, Claude Sonnet 4.6, GPT-5.5, Gemini 3.1 Pro).
-- **KV Cache**: The GPU "RAM" that stores pre-computed keys and values.
-- **Management Strategy**: **Sliding Windows** and **Prefix Caching** (vLLM/PagedAttention).
-- **Redundancy Note**: We only keep the most recent turns and critical system instructions in L1.
-
----
-
-## Tier 2: Episodic Memory (L2)
-
-L2 stores "What happened previously" in this session or past sessions with this user.
-- **Storage**: Vector databases (Pinecone, Weaviate, Qdrant).
-- **Retrieval**: Semantic search. If the user asks "What did we talk about last Tuesday?", L2 provides the answer.
-- **Pattern**: **Experience Replay**. Agents retrieve successful past trajectories to guide current decisions.
+| 層級 | 類型 | 人類類比 | 技術 | 延遲 |
+|------|------|---------|------|------|
+| **L1** | 工作記憶 | 即時專注 | 上下文視窗 / KV Cache | <50ms |
+| **L2** | 情節記憶 | 過去經驗 | 向量 DB / 本地圖形 | 100-300ms |
+| **L3** | 語義記憶 | 通用知識 | 全域圖形 / SQL / Mem0 | >500ms |
 
 ---
 
-## Tier 3: Semantic Memory (L3)
+## 第 1 層：工作記憶（L1）
 
-L3 stores **Immutable Facts** and **Learned Rules**.
-- **Knowledge Graphs**: Store relationships (e.g., `User` -- `WORKS_FOR` --> `Company_X`).
-- **Mem0**: A managed service that extract facts (e.g., "User likes Dark Mode") and makes them available globally.
-- **Truth Anchoring**: L3 acts as the "Ground Truth" when L1 and L2 provide conflicting information.
-
----
-
-## Memory Consolidation Patterns
-
-Memories move between tiers via **Consolidation**:
-1. **Extraction**: An LLM "Reviewer" extracts facts from L1 at the end of a session.
-2. **Indexing**: Facts are stored in L2 (as vectors) and L3 (as graph nodes).
-3. **Decay**: Old, non-reinforced memories are moved from L2 to cold storage (L3) or deleted.
+L1 是模型的**活躍專注**。
+- **上下文視窗**：目前前沿模型上 128K - 2M tokens（Claude Opus 4.7、Claude Sonnet 4.6、GPT-5.5、Gemini 3.1 Pro）。
+- **KV Cache**：儲存預先計算之金鑰與值的 GPU「RAM」。
+- **管理策略**：**滑動視窗**與**前綴快取**（vLLM/PagedAttention）。
+- **冗餘備註**：我們僅在 L1 中保留最近的回合與關鍵系統指令。
 
 ---
 
-## Interview Questions
+## 第 2 層：情節記憶（L2）
 
-### Q: Why not just use a 2M token context window for all memory (L1-L3)?
-
-**Strong answer:**
-While possible, it is **Economically and Cognitively inefficient**. 
-1. **Cost**: Calling a model with 1M+ tokens for every turn costs significantly more than a 10K token call with RAG-recalled context.
-2. **Attention Dilution**: Even with "Long Context" models, "Lost in the Middle" remains a factor. If the context is cluttered with irrelevant historical turns, the model's reasoning on the *current* task degrades.
-3. **Latency**: TTFT (Time to First Token) scales with context size due to KV cache loading. 
-A staff-level architecture uses **Strategic Retrieval** to keep the context window lean and focused.
-
-### Q: How do you handle "Privacy Leakage" in Tier 3 (Global Semantic Memory)?
-
-**Strong answer:**
-Tier 3 (Semantic Memory) must be **Sharded by Namespace**. Each user or organization gets a unique `namespace_id` in the vector DB and Knowledge Graph. We implement **RLS (Row Level Security)** at the database layer. Additionally, we use a **PII-Scrubbing Layer** during the Consolidation step to ensure that sensitive data (passwords, PII) never moves from the transient L1 context into the persistent L3 knowledge store.
+L2 儲存「之前在此工作階段或過去與此使用者的工作階段中發生了什麼」。
+- **儲存**：向量資料庫（Pinecone、Weaviate、Qdrant）。
+- **檢索**：語義搜尋。如果使用者問「我們上週二談了什麼？」，L2 提供答案。
+- **模式**：**經驗回放**。代理檢索成功的過去軌跡以引導目前決策。
 
 ---
 
-## References
-- Pack et al. "Generative Agents" (2023/2025 Context)
-- OpenAI. "Context Window Optimization" (2025)
-- Mem0 Documentation. "Dynamic Memory Management" (2025)
+## 第 3 層：語義記憶（L3）
+
+L3 儲存**不可變事實**與**學習到的規則**。
+- **知識圖譜**：儲存關係（例如 `User` -- `WORKS_FOR` --> `Company_X`）。
+- **Mem0**：一個托管服務，萃取出事實（例如「使用者喜歡深色模式」）並使其全域可用。
+- **真理錨定**：當 L1 與 L2 提供衝突資訊時，L3 充當「真理」的來源。
 
 ---
 
-*Next: [Short-Term Context Management](02-short-term-context.md)*
+## 記憶濃縮模式
+
+記憶透過**濃縮**在層級之間移動：
+1. **萃取**：LLM「審查者」在工作階段結束時從 L1 萃取出事實。
+2. **索引**：事實儲存在 L2（作為向量）與 L3（作為圖形節點）。
+3. **衰減**：舊的、非強化的事實從 L2 移至冷存放區（L3）或刪除。
+
+---
+
+## 面試問題
+
+### Q：為什麼不直接使用 2M token 上下文視窗處理所有記憶（L1-L3）？
+
+**理想回答：**
+雖然可能，但**經濟與認知效率低下**。
+1. **成本**：為每個回合呼叫具有 1M+ tokens 的模型，比具有 RAG 召回上下文的 10K token 呼叫要昂貴得多。
+2. **注意力稀釋**：即使具有「長上下文」模型，「迷失在中間」仍然是個因素。如果上下文被不相關的歷史回合搞亂，模型對*目前*任務的推理會下降。
+3. **延遲**：TTFT（首個 Token 時間）隨上下文大小而增加，因為 KV cache 載入。
+專業級架構使用**策略性檢索**來保持上下文視窗精實且專注。
+
+### Q：如何在第 3 層（全域語義記憶）中處理「隱私洩漏」？
+
+**理想回答：**
+第 3 層（語義記憶）必須按**命名空間分片**。每個使用者或組織在向量資料庫和知識圖譜中都有唯一的 `namespace_id`。我們在資料庫層實施**RLS（列層級安全性）**。此外，我們在濃縮步驟中使用**PII 清理層**，確保敏感資料（密碼、PII）永遠不會從瞬態 L1 上下文移至持久 L3 知識存放區。
+
+---
+
+## 參考文獻
+
+- Pack et al. 《生成式代理》（2023/2025 上下文）
+- OpenAI. 《上下文視窗優化》（2025）
+- Mem0 文件。《動態記憶體管理》（2025）
+
+---
+
+*下一篇：[短期上下文管理](02-short-term-context.md)*

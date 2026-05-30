@@ -1,84 +1,85 @@
-# Error Handling and Recovery
+# 錯誤處理與恢復（Error Handling and Recovery）
 
-Agents fail in non-deterministic ways. Error handling has moved from "Try-Catch blocks" to **Agentic Self-Correction** and **Stateful Rollbacks**, with frameworks like LangGraph and Microsoft Agent Framework providing native checkpoint/resume primitives.
+代理以非確定性方式失敗。錯誤處理已從「Try-Catch 區塊」演進至**代理自我修正（Agent Self-Correction）**與**有狀態回滾（Stateful Rollback）**，LangGraph 與 Microsoft Agent Framework 等框架提供原生檢查點/恢復原語。
 
-## Table of Contents
+## 目錄
 
-- [The Taxonomy of Agent Failures](#fail-types)
-- [Self-Correction Loops](#correction)
-- [Stateful Rollbacks (Checkpointing)](#rollbacks)
-- [The "Stuck in a Loop" Fix](#stuck)
-- [Graceful Degradation](#degradation)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## Taxonomy of Agent Failures
-
-1. **Hallucinated Tools**: Calling a tool that doesn't exist.
-2. **Schema Violation**: Passing the wrong arguments to a real tool.
-3. **Environment Error**: Tool exists, but the external API is down.
-4. **Logical Stall**: The agent performs the same failing action repeatedly (The ReAct Loop of Death).
+- [代理失敗的分類學](#代理失敗的分類學)
+- [自我修正迴圈](#自我修正迴圈)
+- [有狀態回滾（檢查點）](#有狀態回滾檢查點)
+- [「困在迴圈中」的修復](#困在迴圈中的修復)
+- [優雅降級](#優雅降級)
+- [面試問題](#面試問題)
+- [參考文獻](#參考文獻)
 
 ---
 
-## Self-Correction Loops
+## 代理失敗的分類學
 
-Errors are now treated as **Tokens of Information**.
-
-- **Pattern**: When a tool fails, the error message is NOT just logged; it is fed back to the model as a prompt: *"Action failed with error: X. Reflect on why this happened and provide an alternative strategy."*
-- **Reasoning Models** (Claude Opus 4.7 extended thinking, GPT-5.5 reasoning, DeepSeek-R2): These models excel at this because they "internalize" the error during their hidden Chain-of-Thought, leading to a much higher one-shot recovery rate.
-
----
-
-## Stateful Rollbacks (Checkpointing)
-
-For long-running agents, an error in Step 9 shouldn't crash the whole project.
-
-- **Checkpoints**: High-reliability systems (using LangGraph or similar) save the "State Snapshot" to a DB after every successful tool call.
-- **The Rollback**: If the agent enters a logical stall, the supervisor agent can **Reset common-state** to Step 5—the last "Safe" state—and force a different path.
+1. **幻覺工具（Hallucinated Tool）**：呼叫不存在的工具。
+2. **結構描述違規（Schema Violation）**：將錯誤引數傳遞給真實工具。
+3. **環境錯誤（Environment Error）**：工具存在，但外部 API 離線。
+4. **邏輯停滯（Logical Stagnation）**：代理重複執行相同的失敗動作（ReAct 死亡迴圈）。
 
 ---
 
-## The "Stuck in a Loop" Fix
+## 自我修正迴圈
 
-Infinite loops are the #1 cost-sink in agentic systems.
+錯誤現在被視為**資訊 token（Information Token）**。
 
-**Solution**: **Counter-Based Intervention**.
-1. If the same `(Tool, Args)` tuple is seen 3 times in one session, the orchestrator interrupts the model.
-2. It injects a mandatory **"Pivot Instruction"**: *"You have tried searching for 'X' three times. This path is dead. You MUST try a different tool or admit you are stuck."*
-
----
-
-## Graceful Degradation
-
-If the high-reasoning agent (Claude Opus 4.7, GPT-5.5 reasoning) keeps failing, we fall back to:
-- **Simplified Agent**: A smaller model with fewer, more reliable tools.
-- **RAG-only Mode**: Disable actions and just provide a conceptual answer based on the knowledge base.
-- **Human Escalation**: (See the next chapter).
+- **模式**：當工具失敗時，錯誤訊息*不僅*被記錄；它作為提示回饋給模型：*「動作失敗，錯誤：X。反思為何發生，並提供替代策略。」*
+- **推理模型**（Claude 延伸思考模式、GPT 推理模式、DeepSeek-R2）：這些模型在這方面表現出色，因為它們在隱藏思維鏈中「內化」錯誤，帶來更高的單次恢復率。
 
 ---
 
-## Interview Questions
+## 有狀態回滾（檢查點）
 
-### Q: Why is traditional "Exception Handling" (Try/Catch) insufficient for Agentic Systems?
+對於長期執行的代理，步驟 9 中的錯誤不應使整個專案崩潰。
 
-**Strong answer:**
-In traditional software, an exception is a "Stop" command. In an agentic system, the model is the "Driver." If the system just stops, the user task fails. We use **Error Injection** instead of Exception Handling. We catch the exception at the platform level and transform it into a **Synthesized Observation** for the model. This allows the model to "Reason" around the failure. A TRY/Catch only fixes the code; Error Injection allows the model to fix the **Plan**.
-
-### Q: How do you handle "Silent Failures" (Where the tool returns 200 OK but the data is wrong)?
-
-**Strong answer:**
-Silent failures are the most dangerous. We implement **Output Validation Agents**. For critical steps, we don't just accept the tool output. We pipe the output to a "Verifier Agent" (often a smaller, faster model) whose only job is to check: *"Does this tool output actually answer the query provided?"* If the Verifier says "No," it triggers a self-correction loop as if it were a hard error.
+- **檢查點（Checkpoint）**：使用 LangGraph 或類似的高可靠性系統在每個成功工具呼叫後將「狀態快照」儲存至資料庫。
+- **回滾（Rollback）**：如果代理進入邏輯停滯，監督者代理可以**將通用狀態重設**至步驟 5——最後一個「安全」狀態——並強制走向不同路徑。
 
 ---
 
-## References
-- LangGraph. "Persistence and Checkpointing" (2025)
-- Shinn et al. "Reflexion: Learning from Errors" (2024 update)
-- Microsoft. "Managing Hallucinations in Agentic Systems" (2025)
+## 「困在迴圈中」的修復
+
+無限迴圈是代理系統中的頭號成本沉沒（Cost Sink）。
+
+**解決方案**：**計數器干預（Counter Intervention）**。
+1. 如果在同一工作階段中看到相同的 `(Tool, Args)` 元組 3 次，編排者中斷模型。
+2. 它注入一個強制**「樞軸指令（Pivot Instruction）」**：*「你已經嘗試搜尋 'X' 三次。此路徑已死。你必須嘗試不同工具或承認你被困住了。」*
 
 ---
 
-*Next: [Human-in-the-Loop Patterns](08-human-in-the-loop-patterns.md)*
+## 優雅降級
+
+如果高推理代理（Claude、GPT 推理模式）持續失敗，我們降級至：
+- **簡化代理（Simplified Agent）**：較小模型，工具較少但更可靠。
+- **僅 RAG 模式（RAG-Only Mode）**：停用動作，僅根據知識庫提供概念性答案。
+- **人類升級（Human Escalation）**： （見下一章）。
+
+---
+
+## 面試問題
+
+### Q：為什麼傳統的「例外處理」（Try/Catch）對代理系統不足？
+
+**理想回答：**
+在傳統軟體中，例外是「停止」命令。在代理系統中，模型是「驅動者」。如果系統只是停止，使用者任務就失敗了。我們使用**錯誤注入（Error Injection）**而非例外處理。我們在平台層級攔截例外並將其轉換為**綜合觀察（Synthesized Observation）**饋給模型。這讓模型能夠「推理」失敗周圍的情況。TRY/Catch 只修復程式碼；錯誤注入讓模型修復**計畫**。
+
+### Q：如何處理「靜默失敗」（Silent Failure）（工具回傳 200 OK 但資料錯誤）？
+
+**理想回答：**
+靜默失敗是最危險的。我們實施**輸出驗證代理（Output Validation Agent）**。對於關鍵步驟，我們不僅僅接受工具輸出。我們將輸出傳遞給一個「驗證代理」（通常是一個較小較快的模型），其唯一工作是檢查：*「這個工具輸出實際上回答了提供的查詢了嗎？」* 如果驗證者說「否」，它會像硬錯誤一樣觸發自我修正迴圈。
+
+---
+
+## 參考文獻
+
+- LangGraph. 《持久化與檢查點》（2025）
+- Shinn et al. 《從錯誤中學習》（2024 更新）
+- Microsoft. 《管理代理系統中的幻覺》（2025）
+
+---
+
+*下一篇：[人類在迴圈中模式](08-human-in-the-loop-patterns.md)*

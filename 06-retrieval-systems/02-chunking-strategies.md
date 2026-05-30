@@ -1,101 +1,102 @@
-# Chunking Strategies
+# 分塊策略
 
-Chunking is the process of splitting a document into discrete segments for retrieval. Production pipelines have moved beyond blind fixed-size splits to **structure-aware and semantic segments**, with newer techniques like late chunking and contextual prepending now in the mainstream toolkit.
+分塊（Chunking）是將文件拆分為離散的檢索片段的過程。生產環境的pipeline已從盲目固定大小分割演進到**結構感知與語義片段**，更新的技術如延後分塊（late chunking）與上下文預加（contextual prepending）現已成為主流工具。
 
-## Table of Contents
+## 目錄
 
-- [The Retrieval-Context Tension](#tension)
-- [Recursive Structure Splitting](#recursive)
-- [Semantic Chunking](#semantic)
-- [Hierarchical (Parent-Child) Chunking](#hierarchical)
-- [Content-Specific Strategies (Code, PDF, Tables)](#content-specific)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Retrieval-Context Tension
-
-| Aspect | Small Chunks (100t) | Large Chunks (1000t) |
-|--------|---------------------|----------------------|
-| **Precision** | High (Exact match) | Low (Diluted) |
-| **Context** | Poor (Broken sentences) | Rich (Surrounding info) |
-| **Storage** | High (More vectors) | Low (Fewer vectors) |
-| **Latency** | Low (Fast search) | High (Heavy retrieval) |
-
-**Rule**: Smaller is better for *finding*, but larger is better for *thinking*. Use **Hierarchical Chunking** to get both.
+- [檢索-上下文张力](#tension)
+- [遞迴結構分割](#recursive)
+- [語義分塊](#semantic)
+- [階層式（父子）分塊](#hierarchical)
+- [內容特定策略（程式碼、PDF、表格）](#content-specific)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Recursive Structure Splitting
+## 檢索-上下文张力
 
-Instead of splitting at every 500 characters, we split at logical boundaries:
-`[Double Newline] > [Single Newline] > [Period] > [Space]`.
+| 面向 | 小區塊（100 Token） | 大區塊（1000 Token） |
+|------|---------------------|----------------------|
+| **精確度** | 高（精準匹配） | 低（稀釋） |
+| **上下文** | 差（語句破碎） | 豐富（周圍資訊） |
+| **儲存** | 高（更多向量） | 低（較少向量） |
+| **延遲** | 低（快速檢索） | 高（重型檢索） |
 
-**Best practice**: Use **Markdown-Aware Splitting**. If a document has `#` headers, ensure the header is prepended to *every* child chunk to preserve context (Contextual Chunking).
-
----
-
-## Semantic Chunking
-
-Semantic chunking uses an embedding model to detect "topic shifts."
-
-1. Split text into individual sentences.
-2. Group sentences as long as their embedding similarity stays above a threshold (e.g., 0.82).
-3. If similarity drops, start a new chunk.
-
-**Nuance**: Production pipelines increasingly use **Cross-Encoder Segmenters**. A tiny model scans the text and predicts a "Separator token" at every semantic break. This is 10x more accurate than cosine-similarity thresholding.
+**原則**：小區塊更利於*尋找*，大區塊更利於*思考*。使用**階層式分塊**可兩者兼得。
 
 ---
 
-## Hierarchical (Parent-Child) Chunking
+## 遞迴結構分割
 
-This is the industry standard for production RAG.
+不同於每 500 字元就分割，我們在邏輯邊界處分割：
+`[雙換行] > [單換行] > [句號] > [空格]`。
 
-- **Process**: 
-  1. Create "Parent" chunks of 1,500 tokens.
-  2. Sub-divide each parent into 5 "Child" chunks of 300 tokens.
-  3. **Index only the children**.
-  4. At retrieval, if a child matches, **return the full parent context** to the LLM.
-- **Why?**: The child is small and easy for the vector DB to match. The parent provides enough context for the LLM to actually reason correctly without "Broken Context" hallucinations.
+**最佳實踐**：使用**Markdown感知分割**。若文件有 `#` 標題，請將標題附加至*每個*子區塊，以保留上下文（上下文分塊，Contextual Chunking）。
 
 ---
 
-## Content-Specific Strategies
+## 語義分塊
 
-### 1. Code Chunking
-- **Strategy**: Use AST (Abstract Syntax Tree) parsing.
-- **Rule**: Never split a function mid-body. Keep imports and class declarations with their methods.
+語義分塊使用嵌入模型來偵測「主題轉換」。
 
-### 2. Table Chunking
-- **Strategy**: Use Markdown formatting for tables.
-- **Modern pattern**: "Summarized Tables." Store a natural language summary of the table in the vector DB, but return the full Markdown table to the LLM.
+1. 將文字拆分為個別句子。
+2. 只要句子間的嵌入相似度維持在高於閾值（如 0.82），就持續分組。
+3. 若相似度下降，則開始新的區塊。
 
-### 3. PDF/Layout Chunking
-- **Strategy**: Use **Vision-Language Model (VLM)** pre-processing (e.g., ColPali).
-- **Nuance**: Instead of just text, store embeddings that represent the *positional layout* of the page, ensuring charts and sidebars don't get mixed into body text.
+**細微之處**：生產pipeline越來越多使用**Cross-Encoder分段器**。一個小型模型掃描文字並在每個語義斷點預測一個「分隔符號 token」。這比餘弦相似度閾值法精確 10 倍。
 
 ---
 
-## Interview Questions
+## 階層式（父子）分塊
 
-### Q: Why is fixed-size chunking with overlap problematic for production systems?
+這是生產環境 RAG 的業界標準。
 
-**Strong answer:**
-Fixed-size chunking is "content-blind." It frequently splits sentences mid-thought, breaks mathematical equations, and separates headers from their descriptive text. While "Overlap" (e.g., 10%) mitigates this by duplicating 10% of text across chunks, it doesn't solve the core issue: the model's attention is forced to reconstruct meaning from fragmented strings. Modern pipelines prefer **Semantic or Logical Chunking** because it ensures each vector represents a "Complete Semantic Unit," leading to significantly higher retrieval precision.
-
-### Q: What is "Contextual Retrieval" (the Anthropic pattern)?
-
-**Strong answer:**
-Contextual Retrieval involves prepending a 1-sentence global context to every chunk before embedding it. For example, if a chunk is about "battery life," but it's from a manual for a "2025 Model X Drone," the text `[Drone_Model_X_Manual]:` is added to the chunk. This ensures that the vector for "battery life" is influenced by the "Drone" context, preventing it from being accidentally retrieved for "phone battery" queries.
+- **流程**：
+  1. 建立 1,500 Token 的「父」區塊。
+  2. 將每個父區塊再細分為 5 個 300 Token 的「子」區塊。
+  3. **僅對子區塊建立索引**。
+  4. 檢索時，若子區塊匹配，**將完整父區塊上下文回傳給 LLM**。
+- **原因**：子區塊小而容易讓向量資料庫匹配。父區塊提供足夠上下文讓 LLM 實際正確推理，避免「破碎上下文」幻覺。
 
 ---
 
-## References
+## 內容特定策略
+
+### 1. 程式碼分塊
+- **策略**：使用 AST（抽象語法樹）解析。
+- **原則**：絕對不在函式主體中途分割。將 import 與類別宣告與其方法保留在一起。
+
+### 2. 表格分塊
+- **策略**：使用 Markdown 格式化表格。
+- **現代模式**：「摘要表格」。在向量資料庫中儲存表格的自然語言摘要，但將完整 Markdown 表格回傳給 LLM。
+
+### 3. PDF/版面分塊
+- **策略**：使用**視覺語言模型（VLM）** 前處理（如 ColPali）。
+- **細微之處**：不僅儲存文字，還儲存代表頁面*位置版面*的嵌入，確保圖表和側邊欄不會混入正文。
+
+---
+
+## 面試問題
+
+### Q：為什麼重疊的固定大小分塊對生產系統有問題？
+
+**理想回答：**
+固定大小分塊是「內容盲的」。它頻繁地在句中分割、破壞數學方程式，並將標題與其描述文字分離。雖然「重疊」（如 10%）透過將 10% 的文字複製到區塊間來緩解此問題，但並未解決核心問題：模型的注意力被迫從碎片化的字串中重建意義。現代pipeline偏好**語義或邏輯分塊**，因為它確保每個向量代表一個「完整的語義單元」，從而顯著提高檢索精確度。
+
+### Q：什麼是「上下文檢索」（Anthropic 模式）？
+
+**理想回答：**
+上下文檢索涉及在嵌入前為每個區塊預加一句全域上下文。例如，若某區塊關於「電池壽命」，但它來自「2025 Model X 無人機」手冊，則會將文字 `[Drone_Model_X_Manual]:` 加入區塊。這確保「電池壽命」的向量受到「無人機」上下文的影響，防止意外被檢索用於「手機電池」查詢。
+
+---
+
+## 參考文獻
+
 - Anthropic. "Contextual Retrieval: Improving RAG Accuracy" (2024)
 - LlamaIndex. "Advanced Chunking Strategies for RAG" (2025)
 - LangChain. "RecursiveCharacterTextSplitter Benchmarks" (2024)
 
 ---
 
-*Next: [Embedding Models](03-embedding-models.md)*
+*下一篇：[嵌入模型](03-embedding-models.md)*

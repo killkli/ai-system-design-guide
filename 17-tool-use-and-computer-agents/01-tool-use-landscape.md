@@ -1,28 +1,28 @@
-# The 2026 Tool-Use and Computer Agent Landscape
+# 2026 工具使用與電腦代理程式生態全景
 
-The way AI agents interact with the outside world has undergone a dramatic shift. In 2024, "tool use" meant a model emitting a JSON function call that your backend executed. Today we have full-blown autonomous agents that clone repos, run shell commands, control desktops via screenshots, and message you on WhatsApp, all orchestrated through standardized protocols like MCP. This chapter maps the landscape of these tools, their architectures, and the design decisions that differentiate them.
+AI 代理程式與外部世界互動的方式已發生劇烈轉變。2024 年時，「工具使用」指的是模型發出 JSON 函式呼叫，由後端執行。如今我們有了完整的自主代理程式，可複製程式碼儲存庫、執行 shell 命令、透過截圖控制桌面，甚至在 WhatsApp 上傳訊息給你——這一切都是透過 MCP 等標準化協議來協調。本章節將帶你了解這些工具的全景、它們的架構，以及決定其差異的設計決策。
 
-## Table of Contents
+## 目錄
 
-- [Ecosystem Overview](#ecosystem-overview)
-- [Category Taxonomy](#category-taxonomy)
-- [OpenClaw: The Viral Personal AI Agent](#openclaw)
-- [OpenHands: Autonomous Developer Agent](#openhands)
-- [Open Interpreter: Local Code Execution](#open-interpreter)
-- [Claude Computer Use: Vision-Based Automation](#claude-computer-use)
-- [Claude Code: The Terminal Agent](#claude-code)
-- [IDE Agents: Cursor, Windsurf, Cline](#ide-agents)
-- [Comparison Matrix](#comparison-matrix)
-- [Market Trends and Adoption (2026)](#market-trends)
-- [System Design Interview Angle](#interview-angle)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [生態系統概覽](#ecosystem-overview)
+- [類別分類法](#category-taxonomy)
+- [OpenClaw：病毒式傳播的個人 AI 代理程式](#openclaw)
+- [OpenHands：自主開發者代理程式](#openhands)
+- [Open Interpreter：本機程式碼執行](#open-interpreter)
+- [Claude Computer Use：視覺式自動化](#claude-computer-use)
+- [Claude Code：終端機代理程式](#claude-code)
+- [IDE 代理程式：Cursor、Windsurf、Cline](#ide-agents)
+- [比較矩陣](#comparison-matrix)
+- [市場趨勢與採用（2026）](#market-trends)
+- [系統設計面試切入點](#interview-angle)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Ecosystem Overview
+## 生態系統概覽
 
-The 2026 tool-use ecosystem has consolidated around four architectural patterns, each optimized for different levels of autonomy, safety, and integration depth:
+2026 年的工具使用生態系統已圍繞四種架構模式整合，每種模式針對不同層級的自主性、安全性和整合深度進行優化：
 
 ```
 +-----------------------------------------------------------------------+
@@ -49,79 +49,79 @@ The 2026 tool-use ecosystem has consolidated around four architectural patterns,
 +-----------------------------------------------------------------------+
 ```
 
-The key insight for 2026: these categories are converging. Claude Code is a cloud agent that runs locally. OpenClaw is a local agent that connects to cloud LLMs. Cursor is an IDE agent with cloud-side Background Agents. The lines are blurring, and what matters is the underlying **architecture pattern** (covered in the next chapter).
+2026 年的關鍵洞察：這些類別正在收斂。Claude Code 是可在本地執行的雲端代理程式。OpenClaw 是可連接雲端 LLM 的本地代理程式。Cursor 是帶有雲端背景代理程式的 IDE 代理程式。界線日益模糊，真正重要的是底層的 **架構模式**（將在下一章節中介紹）。
 
 ---
 
-## Category Taxonomy
+## 類別分類法
 
-### 1. Local Agents (Self-Hosted, User-Controlled)
+### 1. 本地代理程式（自託管、使用者可控）
 
-Agents that run on the user's own hardware. The LLM call may go to the cloud, but the agent process, memory, and tool execution are local.
+在使用者自有硬體上執行的代理程式。LLM 呼叫可能送往雲端，但代理程式程序、記憶體和工具執行都在本地端。
 
-**Key properties:**
-- Full filesystem access on the user's machine
-- Persistent memory stored locally (SQLite, JSON, Markdown)
-- User owns all data; no vendor lock-in
-- Security responsibility falls entirely on the operator
+**關鍵特性：**
+- 完整存取使用者機器的檔案系統
+- 持久化記憶體儲存在本機（SQLite、JSON、Markdown）
+- 使用者擁有所有資料；無供應商鎖定
+- 安全責任完全由營運商承擔
 
-**Examples:** OpenClaw, Open Interpreter, local OpenHands deployments
+**範例：** OpenClaw、Open Interpreter、本機部署的 OpenHands
 
-### 2. Cloud Agents (Vendor-Hosted, API-Driven)
+### 2. 雲端代理程式（供應商託管、API 驅動）
 
-Agents that run in vendor-managed cloud environments. Code execution happens in sandboxed VMs or containers.
+在供應商管理的雲端環境中執行的代理程式。程式碼執行在沙盒化的 VM 或容器中進行。
 
-**Key properties:**
-- Sandboxed execution (Docker, Firecracker VMs, E2B)
-- No local filesystem access (works on cloned repos)
-- Vendor handles scaling, security, and infrastructure
-- Pay-per-use or subscription pricing
+**關鍵特性：**
+- 沙盒化執行（Docker、Firecracker VM、E2B）
+- 無本機檔案系統存取（可對複製的儲存庫進行操作）
+- 供應商處理擴展、安全性和基礎設施
+- 按使用量付費或訂閱定價
 
-**Examples:** Claude Code (cloud mode), OpenAI Codex, Google Jules, OpenHands Cloud
+**範例：** Claude Code（雲端模式）、OpenAI Codex、Google Jules、OpenHands Cloud
 
-### 3. IDE Agents (Editor-Integrated, Context-Aware)
+### 3. IDE 代理程式（編輯器整合、上下文感知）
 
-Agents embedded directly in code editors. They have deep understanding of project structure, open files, and editor state.
+直接嵌入程式碼編輯器的代理程式。它們深入理解專案結構、開啟的檔案和編輯器狀態。
 
-**Key properties:**
-- Tight integration with editor UI (inline diffs, tab completion)
-- Codebase indexing via embeddings or AST parsing
-- Background agents that work asynchronously on branches
-- Optimized for developer workflow, not general automation
+**關鍵特性：**
+- 與編輯器 UI 緊密整合（行內差異、標籤自動完成）
+- 透過嵌入或 AST 解析進行程式碼庫索引
+- 在分支上非同步工作的背景代理程式
+- 為開發者工作流程而非一般自動化而優化
 
-**Examples:** Cursor (Agent Mode + Background Agents), Windsurf (Cascade), Cline, GitHub Copilot
+**範例：** Cursor（代理程式模式 + 背景代理程式）、Windsurf（Cascade）、Cline、GitHub Copilot
 
-### 4. Computer-Use Agents (Vision-Based, GUI-Driven)
+### 4. 電腦使用代理程式（視覺式、GUI 驅動）
 
-Agents that interact with software the way humans do -- by looking at screenshots and clicking.
+代理程式以人類的方式與軟體互動——透過查看螢幕截圖並點擊。
 
-**Key properties:**
-- Model sees screenshots, decides mouse/keyboard actions
-- Works with any application (no API needed)
-- Higher latency (screenshot-action loop is 1-3 seconds per step)
-- Requires sandboxed environments for safety (VM + VNC)
+**關鍵特性：**
+- 模型查看螢幕截圖，決定滑鼠/鍵盤動作
+- 可與任何應用程式配合使用（無需 API）
+- 較高延遲（截圖-動作迴圈每步驟 1-3 秒）
+- 需要沙盒化環境以確保安全（VM + VNC）
 
-**Examples:** Claude Computer Use API, Open Interpreter Computer API
+**範例：** Claude Computer Use API、Open Interpreter Computer API
 
 ---
 
-## OpenClaw: The Viral Personal AI Agent
+## OpenClaw：病毒式傳播的個人 AI 代理程式
 
-### What It Is
+### 這是什麼
 
-OpenClaw is a self-hosted, open-source personal AI assistant created by Austrian developer Peter Steinberger. Originally published as "Clawdbot" in November 2025, it was renamed to OpenClaw in January 2026. It exploded from 0 to 346,000 GitHub stars in under five months, surpassing React as GitHub's most-starred software project on March 3, 2026.
+OpenClaw 是一款自託管、開源的個人 AI 助理，由奧地利開發者 Peter Steinberger 創建。原本於 2025 年 11 月以「Clawdbot」發布，2026 年 1 月更名為 OpenClaw。在不到五個月內從 0 增長到 346,000 個 GitHub 星標，於 2026 年 3 月 3 日超越 React，成為 GitHub 上星標最多的軟體專案。
 
-**By the numbers (May 2026):**
-- 346,000+ GitHub stars
-- 3.2 million active users
-- 500,000+ running instances
-- 44,000+ community skills on ClawHub
-- 38 million monthly visitors to the project site
-- 24+ messaging platform integrations
+**數據（2026 年 5 月）：**
+- 346,000+ GitHub 星標
+- 320 萬活躍使用者
+- 500,000+ 運行中的實例
+- 44,000+ ClawHub 社群技能
+- 每月 3,800 萬專案網站訪客
+- 24+ 訊息平台整合
 
-### How It Works
+### 它如何運作
 
-OpenClaw's architecture has six core components:
+OpenClaw 的架構有六個核心元件：
 
 ```
 +-------------------------------------------------------------------+
@@ -147,40 +147,40 @@ OpenClaw's architecture has six core components:
 +-------------------------------------------------------------------+
 ```
 
-**1. Gateway**: The message ingress/egress layer. Connects to WhatsApp (via Baileys), Telegram, Discord, Slack, Signal, iMessage, Microsoft Teams, Matrix, and 16+ other platforms. Supports both DMs and group conversations with mention-based activation.
+**1. Gateway**：訊息入口/出口層。連接至 WhatsApp（透過 Baileys）、Telegram、Discord、Slack、Signal、iMessage、Microsoft Teams、Matrix 及另外 16+ 個平台。支援 DM 和群組對話，採用提及式啟動。
 
-**2. LLM (The Brain)**: Model-agnostic by design. Supports GPT-4o, Claude, Gemini, DeepSeek, or local models via Ollama. The user picks the model; the architecture does not care.
+**2. LLM（大腦）**：設計上與模型無關。支援 GPT-4o、Claude、Gemini、DeepSeek，或透過 Ollama 使用本地模型。由使用者選擇模型；架構本身不在意。
 
-**3. PI Agent (Process Interactor)**: A small runtime that allows the LLM to create, edit, run, and delete files on the host system. The LLM generates code, the PI Agent saves it, and then executes it. This is the "hands" of the agent.
+**3. PI Agent（程序互動器）**：一個小型執行時，讓 LLM 能夠在主機系統上建立、編輯、執行和刪除檔案。LLM 生成程式碼，PI Agent 儲存並執行。這是代理程式的「雙手」。
 
-**4. SOUL.md (Identity Layer)**: A plain Markdown file that defines the agent's personality, communication style, values, and behavioral guardrails. Loaded at session start and injected into the system prompt. Every agent instance reads SOUL.md first -- it "reads itself into being."
+**4. SOUL.md（身份層）**：一個純文字 Markdown 檔案，定義代理程式的人格、溝通風格、價值觀和行為防護措施。在對話開始時載入，注入系統提示。每個代理程式實例首先讀取 SOUL.md——它「閱讀自身而存在」。
 
-**5. Skills (Plugin System)**: Extensions that give the agent new capabilities. Over 44,000 community skills exist on ClawHub. Skills follow the AgentSkills spec and can be bundled, workspace-local, or installed globally.
+**5. Skills（外掛系統）**：賦予代理程式新能力的擴展功能。ClawHub 上有超過 44,000 個社群技能。技能遵循 AgentSkills 規範，可以捆綁、本機工作區安裝或全域安裝。
 
-**6. Memories (Persistent Context)**: Long-term memory stored locally. The agent builds up context about the user across conversations. Combined with SOUL.md, this gives each agent a consistent personality across all messaging platforms.
+**6. Memories（持久化上下文）**：長期記憶體儲存在本機。代理程式在對話中積累關於使用者的上下文。結合 SOUL.md，使每個代理程式在所有訊息平台上擁有一致的個性。
 
-### Workspace Files
+### 工作區檔案
 
-| File | Purpose |
-|------|---------|
-| `SOUL.md` | Agent personality, tone, values, guardrails |
-| `AGENTS.md` | Operational instructions, tool configurations |
-| `HEARTBEAT.md` | Scheduled autonomous actions (cron-like) |
-| `Memories/` | Persistent context across conversations |
+| 檔案 | 用途 |
+|------|------|
+| `SOUL.md` | 代理程式人格、語氣、價值觀、防護措施 |
+| `AGENTS.md` | 操作指令、工具配置 |
+| `HEARTBEAT.md` | 排程自主動作（類似 cron） |
+| `Memories/` | 跨對話的持久化上下文 |
 
-### Security Concerns
+### 安全疑慮
 
-OpenClaw's rapid growth has outpaced security practices. As of May 2026, over 135,000 instances are exposed on the public internet, many with default configurations. The ClawHub skills marketplace has minimal security oversight: skills are Markdown with optional TypeScript, easy to create and install, and easy to abuse. This is a critical design consideration for anyone deploying OpenClaw in production.
+OpenClaw 的快速增長已超越安全實踐。截至 2026 年 5 月，超過 135,000 個實例暴露在公共網路上，許多採用預設配置。ClawHub 技能市集幾乎沒有安全監督：技能是 Markdown 加上可選的 TypeScript，易於建立和安裝，也易於濫用。這是任何在生產環境部署 OpenClaw 的人都需要考慮的關鍵設計問題。
 
 ---
 
-## OpenHands: Autonomous Developer Agent
+## OpenHands：自主開發者代理程式
 
-### What It Is
+### 這是什麼
 
-OpenHands (formerly OpenDevin) is an open-source autonomous AI software engineer. Licensed under MIT, it can modify code, execute commands, browse the web, and interact with APIs. Unlike tools that suggest code snippets, OpenHands clones repositories, runs terminal commands, executes tests, and debugs errors inside sandboxed Docker containers.
+OpenHands（前身為 OpenDevin）是一款開源的自主 AI 軟體工程師。採用 MIT 授權，可以修改程式碼、執行命令、瀏覽網頁並與 API 互動。與提供程式碼片段建議的工具不同，OpenHands 可複製儲存庫、執行終端機命令、執行測試，並在沙盒化 Docker 容器中除錯錯誤。
 
-### Architecture: Event-Stream + Sandboxed Runtime
+### 架構：事件流 + 沙盒化執行時
 
 ```
 +-------------------------------------------------------------------+
@@ -193,7 +193,7 @@ OpenHands (formerly OpenDevin) is an open-source autonomous AI software engineer
 |           |                                                       |
 |           v                                                       |
 |  +--------+---------+     +------------------+                    |
-|  |  Agent Controller |<--->|  Event Stream    |                   |
+|  |  Agent Controller |<-->|  Event Stream    |                   |
 |  |  (CodeAct 1.0)   |     |  Hub             |                   |
 |  +--------+---------+     +--------+---------+                    |
 |           |                        |                              |
@@ -201,10 +201,10 @@ OpenHands (formerly OpenDevin) is an open-source autonomous AI software engineer
 |  +--------+---------+     +--------+---------+                    |
 |  |  Action Dispatch  |     |  Observation     |                   |
 |  |                   |     |  Collector       |                   |
-|  |  - CmdRunAction   |     |                  |                   |
-|  |  - FileWriteAction|     |  - CmdOutput     |                   |
-|  |  - BrowseURLAction|     |  - FileContent   |                   |
-|  |  - CodeAction     |     |  - BrowserState  |                   |
+|  |  - CmdRunAction   |     |  - CmdOutput     |                   |
+|  |  - FileWriteAction|     |  - FileContent   |                   |
+|  |  - BrowseURLAction|     |  - BrowserState  |                   |
+|  |  - CodeAction     |     |                  |                   |
 |  +--------+---------+     +------------------+                    |
 |           |                                                       |
 |           v                                                       |
@@ -219,27 +219,27 @@ OpenHands (formerly OpenDevin) is an open-source autonomous AI software engineer
 +-------------------------------------------------------------------+
 ```
 
-**Key architectural decisions:**
-- **Event-stream architecture**: All agent-environment interactions flow as typed events through a central hub. The Agent analyzes conversation state and produces Actions; the sandbox produces Observations.
-- **Per-session Docker containers**: Each session gets its own isolated container with full OS capabilities. The container is insulated from the host.
-- **CodeAct 1.0**: The default agent template. Embeds LLM reasoning into a unified coding control plane and maintains session-level project context.
-- **BrowserGym integration**: Agents can conduct browser automation via declarative primitives (DOM manipulation, navigation).
-- **SDK composability**: The OpenHands SDK is a Python library. You can define agents in code, run them locally, or scale to thousands in the cloud.
+**關鍵架構決策：**
+- **事件流架構**：所有代理程式-環境互動都作為型別化事件透過中央集線器流動。代理程式分析對話狀態並產生 Actions；沙盒產生 Observations。
+- **每對話 Docker 容器**：每個對話獲得自己的隔離容器，具備完整 OS 能力。容器與主機隔離。
+- **CodeAct 1.0**：預設代理程式模板。將 LLM 推理嵌入統一的程式碼控制平面，並維護對話級專案上下文。
+- **BrowserGym 整合**：代理程式可以透過聲明式原語（DOM 操作、導航）進行瀏覽器自動化。
+- **SDK 可組合性**：OpenHands SDK 是一個 Python 函式庫。您可以在程式碼中定義代理程式，在本機執行，或擴展到雲端數千個。
 
-**Recent updates (v1.6.0, March 2026):**
-- Kubernetes support for orchestrating agent sessions
-- Planning Mode beta for multi-step task decomposition
-- 2,100+ contributions from 188+ contributors
+**近期更新（v1.6.0，2026 年 3 月）：**
+- Kubernetes 支援以協調代理程式對話
+- Planning Mode beta 用於多步驟任務分解
+- 來自 188+ 貢獻者的 2,100+ 貢獻
 
 ---
 
-## Open Interpreter: Local Code Execution
+## Open Interpreter：本機程式碼執行
 
-### What It Is
+### 這是什麼
 
-Open Interpreter is a local code execution agent that provides a ChatGPT-like terminal interface. Instead of showing code and asking you to run it, Open Interpreter asks for permission and then executes it directly on your machine with full access to your local files.
+Open Interpreter 是一個本地程式碼執行代理程式，提供類似 ChatGPT 的終端機介面。Open Interpreter 不只是顯示程式碼並要求你執行，而是請求許可後直接在你的機器上執行，並可完整存取本地檔案。
 
-### Architecture
+### 架構
 
 ```
 +-------------------------------------------------------------------+
@@ -253,7 +253,7 @@ Open Interpreter is a local code execution agent that provides a ChatGPT-like te
 |           |                                                       |
 |           v                                                       |
 |  +--------+---------+     +------------------+                    |
-|  |  Core Engine      |<--->|  LLM Provider   |                   |
+|  |  Core Engine      |<-->|  LLM Provider   |                   |
 |  |                   |     |  (100+ models)  |                    |
 |  |  - NL to Code     |     |  GPT, Claude,   |                   |
 |  |  - Permission     |     |  Ollama, LM     |                   |
@@ -282,25 +282,25 @@ Open Interpreter is a local code execution agent that provides a ChatGPT-like te
 +-------------------------------------------------------------------+
 ```
 
-**Key properties:**
-- **Model flexibility**: Works with 100+ LLMs. Use GPT-4o or Claude for maximum capability, or run entirely offline with Ollama and LM Studio for privacy.
-- **Permission gate**: Every code execution requires user approval (can be disabled for trusted workflows).
-- **Computer API**: Beyond code execution, Open Interpreter can see your screen, identify UI elements, and control your mouse and keyboard -- elevating it from a code interpreter to a computer automation agent.
-- **Unsandboxed by default**: Runs directly on the host machine. This is a deliberate design choice for maximum capability, but it means a bad LLM output can damage your system. Docker sandboxing is optional.
+**關鍵特性：**
+- **模型靈活性**：支援 100+ LLM。使用 GPT-4o 或 Claude 獲得最大能力，或使用 Ollama 和 LM Studio 完全離線運行以保護隱私。
+- **許可閘道**：每個程式碼執行都需要使用者批准（可為信任的工作流程禁用）。
+- **Computer API**：除了程式碼執行，Open Interpreter 還可以查看螢幕、識別 UI 元素、控制滑鼠和鍵盤——使其從程式碼直譯器提升為電腦自動化代理程式。
+- **預設非沙盒化**：直接在主機機器上運行。這是一個故意的設計選擇，以實現最大能力，但這意味著不良的 LLM 輸出可能損壞您的系統。Docker 沙盒化是可選的。
 
-### When to Use Open Interpreter
+### 何時使用 Open Interpreter
 
-Best for data analysis, file manipulation, and system administration tasks where you want a conversational interface to your local machine. Not ideal for production deployments or untrusted environments.
+最適合資料分析、檔案操作和系統管理工作，你需要一個對話介面來操作本機機器。不適合生產部署或不受信任的環境。
 
 ---
 
-## Claude Computer Use: Vision-Based Automation
+## Claude Computer Use：視覺式自動化
 
-### What It Is
+### 這是什麼
 
-Claude Computer Use is an Anthropic API feature that allows Claude to control a desktop via screenshots, mouse movements, keyboard input, and application interaction. Introduced in October 2024 as a beta, it has evolved significantly. As of May 2026, Sonnet 4.6 reaches 72.5% on OSWorld-Verified, up from 14.9% at launch, with Opus 4.7 pushing further on agentic coding benchmarks (64.3% SWE-bench Pro).
+Claude Computer Use 是 Anthropic API 功能，允許 Claude 透過螢幕截圖、滑鼠移動、鍵盤輸入和應用程式互動來控制桌面。於 2024 年 10 月作為 beta 推出，已大幅演進。截至 2026 年 5 月，Sonnet 4.6 在 OSWorld-Verified 上達到 72.5%，發布時為 14.9%，Opus 4.7 在代理程式編碼基準測試上進一步提升（64.3% SWE-bench Pro）。
 
-### The Vision-Action Loop
+### 視覺-動作迴圈
 
 ```
 +-------------------------------------------------------------------+
@@ -327,39 +327,39 @@ Claude Computer Use is an Anthropic API feature that allows Claude to control a 
 +-------------------------------------------------------------------+
 ```
 
-### Available Tools
+### 可用工具
 
-| Tool | Capability | Notes |
-|------|------------|-------|
-| `computer` | Mouse, keyboard, screenshot | Full desktop GUI control |
-| `bash` | Run shell commands | Persistent session across turns |
-| `text_editor` | Read/write/edit files | Supports view, create, str_replace |
+| 工具 | 能力 | 備註 |
+|------|------|------|
+| `computer` | 滑鼠、鍵盤、螢幕截圖 | 完整桌面 GUI 控制 |
+| `bash` | 執行 shell 命令 | 跨回合的持久化對話 |
+| `text_editor` | 讀取/寫入/編輯檔案 | 支援 view、create、str_replace |
 
-### 2026 Enhancements
+### 2026 年增強功能
 
-- **Zoom Action**: Inspects small UI elements at high resolution before clicking. Reduces misclick rates on dense interfaces.
-- **Available in Claude Cowork and Claude Code**: Research preview for Pro and Max users, with human confirmation required before destructive actions.
-- **Sandboxing best practice**: Always run in a sandboxed VM (Docker + VNC, or E2B cloud). Never give computer-use access to an unsandboxed host machine.
+- **Zoom Action**：在高解析度下檢查小 UI 元素後再點擊。減少密集介面上的錯誤點擊率。
+- **可在 Claude Cowork 和 Claude Code 中使用**：面向 Pro 和 Max 使用者的研究預覽，破壞性動作需要人工確認。
+- **沙盒化最佳實踐**：始終在沙盒化 VM 中運行（Docker + VNC，或 E2B 雲端）。切勿在未沙盒化的主機上給予電腦使用存取權。
 
-### Performance Trajectory
+### 效能軌跡
 
-| Date | OSWorld Score | Key Milestone |
+| 日期 | OSWorld 分數 | 關鍵里程碑 |
 |------|---------------|---------------|
-| Oct 2024 | 14.9% | Beta launch (Claude 3.5 Sonnet) |
-| Mid 2025 | ~40% | Claude 3.7 improvements |
-| Q1 2026 | 72.5% | Sonnet 4.6, Zoom Action |
+| 2024 年 10 月 | 14.9% | Beta 發布（Claude 3.5 Sonnet） |
+| 2025 年中 | ~40% | Claude 3.7 改進 |
+| 2026 年 Q1 | 72.5% | Sonnet 4.6、Zoom Action |
 
 ---
 
-## Claude Code: The Terminal Agent
+## Claude Code：終端機代理程式
 
-### What It Is
+### 這是什麼
 
-Claude Code is Anthropic's agentic coding tool that lives in the terminal. It reads your codebase, edits files, runs commands, and integrates with development tools. It shipped publicly in May 2025 and crossed $2.5 billion ARR by February 2026.
+Claude Code 是 Anthropic 的代理程式編碼工具，運行在終端機中。它閱讀你的程式碼庫、編輯檔案、執行命令，並與開發工具整合。它於 2025 年 5 月公開發布，到 2026 年 2 月突破了 25 億美元 ARR。
 
-### Architecture
+### 架構
 
-Claude Code is a TypeScript terminal agent that loops through three phases:
+Claude Code 是一個 TypeScript 終端機代理程式，透過三個階段循環：
 
 ```
 +-------------------------------------------------------------------+
@@ -391,41 +391,41 @@ Built-in Tools: bash, read, write, edit, glob, grep, browser,
                 subagent, notebook, web_search, web_fetch
 ```
 
-**Key architectural properties:**
-- One agent loop with a rich tool palette
-- On-demand skill loading via slash commands and CLAUDE.md
-- Context compression for long sessions (1M+ token context)
-- Subagent spawning for parallel workstreams
-- Worktree isolation for parallel branch execution
-- Permission governance (allow/deny rules for tools)
-- Task system with dependency graphs
-- Hooks for custom automation (pre/post commit, file changes)
+**關鍵架構特性：**
+- 擁有豐富工具套件的單一代理程式迴圈
+- 透過斜線命令和 CLAUDE.md 按需載入技能
+- 長對話的上下文壓縮（1M+  token 上下文）
+- 並行工作流程的子代理程式生成
+- 並行分支執行的 worktree 隔離
+- 工具許可治理（允許/拒絕規則）
+- 具有依賴關係圖的任務系統
+- 自訂自動化 hook（提交前/後、檔案變更）
 
 ---
 
-## IDE Agents: Cursor, Windsurf, Cline
+## IDE 代理程式：Cursor、Windsurf、Cline
 
 ### Cursor
 
-Cursor is a VS Code fork with deep AI integration. Version 2.0 (early 2026) introduced:
-- **Agent Mode**: Uses 20x scaled reinforcement learning for multi-file editing
-- **Background Agents**: Clone your repo in cloud VMs, work autonomously, open PRs when done
-- **Mission Control**: Dashboard for managing parallel agent workflows
-- **Market**: $2B annualized revenue, 2M+ users, 1M+ paying customers, adopted by half the Fortune 500
+Cursor 是深度整合 AI 的 VS Code 分支。2.0 版（2026 年初）引入了：
+- **Agent Mode**：使用 20x 縮放強化學習進行多檔案編輯
+- **Background Agents**：在你的雲端 VM 中複製你的程式碼儲存庫，自主工作，完成後開啟 PR
+- **Mission Control**：管理並行代理程式工作流程的儀表板
+- **市場**：20 億美元年化收入、200 萬+ 使用者、100 萬+ 付費客戶，被一半的財富 500 強企業採用
 
 ### Windsurf
 
-Windsurf (originally Codeium, acquired by Cognition for $250M in July 2025) features:
-- **Cascade**: Multi-step AI agent that analyzes project structure, coordinates cross-file changes, and self-recovers from errors
-- **Proprietary models**: SWE-1.5 (13x faster than Sonnet 4.5) and Fast Context
-- **Codemaps**: AI-powered visual code navigation
-- **Cross-IDE plugins**: Available for 40+ IDEs (JetBrains, Vim, NeoVim, XCode)
+Windsurf（原 Codeium，2025 年 7 月被 Cognition 以 2.5 億美元收購）特色包括：
+- **Cascade**：多步 AI 代理程式，分析專案結構、協調跨檔案變更、從錯誤中自我恢復
+- **專有模型**：SWE-1.5（比 Sonnet 4.5 快 13 倍）和 Fast Context
+- **Codemaps**：AI 驅動的視覺化程式碼導航
+- **跨 IDE 外掛**：可用於 40+ IDE（JetBrains、Vim、NeoVim、XCode）
 
 ### Cline
 
-Cline is a VS Code extension that operates as a full agent rather than an autocomplete tool. It takes a series of steps, evaluates results, fixes its own errors, and continues. More autonomous than Cursor or Windsurf but with less polish.
+Cline 是一個 VS Code 擴展，作為完整代理程式而非自動完成工具運行。它採取一系列步驟、評估結果、修正自己的錯誤，然後繼續。比 Cursor 或 Windsurf 更自主，但打磨程度較低。
 
-### IDE Agent Architecture Comparison
+### IDE 代理程式架構比較
 
 ```
 +-------------------------------------------------------------------+
@@ -451,90 +451,90 @@ Cline is a VS Code extension that operates as a full agent rather than an autoco
 
 ---
 
-## Comparison Matrix
+## 比較矩陣
 
-| Feature | OpenClaw | OpenHands | Open Interpreter | Claude Computer Use | Claude Code | Cursor |
+| 特性 | OpenClaw | OpenHands | Open Interpreter | Claude Computer Use | Claude Code | Cursor |
 |---------|----------|-----------|-----------------|-------------------|-------------|--------|
-| **Type** | Local agent | Dev agent | Local code exec | Vision automation | Terminal agent | IDE agent |
-| **License** | AGPL-3.0 | MIT | AGPL-3.0 | Proprietary API | Proprietary | Proprietary |
+| **類型** | 本機代理程式 | 開發代理程式 | 本機程式碼執行 | 視覺自動化 | 終端機代理程式 | IDE 代理程式 |
+| **授權** | AGPL-3.0 | MIT | AGPL-3.0 | 專有 API | 專有 | 專有 |
 | **GitHub Stars** | 346K | 51K+ | 58K+ | N/A (API) | 42K+ | N/A |
-| **Sandboxed** | No (host) | Yes (Docker) | No (host) | Requires VM | Configurable | Yes (BG agents) |
-| **LLM Support** | Any (model-agnostic) | Any | 100+ models | Claude only | Claude only | Multi-model |
-| **GUI Control** | No | Yes (BrowserGym) | Yes (Computer API) | Yes (native) | Via computer-use | No |
-| **Code Execution** | Yes (PI Agent) | Yes (container) | Yes (local) | Yes (bash tool) | Yes (bash) | Yes (terminal) |
-| **Messaging** | 24+ platforms | Web UI / API | Terminal | API | Terminal / IDE | Editor |
-| **Memory** | Persistent (local) | Session-based | Session-based | Per-conversation | Session + CLAUDE.md | Project-scoped |
-| **MCP Support** | Community skills | Limited | No | Via Claude | Native | Growing |
-| **Best For** | Personal assistant | Autonomous dev | Data analysis | GUI automation | Professional dev | IDE workflow |
-| **Risk Level** | High (unsandboxed) | Low (sandboxed) | High (unsandboxed) | Medium (needs VM) | Medium | Low |
+| **沙盒化** | 否（主機） | 是（Docker） | 否（主機） | 需要 VM | 可配置 | 是（BG 代理程式） |
+| **LLM 支援** | 任何（模型無關） | 任何 | 100+ 模型 | 僅限 Claude | 僅限 Claude | 多模型 |
+| **GUI 控制** | 否 | 是（BrowserGym） | 是（Computer API） | 是（原生） | 透過電腦使用 | 否 |
+| **程式碼執行** | 是（PI Agent） | 是（容器） | 是（本機） | 是（bash 工具） | 是（bash） | 是（終端機） |
+| **訊息傳遞** | 24+ 平台 | Web UI / API | 終端機 | API | 終端機 / IDE | 編輯器 |
+| **記憶體** | 持久化（本機） | 對話式 | 對話式 | 每對話 | 對話式 + CLAUDE.md | 專案範圍 |
+| **MCP 支援** | 社群技能 | 有限 | 否 | 透過 Claude | 原生 | 成長中 |
+| **最適合** | 個人助理 | 自主開發 | 資料分析 | GUI 自動化 | 專業開發 | IDE 工作流程 |
+| **風險等級** | 高（非沙盒化） | 低（沙盒化） | 高（非沙盒化） | 中（需要 VM） | 中 | 低 |
 
 ---
 
-## Market Trends and Adoption (2026)
+## 市場趨勢與採用（2026）
 
-### The Numbers
+### 數據
 
-- **MCP ecosystem**: 10,000+ active servers, 97 million monthly SDK downloads
-- **Gartner projection**: 40% of enterprise applications will incorporate AI agents by end of 2026 (up from under 5% in early 2025)
-- **OpenClaw**: Fastest project to 300K GitHub stars in history (under 5 months)
-- **Claude Code**: $2.5B ARR by February 2026 -- fastest enterprise software product to $1B
-- **Cursor**: $2B annualized revenue, half of Fortune 500
+- **MCP 生態系統**：10,000+ 活躍伺服器、每月 9,700 萬 SDK 下載
+- **Gartner 預測**：到 2026 年底，40% 的企業應用將整合 AI 代理程式（2025 年初不足 5%）
+- **OpenClaw**：歷史上最快的專案在 5 個月內達到 300K GitHub 星標
+- **Claude Code**：2026 年 2 月達到 25 億美元 ARR——最快的企業軟體產品達到 10 億美元
+- **Cursor**：20 億美元年化收入，財富 500 強的一半
 
-### Key Trends
+### 關鍵趨勢
 
-**1. Convergence of Agent Types**: The boundaries between local, cloud, and IDE agents are dissolving. Claude Code runs locally but uses cloud models. Cursor's Background Agents run in the cloud. OpenClaw connects to any LLM. The pattern is moving toward a universal agent architecture that can operate in any environment.
+**1. 代理程式類型的收斂**：本地、雲端和 IDE 代理程式之間的界線正在消融。Claude Code 本地運行但使用雲端模型。Cursor 的背景代理程式在雲端運行。OpenClaw 連接任何 LLM。模式正在走向可在任何環境中運作的通用代理程式架構。
 
-**2. MCP as the Universal Tool Layer**: MCP has become the standard for tool integration, with adoption by Anthropic, OpenAI, Google, and hundreds of tool providers. The 2026 roadmap focuses on enterprise readiness: identity propagation, tool budgeting, structured error semantics, and audit trails.
+**2. MCP 作為通用工具層**：MCP 已成為工具整合的標準，被 Anthropic、OpenAI、Google 和數百個工具供應商採用。2026 年路線圖專注於企業就緒：身份傳播、工具預算、結構化錯誤語義和稽核追蹤。
 
-**3. Sandboxing Becomes Non-Negotiable**: The OpenClaw security crisis (135,000 exposed instances) has pushed the industry toward sandboxed-by-default architectures. New agents are expected to provide isolation out of the box.
+**3. 沙盒化成為不可協商的**：OpenClaw 安全危機（135,000 個暴露的實例）已推動產業走向預設沙盒化架構。新的代理程式預計開箱即用提供隔離。
 
-**4. Cost Optimization as First-Class Concern**: The Plan-and-Execute pattern (a capable model plans, cheaper models execute) reduces costs by 90%. This is the agentic equivalent of cloud cost optimization.
+**4. 成本優化作為一等考量**：Plan-and-Execute 模式（能力強的模型規劃，便宜的模型執行）降低成本 90%。這是代理程式時代的雲端成本優化等價物。
 
-**5. Background and Asynchronous Agents**: Cursor's Background Agents and Claude Code's subagent spawning represent a shift from synchronous, interactive agents to autonomous, asynchronous workers that notify you when done.
-
----
-
-## System Design Interview Angle
-
-When asked about tool-use agents in system design interviews, focus on these dimensions:
-
-**1. Security Model**: Is execution sandboxed? How are credentials managed? What happens if the LLM generates malicious code? (OpenClaw's AGPL license and unsandboxed execution vs. OpenHands' Docker isolation is a great comparison point.)
-
-**2. State Management**: How does the agent maintain context across tool calls? Session-based (OpenHands) vs. persistent memory (OpenClaw) vs. file-based (Claude Code's CLAUDE.md)?
-
-**3. Tool Discovery**: Static manifest (old approach) vs. dynamic discovery via MCP vs. skill marketplace (OpenClaw ClawHub)?
-
-**4. Latency Budget**: Function calling (50-200ms per tool call) vs. vision-based automation (1-3 seconds per screenshot-action loop). How does this affect UX?
-
-**5. Failure Handling**: What happens when a tool call fails? Retry? Fallback? Human-in-the-loop? How many retries before giving up?
+**5. 背景和非同步代理程式**：Cursor 的背景代理程式和 Claude Code 的子代理程式生成代表了從同步、互動式代理程式向自主、非同步工作者的轉變，完成後通知你。
 
 ---
 
-## Interview Questions
+## 系統設計面試切入點
 
-### Q: Your team wants to build an internal AI assistant. Should you build on OpenClaw, OpenHands, or build custom with Claude Code + MCP?
+當被問及系統設計面試中的工具使用代理程式時，專注於以下維度：
 
-**Strong answer:**
-It depends on the use case and security requirements. OpenClaw is optimized for personal assistants with messaging integrations -- ideal if the goal is a Slack/Teams bot with persistent personality. But its unsandboxed execution and AGPL license create enterprise concerns. OpenHands is better for autonomous development tasks -- its Docker sandboxing and MIT license are enterprise-friendly. For a custom internal tool, Claude Code with MCP servers gives the most control: you define exactly which tools are available, run them in your own infrastructure, and benefit from MCP's standardized discovery and auth. The decision tree is: messaging-first? OpenClaw. Dev automation? OpenHands. Custom enterprise tool? MCP + your own agent loop.
+**1. 安全模型**：執行是否沙盒化？憑證如何管理？如果 LLM 生成惡意程式碼會發生什麼？（OpenClaw 的 AGPL 授權和非沙盒化執行與 OpenHands 的 Docker 隔離是一個很好的比較點。）
 
-### Q: How would you design a system that lets non-technical users automate desktop tasks using AI?
+**2. 狀態管理**：代理程式如何在工具呼叫之間維持上下文？對話式（OpenHands）與持久化記憶體（OpenClaw）與基於檔案（Claude Code 的 CLAUDE.md）？
 
-**Strong answer:**
-I would use the vision-based computer-use pattern (Claude Computer Use or similar). The key design decisions: (1) Always run in a sandboxed VM so the agent cannot damage the user's actual machine. (2) Implement a Human-in-the-Loop confirmation step before any destructive action -- file deletion, form submission, purchases. (3) Use the Zoom Action pattern to reduce misclicks on dense UIs. (4) Set token/cost caps to prevent runaway loops. (5) Record all actions as an audit trail. The main tradeoff is latency -- each screenshot-action step takes 1-3 seconds -- but this approach works with any application without needing APIs. For higher-speed workflows, combine computer-use with function calling for applications that have APIs.
+**3. 工具發現**：靜態清單（舊方法）與透過 MCP 的動態發現與技能市集（OpenClaw ClawHub）？
 
-### Q: Why did OpenClaw grow faster than any open-source project in history? What does this tell you about the market?
+**4. 延遲預算**：函式呼叫（每工具呼叫 50-200ms）與基於視覺的自動化（每截圖-動作迴圈 1-3 秒）。這如何影響使用者體驗？
 
-**Strong answer:**
-Three factors. (1) **Zero-friction onboarding**: OpenClaw connects to messaging platforms people already use (WhatsApp, Telegram). Users do not need to learn a new interface. (2) **SOUL.md personalization**: The ability to give your agent a custom personality creates emotional attachment and virality -- people share their agents. (3) **Model-agnostic architecture**: Users are not locked into one LLM provider, reducing cost and increasing flexibility. The market signal is that the agent "interface" matters more than the underlying model. People want agents that meet them where they are (messaging apps, not web UIs). The flip side: rapid growth without security investment leads to crises like the 135,000 exposed instances, which is a cautionary tale for any open-source agent project.
-
-### Q: Compare sandboxed vs. unsandboxed execution for AI agents. When would you choose each?
-
-**Strong answer:**
-Sandboxed (Docker/VM): Use for untrusted code execution, multi-tenant systems, or any production deployment. OpenHands does this well -- each session gets its own Docker container. The trade-off is setup complexity and performance overhead. Unsandboxed (host access): Use only for single-user, trusted environments where the user is watching. Open Interpreter and OpenClaw take this approach for maximum capability. The risk is that a bad LLM output can damage the host system. The 2026 consensus is sandboxed-by-default with escape hatches for power users. In an interview, always mention that the sandbox boundary is a security decision, not just a convenience decision.
+**5. 失敗處理**：工具呼叫失敗時會發生什麼？重試？備用？人工介入？多少次重試後放棄？
 
 ---
 
-## References
+## 面試問題
+
+### Q：你的團隊想建立一個內部 AI 助理。你應該在 OpenClaw、OpenHands 上構建，還是使用 Claude Code + MCP 自建？
+
+**強而有力的回答：**
+這取決於使用案例和安全要求。OpenClaw 針對具有訊息整合的個人助理進行了優化——如果目標是具有持久個性的 Slack/Teams 機器人，它是理想的。但其非沙盒化執行和 AGPL 授權造成了企業疑慮。OpenHands 更適合自主開發任務——其 Docker 沙盒化和 MIT 授權對企業友好。對於自訂內部工具，Claude Code 搭配 MCP 伺服器給予最多控制：你精確定義哪些工具可用，在自己的基礎設施上運行，並受益於 MCP 的標準化發現和認證。決策樹是：訊息優先？OpenClaw。開發自動化？OpenHands。自訂企業工具？MCP + 你自己的代理程式迴圈。
+
+### Q：你如何設計一個讓非技術使用者使用 AI 自動化桌面任務的系統？
+
+**強而有力的回答：**
+我會使用基於視覺的電腦使用模式（Claude Computer Use 或類似）。關鍵設計決策：(1) 始終在沙盒化 VM 中運行，這樣代理程式無法損壞使用者的實際機器。(2) 在任何破壞性動作之前實施人工介入確認步驟——檔案刪除、表單提交、購買。(3) 使用 Zoom Action 模式減少密集 UI 上的錯誤點擊。(4) 設定 token/成本上限以防止失控迴圈。(5) 將所有動作記錄為稽核追蹤。主要權衡是延遲——每個截圖-動作步驟需要 1-3 秒——但這種方法可與任何應用程式配合使用，無需 API。對於更高速度的工作流程，將電腦使用與函式呼叫結合用於有 API 的應用程式。
+
+### Q：為什麼 OpenClaw 比歷史上任何開源專案成長都快？這告訴你關於市場什麼？
+
+**強而有力的回答：**
+三個因素。(1) **零摩擦入職**：OpenClaw 連接到人們已經使用的訊息平台（WhatsApp、Telegram）。使用者不需要學習新介面。(2) **SOUL.md 個人化**：給予代理程式自訂人格的能力創造了情感依戀和病毒式傳播——人們分享他們的代理程式。(3) **模型無關架構**：使用者不被困在單一 LLM 提供商，降低成本並增加靈活性。市場信號是代理程式「介面」比底層模型更重要。人們希望代理程式在他們所在的地方（訊息應用程式，而非 Web UI）與他們會合。反面：快速增長而沒有安全投資導致像 135,000 個暴露實例這樣的危機，這是任何開源代理程式專案的警示故事。
+
+### Q：比較 AI 代理程式的沙盒化與非沙盒化執行。你何時會選擇每一種？
+
+**強而有力的回答：**
+沙盒化（Docker/VM）：用於不受信任的程式碼執行、多租戶系統或任何生產部署。OpenHands 做得很好——每個對話獲得自己的 Docker 容器。權衡是設定複雜性和效能開銷。非沙盒化（主機存取）：僅用於單一使用者、受信任的環境，使用者正在觀看。Open Interpreter 和 OpenClaw 採用這種方法以獲得最大能力。風險是不良的 LLM 輸出可能損壞主機系統。2026 年的共識是預設沙盒化，為超級使用者提供逃生口。在面試中，始終提到沙盒邊界是一個安全決策，而不僅僅是便利性決策。
+
+---
+
+## 參考文獻
 
 - OpenClaw GitHub Repository and Documentation (2025-2026)
 - OpenHands Documentation and SDK Reference (2025-2026)
@@ -547,4 +547,4 @@ Sandboxed (Docker/VM): Use for untrusted code execution, multi-tenant systems, o
 
 ---
 
-*Next: [Architecture Patterns for Tool-Use Agents](02-architecture-patterns.md)*
+*下一章：[工具使用代理程式的架構模式](02-architecture-patterns.md)*

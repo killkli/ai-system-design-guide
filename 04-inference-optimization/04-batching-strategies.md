@@ -1,75 +1,76 @@
-# Batching Strategies
+# 批次處理策略
 
-Batching is the primary lever for increasing LLM throughput and reducing cost. Serving frameworks have moved beyond simple request-level batching to sub-token, iteration-level orchestration.
+批次處理是提升 LLM 吞吐量並降低成本的主要手段。服務框架已從簡單的請求級批次處理，演進到次 Token、迭代級的協調。
 
-## Table of Contents
+## 目錄
 
-- [Static vs. Dynamic Batching](#static-vs-dynamic)
-- [Continuous Batching](#continuous-batching)
-- [In-Flight Batching (Prefill-Decode Fusion)](#in-flight-batching)
-- [Chunked Prefill & RAD-O](#chunked-prefill)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## Static vs. Dynamic Batching
-
-In traditional ML (Classification), we use **Static Batching** where all requests must be the same size and start/end together. This is inefficient for LLMs due to variable response lengths.
+- [靜態批次處理與動態批次處理](#static-vs-dynamic)
+- [連續批次處理](#continuous-batching)
+- [飛行中批次處理（前置—解碼融合）](#in-flight-batching)
+- [分塊前置處理與 RAD-O](#chunked-prefill)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Continuous Batching (Iteration-level)
+## 靜態批次處理與動態批次處理
 
-Continuous batching (pioneered by Orca and vLLM) allows new requests to join the batch and finished requests to leave at the end of every individual token generation step.
-
-| Aspect | Static Batching | Continuous Batching |
-|--------|-----------------|---------------------|
-| **Join/Leave** | Only at start/end | Any iteration |
-| **GPU Utilization**| Low (waiting for longest) | High (always saturated) |
-| **Throughput** | 1x | **4x - 10x** |
-| **Latency** | Highest for shortest | Balanced |
+在傳統機器學習（分類）中，我們使用**靜態批次處理**，所有請求必須相同大小並同時開始/結束。這對於 LLM 由於回應長度可變而效率不彰。
 
 ---
 
-## In-Flight Batching (Prefill-Decode Fusion)
+## 連續批次處理（迭代級）
 
-Previously, serving engines processed a batch of "Prefill" (heavy compute) OR a batch of "Decode" (heavy memory). 
-**In-Flight Batching** (TensorRT-LLM) allows mixing them:
-- 1 request is in the Prefill phase.
-- 15 requests are in the Decode phase.
-- **Benefit**: The Prefill request utilizes the GPU's idle compute cores while the Decode requests utilize the memory bandwidth.
+連續批次處理（由 Orca 和 vLLM 首創）允許新請求在每個單獨 Token 生成步驟結束時加入批次，並讓已完成請求離開。
 
----
-
-## Chunked Prefill & RAD-O
-
-Massive context prompts (1M+ tokens) can hang a batch for seconds during the Prefill phase, causing "stalls."
-
-**The fix: Chunked Prefill**
-Instead of prefilling 128k tokens at once, the engine breaks the prefill into smaller chunks (e.g., 4k tokens each) and interleaves them with the ongoing Decode steps of other users. This maintains a steady **TPOT** even when heavy requests arrive.
+| 面向 | 靜態批次處理 | 連續批次處理 |
+|------|-------------|-------------|
+| **加入/離開** | 只在開始/結束時 | 任何迭代 |
+| **GPU 利用率** | 低（等待最長者） | 高（始終飽和） |
+| **吞吐量** | 1x | **4x - 10x** |
+| **延遲** | 最短請求也最高 | 平衡 |
 
 ---
 
-## Interview Questions
+## 飛行中批次處理（前置—解碼融合）
 
-### Q: Why is Continuous Batching superior to Static Batching for LLMs?
-
-**Strong answer:**
-Static batching forces all requests in a batch to wait for the longest generation to complete (the "longest tail" problem). If one user asks for 500 tokens and another for 5 tokens, the GPU remains idle for the 5-token user for 495 cycles. Continuous batching allows the 5-token user's request to exit the GPU immediately after its last token, freeing up VRAM and compute slots for a new request from the queue. This maximizes "Tokens per Second" across the entire hardware cluster.
-
-### Q: What is a "stall" in LLM serving, and how does Chunked Prefill mitigate it?
-
-**Strong answer:**
-A "stall" occurs when a massive new request arrives and its Prefill phase (which is compute-hungry) takes 2-3 seconds to complete. During this time, the GPU is so busy with the prefill that it cannot generate tokens for existing users in the "Decode" phase, causing their TPOT to spike. Chunked Prefill breaks that 3-second prefill into small 200ms "chunks," processing one chunk and then doing one round of decoding for everyone else, before returning to the next prefill chunk. This ensures a consistent, smooth experience for all users.
+先前，服務引擎一次處理一批「前置處理」（重計算）或一批「解碼」（重記憶體）。
+**飛行中批次處理**（TensorRT-LLM）允許混合兩者：
+- 1 個請求處於前置處理階段。
+- 15 個請求處於解碼階段。
+- **優勢**：前置處理請求利用 GPU 閒置的計算核心，而解碼請求利用記憶體頻寬。
 
 ---
 
-## References
+## 分塊前置處理與 RAD-O
+
+大規模上下文提示詞（100 萬+ Token）可能在前置處理階段造成批次卡住數秒，導致「停滯」。
+
+**解決方案：分塊前置處理**
+引擎不再一次填充 128k Token，而是將前置處理拆分為較小的區塊（如每塊 4k Token），並將其與其他使用者的 ongoing 解碼步驟交錯執行。即使有重型請求到達，這也能維持穩定的 **TPOT**。
+
+---
+
+## 面試題目
+
+### Q：為什麼連續批次處理比靜態批次處理更適合 LLM？
+
+**理想回答：**
+靜態批次處理強制批次中的所有請求等待最長生成完成（「最長尾」問題）。如果一個使用者要求 500 個 Token，另一個要求 5 個 Token，GPU 會對 5 Token 使用者閒置 495 個週期。連續批次處理允許 5 Token 使用者的請求在其最後一個 Token 後立即離開 GPU，釋放 VRAM 和計算槽位以容納佇列中的新請求。這最大化整個硬體叢集的「每秒 Token 數」。
+
+### Q：什麼是 LLM 服務中的「停滯」，分塊前置處理如何緩解它？
+
+**理想回答：**
+「停滯」發生在大型新請求到達，其前置處理階段（計算密集）需要 2-3 秒完成時。在這段時間內，GPU 因前置處理而非常忙碌，無法為「解碼」階段的現有使用者生成 Token，導致他們的 TPOT 飆升。分塊前置處理將 3 秒的前置處理拆分為小的 200ms「區塊」，處理一個區塊，然後為其他所有人執行一輪解碼，再回到下一個前置處理區塊。這確保所有使用者獲得一致、流暢的體驗。
+
+---
+
+## 參考文獻
+
 - Yu et al. "Orca: A Distributed Serving System for [Transformer] Models" (2022)
 - NVIDIA. "TensorRT-LLM: In-Flight Batching" (2023)
 - vLLM Project. "Iteration-Level Scheduling" (2023)
 
 ---
 
-*Next: [PagedAttention](05-paged-attention.md)*
+*下一篇：[分頁注意力](05-paged-attention.md)*

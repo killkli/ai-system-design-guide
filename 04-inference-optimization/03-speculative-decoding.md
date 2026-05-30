@@ -1,86 +1,87 @@
-# Speculative Decoding
+# 推測解碼
 
-Speculative decoding is a now-standard technique that allows large Models (LLMs) to generate multiple tokens per forward pass, effectively breaking the memory-bandwidth bottleneck for sequential decoding.
+推測解碼是一項已成為標準技術的方法，讓大型語言模型（LLM）在單次前向傳播中生成多個 Token，有效突破依序解碼的記憶體頻寬瓶頸。
 
-## Table of Contents
+## 目錄
 
-- [The Core Concept](#the-core-concept)
-- [Draft-Verify Paradigm](#draft-verify)
-- [Medusa & Multi-Token Heads](#medusa)
-- [Lookahead Decoding](#lookahead-decoding)
-- [Hardware-Aware Speculation](#hardware-aware)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Core Concept
-
-LLM decoding is memory-bound: loading 140GB of weights (70B model) to produce a single 2-byte token is inefficient. 
-**Speculative Decoding** uses a cheaper method to "guess" the next $N$ tokens and uses the large model to verify them all in a single parallel "Prefill-style" pass.
+- [核心概念](#the-core-concept)
+- [草稿—驗證典範](#draft-verify)
+- [Medusa 與多Token頭](#medusa)
+- [向前窺視解碼](#lookahead-decoding)
+- [硬體感知推測](#hardware-aware)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Draft-Verify Paradigm
+## 核心概念
 
-1. **Drafting**: A small, fast "Draft Model" (e.g., 1B or 7B) generates $K$ candidate tokens.
-2. **Verification**: The large "Target Model" processes all $K$ tokens at once.
-3. **Acceptance**: The target model's logits are used to accept or reject candidates. If token $i$ is rejected, all tokens after it are discarded.
-
-| Model | Size | Speed | Latency per token |
-|-------|------|-------|-------------------|
-| **Draft** | 1B | Fast | 5ms |
-| **Target**| 70B| Slow | 50ms |
-| **Speculative**| - | **Fast**| **15ms - 25ms** |
-
-**Net Result**: 2x to 3x speedup in wall-clock time with **zero loss in quality**.
+LLM 解碼是記憶體邊界的：載入 140GB 權重（70B 模型）來產生單個 2 位元組 Token 是低效的。
+**推測解碼**使用較便宜的方法來「猜測」接下來的 $N$ 個 Token，並使用大型模型在單次平行「前置處理風格」的傳播中驗證它們全部。
 
 ---
 
-## Medusa & Multi-Token Heads
+## 草稿—驗證典範
 
-The industry has moved away from separate draft models (which add VRAM overhead) toward **Medusa Heads**.
+1. **草擬**：一個小型的、快速「草稿模型」（如 1B 或 7B）生成 $K$ 個候選 Token。
+2. **驗證**：大型「目標模型」一次性處理所有 $K$ 個 Token。
+3. **接受**：使用目標模型的 logits 來接受或拒絕候選。如果 Token $i$ 被拒絕，則丟棄其後所有 Token。
 
-- **What it is**: Extra "heads" (small linear layers) attached to the last layer of the target model.
-- **How it works**: Instead of predicting just token $t+1$, Head 1 predicts $t+1$, Head 2 predicts $t+2$, and so on.
-- **Benefit**: No second model needed; 2.5x speedup with minimal VRAM increase.
+| 模型 | 規模 | 速度 | 每 Token 延遲 |
+|------|------|------|--------------|
+| **草稿** | 1B | 快速 | 5ms |
+| **目標** | 70B | 慢速 | 50ms |
+| **推測** | — | **快速** | **15ms - 25ms** |
 
----
-
-## Lookahead Decoding
-
-An alternative that uses the model's own past hidden states to find recurring patterns (n-grams) to "look ahead" and predict future tokens.
-- **Best For**: Structured data, code, and highly repetitive technical writing.
-
----
-
-## Hardware-Aware Speculation
-
-Frontier serving frameworks (vLLM, TensorRT-LLM) now use **Dynamic Draft Lengths**.
-- If the GPU is underutilized (small batch), the system increases the number of draft tokens ($K$).
-- If the GPU is saturated (large batch), it decreases $K$ to prioritize throughput over individual request latency.
+**最終結果**：牆面時鐘時間快 2-3 倍，**品質零損失**。
 
 ---
 
-## Interview Questions
+## Medusa 與多Token頭
 
-### Q: Why doesn't Speculative Decoding work well for high-temperature creative writing?
+業界已從獨立草稿模型（會增加 VRAM 開銷）轉向**Medusa 頭**。
 
-**Strong answer:**
-Speculative decoding relies on the "Draft Model" being able to accurately predict what the "Target Model" would say. In high-temperature creative writing, the probability distribution is "flatter," and the model is encouraged to pick less-likely tokens. This leads to a very low **Acceptance Rate** (the draft model's guesses are frequently rejected). When a guess is rejected, the target model's parallel pass was wasted compute, and the system falls back to standard sequential decoding, adding the overhead of the draft model's latency.
-
-### Q: How does Medusa differ from traditional Speculative Decoding?
-
-**Strong answer:**
-Traditional speculative decoding requires a separate, smaller model (the Draft Model) which takes up extra VRAM and requires its own KV cache management. Medusa, instead, adds multiple "heads" to the base model's final hidden state. Each head is trained to predict a different offset (e.g., next token, next+1, next+2). This eliminates the need for a second model and minimizes the communication overhead between steps, as all "guesses" are generated within the same base model architecture during a single forward pass.
+- **定義**：附加在目標模型最後層的額外「頭部」（小型線性層）。
+- **運作原理**：不是只預測 Token $t+1$，頭 1 預測 $t+1$，頭 2 預測 $t+2$，以此類推。
+- **優勢**：不需要第二個模型；VRAM 增加些許，代價換來 2.5 倍加速。
 
 ---
 
-## References
+## 向前窺視解碼
+
+一種替代方法，利用模型自身的過去隱藏狀態來找出循環模式（n-gram），以「向前窺視」預測未來 Token。
+- **最適場景**：結構化資料、程式碼，以及高度重複的技術寫作。
+
+---
+
+## 硬體感知推測
+
+前緣服務框架（vLLM、TensorRT-LLM）現使用**動態草稿長度**。
+- 若 GPU 未充分利用（小批次），系統增加草稿 Token 數量（$K$）。
+- 若 GPU 飽和（大批次），則減少 $K$ 以優先考慮吞吐量而非單一請求延遲。
+
+---
+
+## 面試題目
+
+### Q：為什麼推測解碼在高溫度創意寫作中效果不佳？
+
+**理想回答：**
+推測解碼依賴「草稿模型」能準確預測「目標模型」會說什麼。在高溫度創意寫作中，機率分布較「平坦」，且模型被鼓勵選擇較不可能的 Token。這導致非常低的**接受率**（草稿模型的猜測頻繁被拒絕）。當猜測被拒絕時，目標模型的平行傳播就浪費了計算資源，系統回退到標準依序解碼，還要再加上草稿模型的延遲開銷。
+
+### Q：Medusa 與傳統推測解碼有何不同？
+
+**理想回答：**
+傳統推測解碼需要一個獨立的較小模型（草稿模型），佔用額外 VRAM 並需要自己的 KV 快取管理。Medusa 反而在基礎模型的最後隱藏狀態上添加多個「頭部」。每個頭部被訓練來預測不同的偏移量（例如，下一個 Token、下個+1、下個+2）。這消除了對第二個模型的需求，並將步驟間的通訊開銷降到最低，因為所有「猜測」都在同一基礎模型架構的單次前向傳播中產生。
+
+---
+
+## 參考文獻
+
 - Chen et al. "Accelerating Transformer Decoding via Speculative Decoding" (2023)
 - Cai et al. "Medusa: Simple LLM Acceleration via Multiple Decoding Heads" (2024)
 - Fu et al. "Lookahead Decoding" (2024)
 
 ---
 
-*Next: [Batching Strategies](04-batching-strategies.md)*
+*下一篇：[批次處理策略](04-batching-strategies.md)*

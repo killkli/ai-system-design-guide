@@ -1,85 +1,86 @@
-# DSPy: Programming Language Models
+# DSPy：程式化語言模型
 
-**DSPy** has become the industry reference for high-reliability AI systems. It represents a paradigm shift from "Prompt Engineering" (trial and error) to **Prompt Compilation** (automated optimization), and benchmarks consistently show a 10-40% quality lift over hand-tuned prompts.
+**DSPy** 已成為高可靠性 AI 系統的產業參考。它代表了一個範式轉變：從「提示詞工程」（試錯）到**提示詞編譯**（自動化優化），基準測試一致顯示比手工調整的提示詞高出 10-40% 的品質提升。
 
-## Table of Contents
+## 目錄
 
-- [The Programming Paradigm](#paradigm)
-- [Signatures: Describing the Task](#signatures)
-- [Optimizers and MIPROv2](#optimizers)
-- [Assertions and Constraints](#assertions)
-- [Managing Model Drift](#model-drift)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Programming Paradigm
-
-DSPy treats an LLM application like a **Neural Network**.
-- **The Module**: A reusable block of logic (e.g., `ChainOfThought`).
-- **The Signature**: A declarative specification of what the module does (Input -> Output).
-- **The Optimizer**: A process that finds the best "Weights" (Prompts) for the module based on a metric.
+- [程式設計範式](#paradigm)
+- [簽名：描述任務](#signatures)
+- [優化器和 MIPROv2](#optimizers)
+- [斷言和約束](#assertions)
+- [管理模型漂移](#model-drift)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Signatures: Describing the Task
+## 程式設計範式
 
-Instead of writing a 100-line prompt, you write a **Signature**:
+DSPy 將 LLM 應用程式視為**神經網路**。
+- **模組**：可重用的邏輯區塊（例如 `ChainOfThought`）。
+- **簽名**：模組功能的宣告式規格（輸入 -> 輸出）。
+- **優化器**：根據指標找到模組最佳「權重」（提示詞）的過程。
+
+---
+
+## 簽名：描述任務
+
+不用寫 100 行的提示詞，您寫一個**簽名**：
 ```python
 class ResearchAssistant(dspy.Signature):
-    """Answer the question by synthesizing the provided web context."""
-    context = dspy.InputField(desc="Scraped web content")
+    """透過綜合提供的網路上下文來回答問題。"""
+    context = dspy.InputField(desc="抓取的網頁內容")
     question = dspy.InputField()
-    answer = dspy.OutputField(desc="A technical summary with citations")
+    answer = dspy.OutputField(desc="带有引用的技術摘要")
 ```
-**Winning Nuance**: Signatures are **Model-Agnostic**. You can compile them for Claude Opus 4.7, Claude Sonnet 4.6, GPT-5.5, Gemini 3.1 Pro, or Llama 4 8B without changing a single line of code.
+**獲勝的細節**：簽名是**模型無關的**。您可以為 Claude Opus 4.7、Claude Sonnet 4.6、GPT-5.5、Gemini 3.1 Pro 或 Llama 4 8B 編譯它們，而無需更改一行程式碼。
 
 ---
 
-## Optimizers and MIPROv2
+## 優化器和 MIPROv2
 
-**MIPROv2 (Multi-stage Instruction PRoposal Optimizer)** is the flagship DSPy optimizer.
-1. **Instruction Proposal**: An "Assistant Model" proposes 10-20 different ways to write the system prompt for the task.
-2. **Bayesian Optimization**: DSPy runs the proposed prompts against a small training set and scores them using a metric.
-3. **Selection**: It picks the prompt that maximizes your metric (e.g., Factuality score).
-
----
-
-## Assertions and Constraints
-
-DSPy allows for **Hard and Soft Assertions**.
-- `dspy.Suggest(...)`: If the model fails a check (e.g., "The answer must be under 50 words"), DSPy **automatically re-prompts** the model with the failure reason to correct itself.
-- `dspy.Assert(...)`: If a hard constraint is broken (e.g., "Must not contain PII"), the execution stops and enters a recovery state.
+**MIPROv2（多階段指令提案優化器）** 是旗艦 DSPy 優化器。
+1. **指令提案**：「助理模型」為任務提出 10-20 種不同的系統提示詞撰寫方式。
+2. **貝氏優化**：DSPy 在小型訓練集上執行提議的提示詞，並使用指標對它們評分。
+3. **選擇**：它選擇最大化您的指標的提示詞（例如，準確性分數）。
 
 ---
 
-## Managing Model Drift
+## 斷言和約束
 
-When OpenAI or Anthropic releases a weight update, hand-crafted prompts often break.
-- **The 2025 Solution**: With DSPy, you simply **Re-compile**. The optimizer finds the new "optimal" tokens for the updated model architecture, maintaining consistency without human labor.
-
----
-
-## Interview Questions
-
-### Q: Why is DSPy considered "Anti-Prompt Engineering"?
-
-**Strong answer:**
-Because it replaces the **Manual trial-and-error loop** with an **Optimization Loop**. In prompt engineering, the human is the optimizer. In DSPy, the human is the **Teacher**. You define the *Goal* (Signature) and the *Evaluation* (Metric), and you provide a few *Examples*. The framework then uses mathematical optimization (like Bayesian search) to find the tokens that statistically perform the best. This makes the system far more **Portable** and **Scalable** than a library of hardcoded strings.
-
-### Q: What is the biggest drawback of using DSPy in a production environment?
-
-**Strong answer:**
-**Compilation Latency and Cost**. To compile a complex DSPy pipeline, you might need to run 100-500 LLM calls to test different prompt variations. This is a significant upfront cost. However, for a Staff-level engineer, this is a **Tradeoff**: You pay more in development/compilation time to gain **Guaranteed Reliability** and lower **Run-time Failure Rates**. Another challenge is the learning curve; it requires thinking like an ML researcher rather than a traditional developer.
+DSPy 允許**硬斷言和軟斷言**。
+- `dspy.Suggest(...)`：如果模型檢查失敗（例如「答案必須少於 50 個字」），DSPy **自動重新提示**模型並附上失敗原因以糾正自身。
+- `dspy.Assert(...)`：如果硬約束被破壞（例如「不得包含 PII」），執行停止並進入恢復狀態。
 
 ---
 
-## References
-- Khattab et al. "DSPy: Compiling Declarative Language Model Calls" (2024/2025)
-- Stanford NLP. "The MIPROv2 Technical Report" (2025)
-- Databricks. "Productionizing Programmed Prompts" (2025)
+## 管理模型漂移
+
+當 OpenAI 或 Anthropic 發布權重更新時，手工製作的提示詞通常會壞掉。
+- **2025 年解決方案**：使用 DSPy，您只需**重新編譯**。優化器為更新後的模型架構找到新的「最佳」token，在沒有人力工作的情況下保持一致性。
 
 ---
 
-*Next: [Semantic Kernel: Enterprise AI](06-semantic-kernel.md)*
+## 面試題目
+
+### Q：為何 DSPy 被視為「反提示詞工程」？
+
+**強烈回答：**
+因為它用**優化迴圈**取代了**手動試錯迴圈**。在提示詞工程中，人類是優化器。在 DSPy 中，人類是**老師**。您定義*目標*（簽名）和*評估*（指標），並提供一些*範例*。然後框架使用數學優化（如貝氏搜尋）來找到統計表現最佳的 token。這使得系統比一堆硬編碼字串更**可攜**和**可擴展**。
+
+### Q：在生產環境中使用 DSPy 的最大缺點是什麼？
+
+**強烈回答：**
+**編譯延遲和成本**。要編譯複雜的 DSPy 管線，您可能需要運行 100-500 次 LLM 呼叫來測試不同的提示詞變體。這是前期成本的顯著付出。然而，對於 Staff 等級工程師來說，這是一個**權衡**：您在開發/編譯時間上投入更多，以獲得**保證可靠性**和更低的**執行期失敗率**。另一個挑戰是學習曲線；它需要像 ML 研究人員一樣思考，而不是傳統開發人員。
+
+---
+
+## 參考文獻
+
+- Khattab 等。〈DSPy：編譯宣告式語言模型呼叫〉（2024/2025）
+- Stanford NLP。〈MIPROv2 技術報告〉（2025）
+- Databricks。〈生產化程式化提示〉（2025）
+
+---
+
+*下一篇：[Semantic Kernel：企業 AI](06-semantic-kernel.md)*

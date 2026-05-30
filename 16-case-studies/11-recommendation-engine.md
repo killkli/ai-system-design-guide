@@ -1,73 +1,73 @@
-# Case Study: AI-Powered Recommendation Engine
+# 案例研究：AI 驅動的推薦引擎
 
-## The Problem
+## 問題背景
 
-A streaming platform with **50 million users** needs to build a recommendation system that combines collaborative filtering with LLM-generated explanations: "Because you enjoyed Inception, you might like Tenet for its mind-bending time mechanics."
+一個擁有 **5,000 萬用戶**的串流平台需要建立結合協同過濾與 LLM 生成解釋的推薦系統：「因為您喜歡《全面啟動》，您可能會喜歡《天能》，因為其燒腦的時間機械。」
 
-**Constraints given in the interview:**
-- Real-time recommendations (under 200ms p95)
-- Must explain why each recommendation was made
-- Cold-start handling for new users
-- Privacy: cannot leak viewing history between users
-- Daily active: 5M users, each viewing 10+ recommendation sets
-
----
-
-## The Interview Question
-
-> "Design a system that recommends movies AND explains the recommendation in natural language, at scale."
+**面試中给出的限制條件：**
+- 即時推薦（p95 低於 200ms）
+- 必須解釋每個推薦的原因
+- 新用戶冷啟動處理
+- 隱私：不能在用戶間洩漏觀看歷史
+- 每日活躍用戶：500 萬，每位觀看 10+ 組推薦
 
 ---
 
-## Solution Architecture
+## 面試問題
+
+> 「設計一個大規模推薦電影並以自然語言解釋推薦原因的系統。」
+
+---
+
+## 解決方案架構
 
 ```mermaid
 flowchart TB
-    subgraph Offline["Offline Pipeline (Daily)"]
-        HISTORY[(Watch History)] --> EMBED[User Embedding<br/>Matrix Factorization]
-        CATALOG[(Content Catalog)] --> CONTENT_EMBED[Content Embeddings]
-        EMBED --> CANDIDATES[Candidate Generation<br/>ANN Index]
+    subgraph Offline["離線 pipeline（每日）"]
+        HISTORY[(觀看歷史)] --> EMBED[用戶嵌入<br/>矩陣分解]
+        CATALOG[(內容目錄)] --> CONTENT_EMBED[內容嵌入]
+        EMBED --> CANDIDATES[候選生成<br/>ANN 索引]
     end
 
-    subgraph Online["Online Serving (Real-Time)"]
-        USER[User Request] --> FETCH[Fetch User Embedding]
-        FETCH --> ANN[ANN Search<br/>Top 100 Candidates]
-        ANN --> RERANK[Reranker<br/>Cross-Encoder]
-        RERANK --> TOP10[Top 10 Results]
+    subgraph Online["線上服務（即時）"]
+        USER[用戶請求] --> FETCH[擷取用戶嵌入]
+        FETCH --> ANN[ANN 搜尋<br/>前 100 候選]
+        ANN --> RERANK[重新排序器<br/>Cross-Encoder]
+        RERANK --> TOP10[前 10 名結果]
     end
 
-    subgraph Explain["Explanation Generation"]
-        TOP10 --> BATCH[Batch Explanation Request]
-        BATCH --> LLM[GPT-4o-mini<br/>Cached Explanations]
-        LLM --> RESPONSE[Recommendations + Reasons]
+    subgraph Explain["解釋生成"]
+        TOP10 --> BATCH[批量解釋請求]
+        BATCH --> LLM[GPT-4o-mini<br/>快取解釋]
+        LLM --> RESPONSE[推薦 + 原因]
     end
 ```
 
 ---
 
-## Key Design Decisions
+## 關鍵設計決策
 
-### 1. Why Not Just Use LLM for Everything?
+### 1. 為何不全部使用 LLM？
 
-**Answer:** Scale economics. Calling an LLM for 50M users × 10 recommendation sets/day = 500M LLM calls daily. At $0.001 per call, that is $500K/day. Instead:
+**答案：** 規模經濟。為 5,000 萬用戶 × 每天 10 組推薦 × 500M LLM 呼叫/天 = 每天 $500K。在 $0.001/次呼叫，相當昂貴。替代方案：
 
-| Component | Role | Cost per User/Day |
-|-----------|------|-------------------|
-| Embedding lookup | Fetch precomputed vector | $0.00001 |
-| ANN search | Find candidates | $0.0001 |
-| Cross-encoder rerank | Score top 100 | $0.001 |
-| LLM explanation | Natural language | $0.005 |
-| **Total** | | **$0.006** |
+| 元件 | 角色 | 每用戶/天成本 |
+|------|------|--------------|
+| 嵌入查詢 | 擷取預先計算向量 | $0.00001 |
+| ANN 搜尋 | 尋找候選 | $0.0001 |
+| Cross-encoder 重新排序 | 評分前 100 名 | $0.001 |
+| LLM 解釋 | 自然語言 | $0.005 |
+| **總計** | | **$0.006** |
 
-The LLM is only used for the final explanation, not the ranking itself.
+LLM 僅用於最終解釋，而非排名本身。
 
-### 2. Explanation Caching
+### 2. 解釋快取
 
-**Answer:** Most explanations can be cached. "Because you watched Inception" applies to thousands of users. We cache explanations at the (content_pair, reason_type) level:
+**答案：** 大多數解釋可以快取。「因為您看了《全面啟動》」適用於數千用戶。我們在（內容配對、原因類型）等級快取解釋：
 
 ```python
 cache_key = f"{source_movie}:{target_movie}:{reason_type}"
-# Example: "inception:tenet:time_mechanics"
+# 範例："inception:tenet:time_mechanics"
 
 explanation = cache.get(cache_key)
 if not explanation:
@@ -75,92 +75,92 @@ if not explanation:
     cache.set(cache_key, explanation, ttl=86400)
 ```
 
-Cache hit rate: 85%+ after warmup.
+快取命中率：預熱後 85%+。
 
-### 3. Cold-Start Handling
+### 3. 冷啟動處理
 
-**Answer:** New users have no history for collaborative filtering. We use a **Hybrid Approach**:
+**答案：** 新用戶沒有協同過濾的歷史。我們使用**混合方法**：
 
 ```mermaid
 flowchart LR
-    NEW_USER[New User] --> CHECK{Has History?}
-    CHECK -->|No| CONTENT[Content-Based<br/>Preferences Survey]
-    CHECK -->|Yes, <10 items| HYBRID[Hybrid:<br/>Content + Collaborative]
-    CHECK -->|Yes, >10 items| COLLAB[Full Collaborative<br/>Filtering]
+    NEW_USER[新用戶] --> CHECK{有歷史？}
+    CHECK -->|無| CONTENT[內容為主<br/>偏好調查]
+    CHECK -->|有，少於 10 項| HYBRID[混合：<br/>內容 + 協同]
+    CHECK -->|有，超過 10 項| COLLAB[完整協同<br/>過濾]
     
-    CONTENT --> RECS[Recommendations]
+    CONTENT --> RECS[推薦]
     HYBRID --> RECS
     COLLAB --> RECS
 ```
 
 ---
 
-## The Personalized Explanation Challenge
+## 個人化解釋挑戰
 
-The explanation must feel personal, not generic:
+解釋必須感覺個人化，而非通用：
 
-**Bad:** "Tenet is a popular thriller."
-**Good:** "Because you enjoyed Inception's mind-bending plot, Tenet offers similar time-manipulation puzzles from the same director."
+**不佳：**「《天能》是一部受歡迎的驚悚片。」
+**良好：**「因為您喜歡《全面啟動》的燒腦劇情，《天能》提供同一位導演的類似時間操控謎題。」
 
-We achieve this by including user context in the prompt:
+我們透過在提示中包含用戶上下文來實現：
 
 ```python
 prompt = f"""
-Generate a 1-sentence explanation for why this user would enjoy {target_movie}.
+為什麼這個用戶會喜歡 {target_movie} 生成一句話解釋。
 
-User context:
-- Recently watched: {recent_movies}
-- Preferred genres: {genres}
-- Dislikes: {dislikes}
+用戶上下文：
+- 最近觀看：{recent_movies}
+- 偏好類型：{genres}
+- 不喜歡：{dislikes}
 
-Source movie that triggered this recommendation: {source_movie}
-Reason category: {reason_type}
+觸發此推薦的源電影：{source_movie}
+原因類別：{reason_type}
 
-Explanation:
+解釋：
 """
 ```
 
 ---
 
-## Latency Budget
+## 延遲預算
 
-| Stage | Target | Actual p95 |
-|-------|--------|------------|
-| User embedding lookup | 5ms | 3ms |
-| ANN search (top 100) | 20ms | 15ms |
-| Cross-encoder rerank | 50ms | 45ms |
-| LLM explanation (cached) | 10ms | 8ms |
-| LLM explanation (miss) | 500ms | 450ms |
-| **Total (cache hit)** | **85ms** | **71ms** |
-| **Total (cache miss)** | **575ms** | **513ms** |
+| 階段 | 目標 | 實際 p95 |
+|------|------|----------|
+| 用戶嵌入查詢 | 5ms | 3ms |
+| ANN 搜尋（前 100） | 20ms | 15ms |
+| Cross-encoder 重新排序 | 50ms | 45ms |
+| LLM 解釋（快取） | 10ms | 8ms |
+| LLM 解釋（未命中） | 500ms | 450ms |
+| **總計（快取命中）** | **85ms** | **71ms** |
+| **總計（快取未命中）** | **575ms** | **513ms** |
 
-To meet 200ms p95, we ensure 95%+ cache hit rate for explanations and generate explanations asynchronously for new content pairs.
-
----
-
-## Interview Follow-Up Questions
-
-**Q: How do you prevent the LLM from hallucinating facts about movies?**
-
-A: The LLM receives a structured fact sheet for each movie (director, cast, themes, awards) as context. It can only use information from this sheet. We also have a post-generation validator that checks claims against our catalog metadata.
-
-**Q: What if a user's taste changes rapidly?**
-
-A: We use a **recency-weighted embedding update**. Recent watches are weighted 3x more than older ones. For real-time responsiveness, we maintain a "session embedding" that captures current-session behavior and blends it with the historical embedding.
-
-**Q: How do you A/B test recommendation algorithms?**
-
-A: We hash user_id to consistently assign users to experiment buckets. Each bucket can have different candidate generation, ranking, or explanation strategies. We track engagement metrics (click-through, watch time, skip rate) per bucket.
+為達到 200ms p95，我們確保解釋快取命中率 95%+ 並非同步生成新內容配對的解釋。
 
 ---
 
-## Key Takeaways for Interviews
+## 面試後續問題
 
-1. **LLMs for explanation, not ranking**: use traditional ML for scale, LLMs for personalization
-2. **Cache aggressively**: explanations for content pairs are reusable across users
-3. **Cold-start is a spectrum**: new users → content-based; some history → hybrid; full history → collaborative
-4. **Latency budgets require cache hit rate targets**: design the cache around your latency SLA
+**問：如何防止 LLM 對電影產生幻覺事實？**
+
+答：LLM 接收每部電影的結構化事實表（導演、演員、主題、獎項）作為上下文。它只能使用此表中的資訊。我們還有後生成驗證器，根據目錄元資料檢查聲稱。
+
+**問：如果用戶品味快速改變怎麼辦？**
+
+答：我們使用**近期加權嵌入更新**。近期觀看加權是較舊觀看的 3 倍。為即時響應，我們維護「會話嵌入」捕捉當前會話行為並與歷史嵌入混合。
+
+**問：如何 A/B 測試推薦演算法？**
+
+答：我們將 user_id 雜湊以一致地將用戶分配到實驗桶。每個桶可以有不同候選生成、排名或解釋策略。我們追蹤每個桶的參與指標（點擊率、觀看時間、跳過率）。
 
 ---
 
-*Related chapters: [Semantic Caching](../08-memory-and-state/05-semantic-caching.md), [Cost Optimization](../04-inference-optimization/07-cost-optimization-playbook.md)*
+## 面試關鍵要點
+
+1. **LLM 用於解釋，非排名**：使用傳統 ML 處理規模，LLM 處理個人化
+2. **積極快取**：內容配對的解釋可跨用戶重用
+3. **冷啟動是一個光譜**：新用戶 → 內容為主；有一些歷史 → 混合；完整歷史 → 協同
+4. **延遲預算需要快取命中率目標**：圍繞延遲 SLA 設計快取
+
+---
+
+*相關章節：[語意快取](../08-memory-and-state/05-semantic-caching.md)，[成本優化](../04-inference-optimization/07-cost-optimization-playbook.md)*

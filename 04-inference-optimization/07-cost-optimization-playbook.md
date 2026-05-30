@@ -1,94 +1,95 @@
-# Cost Optimization Playbook
+# 成本優化手冊
 
-AI costs are no longer "magic." They are measurable, predictable, and highly optimizable. With API pricing down 30-60% over the past year, the cost lever is now mostly about *routing* and *caching*, not just picking a cheaper provider. This chapter covers the strategies to reduce inference costs by 10x without sacrificing quality.
+AI 成本不再是「魔法」。它們可衡量、可預測，且高度可優化。隨著 API 定價在過去一年下降 30-60%，成本槓桿現在主要關乎「路由」和「快取」，而不僅是選擇更便宜的提供商。本章涵蓋在不犧牲品質的情況下將推論成本降低 10 倍的策略。
 
-## Table of Contents
+## 目錄
 
-- [The Unit Economics of AI](#unit-economics)
-- [Model Cascading (Efficiency Tiers)](#model-cascading)
-- [Small Language Models (SLMs)](#slms)
-- [Spot Instance Strategies](#spot-instances)
-- [The "Token Tax" Optimization](#token-tax)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Unit Economics of AI
-
-We measure success by **Tokens per Dollar ($)**.
-
-| Component | Cost Driver | Optimization |
-|-----------|-------------|--------------|
-| **Compute** | GPU Time ($/hr) | Better utilization (Batching). |
-| **VRAM** | KV Cache Size | GQA, Quantization. |
-| **Network** | Payload Size | Compression, Local serving. |
-| **API** | Per-token pricing | Caching, Model selection. |
+- [AI 單位經濟學](#unit-economics)
+- [模型串聯（效率分層）](#model-cascading)
+- [小型語言模型（SLM）](#slms)
+- [備用實例策略](#spot-instances)
+- [「Token 稅」優化](#token-tax)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Model Cascading (Efficiency Tiers)
+## AI 單位經濟學
 
-The most effective cost-saving strategy is to use the **cheapest model capable of the task.**
+我們以**每美元 Token 數（$）**衡量成功。
 
-**The cascade pattern:**
-1. **Classifier**: A tiny model (0.5B) determines query complexity ($0.00).
-2. **Tier 1 (SLM)**: 90% of queries (greetings, simple Q&A) go to an 8B model ($).
-3. **Tier 2 (Frontier)**: 9% of queries (complex reasoning) go to a 405B/Claude Sonnet 4.6 / GPT-5.5 / Gemini 3.1 Pro tier model ($$$).
-4. **Tier 3 (Reasoning)**: 1% of queries (expert-level) go to thinking models like Claude Opus 4.7 or GPT-5.5 with extended thinking ($$$$$).
-
-**Net result**: 80% cost reduction vs. sending all traffic to Tier 2.
-
----
-
-## Small Language Models (SLMs) for Production
-
-3B-8B models (Llama 4 8B, Gemini 3.1 Flash, Claude Haiku 4.5) now match or beat the original GPT-4 from 2023 on most benchmarks.
-- **Use Case**: Entity extraction, sentiment analysis, simple RAG.
-- **Cost**: 100x cheaper to run than frontier models.
-- **Latency**: < 100ms response times.
-
-### The DeepSeek V4 Floor
-
-DeepSeek V4 Flash (released April 24, 2026) reset the floor for cheap frontier-class inference at **$0.14 / $0.28 per 1M tokens** with a 1M context window and cache-hit input at $0.0028/M. DeepSeek V4 Pro is roughly 10x cheaper than Claude Opus 4.7 ($0.435 / $0.87 vs $5 / $25 per 1M) after the 75% discount was made permanent on May 22, 2026. For cache-heavy, high-volume workloads where the prefix is reused often (RAG with shared knowledge bases, batch classification, codebase agents), V4 Flash or V4 Pro is now the dominant cost-optimization lever before you even start cascading. Verify on the [DeepSeek pricing page](https://api-docs.deepseek.com/quick_start/pricing) before committing.
+| 元件 | 成本驅動因素 | 優化方向 |
+|------|------------|----------|
+| **計算** | GPU 時間（$/小時） | 更好的利用率（批次處理）。 |
+| **VRAM** | KV 快取大小 | GQA、量化。 |
+| **網路** | 負載大小 | 壓縮、本地服務。 |
+| **API** | 每 Token 定價 | 快取、模型選擇。 |
 
 ---
 
-## Spot Instance Strategies
+## 模型串聯（效率分層）
 
-For non-real-time workloads (batch processing, data extraction), use **GPU Spot Instances** (AWS Spot, Azure Spot, Lambda Labs).
+最有效的成本節省策略是使用**完成任務所需的最便宜模型**。
 
-- **Risk**: GPU can be reclaimed with 30-sec notice.
-- **Mitigation**: **Live KV-Cache Migration**. Serving frameworks can stream the KV cache of ongoing requests to another node as soon as the "Reclamation Signal" is received, ensuring no work is lost.
+**串聯模式：**
+1. **分類器**：一個極小模型（0.5B）判斷查詢複雜度（$0.00）。
+2. **第一層（SLM）**：90% 的查詢（問候語、簡單問答）送往 8B 模型（$）。
+3. **第二層（前沿）**：9% 的查詢（複雜推理）送往 405B/Claude Sonnet 4.6 / GPT-5.5 / Gemini 3.1 Pro 等級模型（$$$）。
+4. **第三層（推理）**：1% 的查詢（專家級）送往思考模型，如 Claude Opus 4.7 或 GPT-5.5 搭配延伸思考（$$$$）。
 
----
-
-## The "Token Tax" Optimization
-
-- **System Prompt Caching**: Hard-code common prefixes to get 90% discounts.
-- **Output Truncation**: Strictly limit `max_tokens`.
-- **Negative Prompting**: "Don't be wordy" saves ~15% in output tokens (and thus cost).
+**最終結果**：與將所有流量送往第二層相比，成本降低 80%。
 
 ---
 
-## Interview Questions
+## 生產用小型語言模型（SLM）
 
-### Q: How do you justify the cost of an AI system to a CFO?
+3B-8B 模型（Llama 4 8B、Gemini 3.1 Flash、Claude Haiku 4.5）在多個基準測試中已匹配或擊敗 2023 年原始 GPT-4。
+- **使用場景**：實體提取、情感分析、簡單 RAG。
+- **成本**：比前沿模型運行便宜 100 倍。
+- **延遲**：< 100ms 回應時間。
 
-**Strong answer:**
-I focus on the **ROI of Efficiency.** First, I implement "Model Cascading" to ensure that 90% of our traffic is handled by sub-cent-per-million-token models. Second, I implement "Semantic Caching" to prevent paying for the same answer twice. Third, I set up "Inference Quotas" and "Chargeback Models" so each business unit is accountable for their usage. By treating AI as a "Commodity Resource" with tiered pricing, we can transition from "unbounded experimentation" to a "predictable OpEx" model.
+### DeepSeek V4 價格底線
 
-### Q: When is a self-hosted individual GPU cluster cheaper than an API?
-
-**Strong answer:**
-The "Crossover Point" usually happens at **constant high throughput.** If your application has a baseline of 5-10 requests per second, 24/7, the fixed cost of an H100 reservation becomes cheaper than the variable token cost of an API. However, if your traffic is "spiky" or heavily weighted toward business hours, API providers are usually cheaper because they allow you to "pay for the silence" during off-peak hours. For most enterprises, the break-even is around 500 million tokens per month for a 70B-tier model.
+DeepSeek V4 Flash（2026 年 4 月 24 日發布）將廉價前沿類推論的價格底線重設為**每百萬 Token $0.14 / $0.28**，具備 100 萬上下文視窗，快取命中輸入為 $0.0028/M。DeepSeek V4 Pro 大約比 Claude Opus 4.7 便宜 10 倍（每百萬 $0.435 / $0.87 vs $5 / $25），在 2026 年 5 月 22 日 75% 折扣永久化之後。對於快取密集型、高容量工作負載（前綴經常重複使用的 RAG 共享知識庫、批次分類、程式碼庫代理），V4 Flash 或 V4 Pro 是您在開始串聯之前的主要成本優化工具。在承諾之前，請在 [DeepSeek 定價頁面](https://api-docs.deepseek.com/quick_start/pricing) 上驗證。
 
 ---
 
-## References
+## 備用實例策略
+
+對於非即時工作負載（批次處理、資料提取），使用 **GPU 備用實例**（AWS Spot、Azure Spot、Lambda Labs）。
+
+- **風險**：GPU 可在 30 秒通知下被回收。
+- **緩解**：**即時 KV-快取遷移**。服務框架可在收到「回收信號」時立即將進行中請求的 KV 快取串流到另一個節點，確保不丟失任何工作。
+
+---
+
+## 「Token 稅」優化
+
+- **系統提示詞快取**：將常見前綴硬編碼以獲得 90% 折扣。
+- **輸出截斷**：嚴格限制 `max_tokens`。
+- **負面提示**：「不要囉嗦」可節省約 15% 的輸出 Token（從而節省成本）。
+
+---
+
+## 面試題目
+
+### Q：如何向 CFO 證明 AI 系統的成本合理性？
+
+**理想回答：**
+我專注於**效率 ROI**。首先，我實施「模型串聯」確保 90% 的流量由每百萬 Token 不到一分錢的模型處理。其次，我實施「語意快取」防止為同一答案付費兩次。第三，我設定「推論配額」和「計費回歸模型」，使每個業務單位對其使用量負責。透過將 AI 視為具有分層定價的「商品資源」，我們可以從「無限制實驗」轉變為「可預測的營運支出」模型。
+
+### Q：什麼時候自託管單一 GPU 叢集比 API 便宜？
+
+**理想回答：**
+「交叉點」通常發生在**恆定高吞吐量**時。如果您的應用程式有每秒 5-10 個請求的基線，24/7 運作，H100 預訂的固定成本就比 API 的可變 Token 成本便宜。然而，如果您的流量是「高峰式」或主要集中在營業時間，API 提供商通常更便宜，因為它們允許您在離峰時段「為閒置付費」。對於大多數企業來說，70B 級模型的交叉點約為每月 5 億 Token。
+
+---
+
+## 參考文獻
+
 - Google Cloud. "Cost Optimization for Generative AI" (2024)
 - Anyscale. "LLM Inference: API vs. Self-Hosted Costs" (2024)
 
 ---
 
-*Next: [Prompt Engineering Fundamentals](../05-prompting-and-context/01-prompt-engineering-fundamentals.md)*
+*下一篇：[提示詞工程基礎](../05-prompting-and-context/01-prompt-engineering-fundamentals.md)*

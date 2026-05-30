@@ -1,73 +1,73 @@
-# Case Study: Real-Time Fraud Detection
+# 案例研究：即時詐騙偵測
 
-## The Problem
+## 問題背景
 
-A payment processor handles **10 million transactions per day**. They need to detect fraudulent transactions in real-time, blocking them before they complete, while minimizing false positives that frustrate legitimate customers.
+一家支付處理商每天處理 **1,000 萬筆交易**。他們需要即時偵測詐騙交易，在完成前阻止，同時將困擾合法客戶的假陽性降至最低。
 
-**Constraints given in the interview:**
-- Decision latency: under 100ms
-- False positive rate: under 0.1% (1 in 1,000)
-- Must explain why a transaction was flagged
-- Regulations require 7-year audit trail
-- Fraud patterns evolve constantly
-
----
-
-## The Interview Question
-
-> "Design a system that decides within 100ms whether to approve, reject, or escalate a credit card transaction, and can explain that decision."
+**面試中给出的限制條件：**
+- 決策延遲：低於 100ms
+- 假陽性率：低於 0.1%（千分之一）
+- 必須能解釋為何標記交易
+- 法規要求 7 年稽核軌跡
+- 詐騙模式持續演變
 
 ---
 
-## Solution Architecture
+## 面試問題
+
+> 「設計一個在 100ms 內決定批准、拒絕或升級信用卡交易的系統，並能解釋該決策。」
+
+---
+
+## 解決方案架構
 
 ```mermaid
 flowchart TB
-    subgraph Realtime["Real-Time Decision (< 100ms)"]
-        TXN[Transaction] --> FEATURES[Feature Extraction]
-        FEATURES --> ML[ML Ensemble<br/>XGBoost + Neural Net]
-        ML --> SCORE{Fraud Score}
-        SCORE -->|< 0.3| APPROVE[Approve]
-        SCORE -->|0.3 - 0.7| ESCALATE[Escalate to Rules]
-        SCORE -->|> 0.7| REJECT[Reject + Alert]
+    subgraph Realtime["即時決策（< 100ms）"]
+        TXN[交易] --> FEATURES[特徵擷取]
+        FEATURES --> ML[ML 集成<br/>XGBoost + 類神經網路]
+        ML --> SCORE{詐騙評分}
+        SCORE -->|< 0.3| APPROVE[批准]
+        SCORE -->|0.3 - 0.7| ESCALATE[升級到規則]
+        SCORE -->|> 0.7| REJECT[拒絕 + 警報]
     end
 
-    subgraph Rules["Rule-Based Escalation"]
-        ESCALATE --> RULES[Business Rules<br/>Velocity, Geography]
-        RULES --> DECISION[Final Decision]
+    subgraph Rules["基於規則的升級"]
+        ESCALATE --> RULES[業務規則<br/>速度、地理位置]
+        RULES --> DECISION[最終決策]
     end
 
-    subgraph Explain["Explanation Layer"]
-        REJECT --> LLM[GPT-4o-mini<br/>Explain Decision]
-        LLM --> REASON[Human-Readable Reason]
+    subgraph Explain["解釋層"]
+        REJECT --> LLM[GPT-4o-mini<br/>解釋決策]
+        LLM --> REASON[人類可讀原因]
     end
 
-    subgraph Learn["Continuous Learning"]
-        DECISION --> FEEDBACK[(Feedback DB)]
-        FEEDBACK --> RETRAIN[Weekly Model Retrain]
+    subgraph Learn["持續學習"]
+        DECISION --> FEEDBACK[(回饋資料庫)]
+        FEEDBACK --> RETRAIN[每週模型重新訓練]
         RETRAIN --> ML
     end
 ```
 
 ---
 
-## Key Design Decisions
+## 關鍵設計決策
 
-### 1. Why ML + Rules, Not Just ML?
+### 1. 為何 ML + 規則，而非純 ML？
 
-**Answer:** Pure ML models are black boxes. Regulators require explainable decisions for disputes. We use ML for scoring, then apply transparent rules for final decisions:
+**答案：** 純 ML 模型是黑箱。監管機構要求爭議的可解釋決策。我們使用 ML 評分，然後應用透明規則進行最終決策：
 
-| Layer | Role | Speed | Explainability |
-|-------|------|-------|----------------|
-| ML Ensemble | Catch complex patterns | 10ms | Low |
-| Business Rules | Encode known fraud types | 5ms | High |
-| Combined | Best of both | 15ms | Medium-High |
+| 層 | 角色 | 速度 | 可解釋性 |
+|------|------|------|----------|
+| ML 集成 | 捕捉複雜模式 | 10ms | 低 |
+| 業務規則 | 編碼已知詐騙類型 | 5ms | 高 |
+| 組合 | 兩全其美 | 15ms | 中-高 |
 
-Rules examples: "Block if 5+ transactions in different countries within 1 hour" is explainable to regulators.
+規則範例：「如果在 1 小時內在不同國家有 5+ 筆交易則阻止」可向監管機構解釋。
 
-### 2. Three-Way Decision: Approve / Escalate / Reject
+### 2. 三方決策：批准 / 升級 / 拒絕
 
-**Answer:** Binary approve/reject is too blunt. The "gray zone" (0.3-0.7 score) goes to rule-based escalation or human review for high-value transactions:
+**答案：** 二元批准/拒絕太粗糙。「灰區」（0.3-0.7 分數）進入基於規則的升級或高價值交易的人工審查：
 
 ```python
 def decide(transaction, fraud_score):
@@ -77,7 +77,7 @@ def decide(transaction, fraud_score):
         reason = explain_rejection(transaction, fraud_score)
         return "REJECT", reason
     else:
-        # Gray zone: apply business rules
+        # 灰區：應用業務規則
         if check_velocity_rules(transaction):
             return "REJECT", "Velocity limit exceeded"
         if check_geography_rules(transaction):
@@ -85,109 +85,109 @@ def decide(transaction, fraud_score):
         return "APPROVE", None
 ```
 
-### 3. Why LLM for Explanation, Not SHAP/LIME?
+### 3. 為何用 LLM 解釋，而非 SHAP/LIME？
 
-**Answer:** SHAP values tell you "feature X contributed 0.3 to the score." Customers and regulators want "This transaction was flagged because it was made from a new device in a country you have never visited, for an amount 10x your usual purchase."
+**答案：** SHAP 值告訴你「特徵 X 貢獻了 0.3 到分數」。客戶和監管機構想要「此交易被標記是因為它從您從未訪問過的國家的新裝置發起，金額是您通常購買的 10 倍。」
 
-We generate natural language explanations using the feature importance as input:
+我們使用特徵重要性作為輸入生成自然語言解釋：
 
 ```python
 prompt = f"""
-Explain why this transaction was flagged as potentially fraudulent.
+解釋為何此交易被標記為潛在詐騙。
 
-Transaction details:
-- Amount: ${amount}
-- Merchant: {merchant}
-- Location: {location}
-- Device: {device}
+交易詳情：
+- 金額：${amount}
+- 商家：{merchant}
+- 地點：{location}
+- 裝置：{device}
 
-Top contributing factors:
-1. {factors[0]['feature']}: {factors[0]['contribution']}
-2. {factors[1]['feature']}: {factors[1]['contribution']}
-3. {factors[2]['feature']}: {factors[2]['contribution']}
+最主要貢獻因素：
+1. {factors[0]['feature']}：{factors[0]['contribution']}
+2. {factors[1]['feature']}：{factors[1]['contribution']}
+3. {factors[2]['feature']}：{factors[2]['contribution']}
 
-Write a 2-sentence explanation for the cardholder.
+為持卡人寫 2 句話解釋。
 """
 ```
 
 ---
 
-## Feature Engineering for Speed
+## 速度特徵工程
 
-100ms budget means features must be pre-computed:
+100ms 預算意味著特徵必須預先計算：
 
 ```mermaid
 flowchart LR
-    subgraph Precomputed["Pre-Computed (Daily/Hourly)"]
-        BATCH[Batch Pipeline] --> PROFILE[User Profiles]
-        BATCH --> MERCHANT[Merchant Risk Scores]
-        BATCH --> PATTERNS[Spending Patterns]
+    subgraph Precomputed["預先計算（每日/每小時）"]
+        BATCH[批次 pipeline] --> PROFILE[用戶画像]
+        BATCH --> MERCHANT[商家風險分數]
+        BATCH --> PATTERNS[消費模式]
     end
 
-    subgraph Realtime["Real-Time (Per Transaction)"]
-        TXN[Transaction] --> VELOCITY[Velocity Features<br/>Redis Counter]
-        TXN --> DEVICE[Device Fingerprint<br/>Cache Lookup]
-        TXN --> GEO[Geolocation<br/>IP → Country]
+    subgraph Realtime["即時（每筆交易）"]
+        TXN[交易] --> VELOCITY[速度特徵<br/>Redis 計數器]
+        TXN --> DEVICE[裝置指紋<br/>快取查詢]
+        TXN --> GEO[地理位置<br/>IP → 國家]
     end
 
-    PROFILE --> COMBINE[Combine Features]
+    PROFILE --> COMBINE[組合特徵]
     VELOCITY --> COMBINE
     DEVICE --> COMBINE
     GEO --> COMBINE
-    COMBINE --> MODEL[ML Model]
+    COMBINE --> MODEL[ML 模型]
 ```
 
-**Key insight:** User profile (average spend, typical merchants, home geography) is computed offline. Real-time only adds transaction-specific features.
+**關鍵洞察：** 用戶画像（平均消費、典型商家、家鄉地理位置）離線計算。即時僅添加交易特定特徵。
 
 ---
 
-## Handling Evolving Fraud Patterns
+## 處理演變的詐騙模式
 
-Fraudsters adapt. Last month's model misses this month's attacks.
+詐騙者適應。上個月的模型會錯過這個月的攻擊。
 
 ```mermaid
 flowchart TB
-    subgraph Monitor["Continuous Monitoring"]
-        LIVE[Live Transactions] --> COMPARE[Compare Predictions<br/>vs Actual Fraud Reports]
-        COMPARE --> DRIFT{Drift Detected?}
+    subgraph Monitor["持續監控"]
+        LIVE[即時交易] --> COMPARE[比較預測<br/>vs 實際詐騙報告]
+        COMPARE --> DRIFT{偵測到漂移？}
     end
 
-    subgraph Respond["Response"]
-        DRIFT -->|Yes| ALERT[Alert Team]
-        DRIFT -->|Yes| FALLBACK[Increase Rule Weight]
-        ALERT --> INVESTIGATE[Investigate Pattern]
-        INVESTIGATE --> NEW_RULE[Deploy Emergency Rule]
-        INVESTIGATE --> RETRAIN[Trigger Model Retrain]
+    subgraph Respond["回應"]
+        DRIFT -->|是| ALERT[警報團隊]
+        DRIFT -->|是| FALLBACK[增加規則權重]
+        ALERT --> INVESTIGATE[調查模式]
+        INVESTIGATE --> NEW_RULE[部署緊急規則]
+        INVESTIGATE --> RETRAIN[觸發模型重新訓練]
     end
 ```
 
-**Emergency rules** can be deployed in minutes (just a config update). Model retraining takes days but catches more subtle patterns.
+**緊急規則**可在幾分鐘內部署（只需設定更新）。模型重新訓練需要數天但能捕捉更細微的模式。
 
 ---
 
-## Interview Follow-Up Questions
+## 面試後續問題
 
-**Q: How do you handle model latency spikes?**
+**問：如何處理模型延遲飆升？**
 
-A: We have a **fallback stack**. If the ML model does not respond within 50ms, we fall back to rule-based scoring only. The rules cover the most common fraud patterns. We also have a "default approve" for transactions under $10 if all systems are slow.
+答：我們有**回退堆疊**。如果 ML 模型在 50ms 內未回應，我們回退到僅基於規則的評分。規則涵蓋最常見的詐騙模式。如果所有系統緩慢，我們也對低於 $10 的交易有「預設批准」。
 
-**Q: What about coordinated fraud attacks?**
+**問：協同攻擊如何處理？**
 
-A: We maintain global velocity counters (not just per-user). If we see 100 transactions to the same obscure merchant in 1 minute from different cards, that triggers a merchant-level block even if individual transactions look clean.
+答：我們維護全局速度計數器（不僅按用戶）。如果我們看到 1 分鐘內不同卡向同一個陌生商家有 100 筆交易，觸發商家級別阻止，即使個別交易看起來乾淨。
 
-**Q: How do you balance fraud prevention with customer experience?**
+**問：如何平衡詐騙預防與客戶體驗？**
 
-A: We track the "insult rate": percentage of legitimate customers blocked. Each product team has an insult budget. If the fraud model's insult rate exceeds budget, we loosen thresholds automatically and alert the team. Better to accept slightly more fraud than to anger loyal customers.
-
----
-
-## Key Takeaways for Interviews
-
-1. **ML for scoring, rules for explainability**: combine both for regulated domains
-2. **Three-way decisions reduce false positives**: gray zone gets extra scrutiny
-3. **Pre-compute everything possible**: real-time budget is for combination only
-4. **Continuous retraining is essential**: fraud patterns evolve weekly
+答：我們追蹤「侮辱率」：被阻止的合法客戶百分比。每個產品團隊都有侮辱預算。如果詐騙模型的侮辱率超過預算，我們自動放寬閾值並警報團隊。接受稍多詐騙比激怒忠誠客戶更好。
 
 ---
 
-*Related chapters: [Evaluation and Observability](../14-evaluation-and-observability/), [Reliability Patterns](../15-ai-design-patterns/05-reliability-patterns.md)*
+## 面試關鍵要點
+
+1. **ML 用於評分，規則用於可解釋性**：結合兩者用於受監管領域
+2. **三方決策減少假陽性**：灰區獲得額外審查
+3. **預先計算一切可能**：即時預算僅用於組合
+4. **持續重新訓練至關重要**：詐騙模式每週演變
+
+---
+
+*相關章節：[評估與可觀測性](../14-evaluation-and-observability/)，[可靠性模式](../15-ai-design-patterns/05-reliability-patterns.md)*

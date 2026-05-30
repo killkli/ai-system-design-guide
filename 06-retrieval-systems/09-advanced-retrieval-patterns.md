@@ -1,90 +1,90 @@
-# Advanced Retrieval Patterns
+# 進階檢索模式
 
-Beyond the basics, production RAG systems use specialized patterns to handle complex query-document gaps. These patterns are the "secret sauce" of high-precision search and are increasingly bundled into managed RAG offerings.
+超越基礎知識，生產環境中的 RAG 系統使用專業模式來處理複雜的查詢與文件之間的差距。這些模式是高效精準搜尋的「秘方」，且越來越多地被整合進托管式 RAG 服務中。
 
-## Table of Contents
+## 目錄
 
-- [Query Decomposition (Multi-Query)](#query-decomposition)
-- [Hypothetical Document Embeddings (HyDE)](#hyde)
-- [Contextual Retrieval (The Anthropic Pattern)](#contextual)
-- [Iterative Document Enrichment](#enrichment)
-- [In-Context Reranking](#reranking)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## Query Decomposition (Multi-Query)
-
-Complex user queries are often "Compound Queries."
-- **User**: "Compare our Q3 vs Q4 revenue and explain the drop."
-- **Decomposition**:
-  1. "Q3 Revenue"
-  2. "Q4 Revenue"
-  3. "Reasons for Q4 revenue variance"
-- **Implementation**: Use an LLM to generate these 3 sub-queries, search the DB for ALL of them, and aggregate the context.
+- [查詢分解（多查詢）](#query-decomposition)
+- [假設文件嵌入（HyDE）](#hyde)
+- [上下文檢索（Anthropic 模式）](#contextual)
+- [迭代文件豐富化](#enrichment)
+- [上下文重排序](#reranking)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Hypothetical Document Embeddings (HyDE)
+## 查詢分解（多查詢）
 
-Queries are short; documents are long. This "Asymmetry" causes retrieval failure.
-- **Pattern**: 
-  1. Take the user query.
-  2. Ask the LLM: "Write a 1-paragraph hypothetical answer to this."
-  3. **Embed the hypothetical answer** instead of the query.
-- **Why?**: The hypothetical answer is in the same "Vector neighborhood" as the real documents, leading to much higher recall.
-
----
-
-## Contextual Retrieval (The Anthropic Pattern)
-
- standardized by Anthropic in late 2024, this pattern solves **Context Dilution**.
-
-- **The Problem**: A chunk might say "It costs $200," but without the header, we don't know "It" is a "Widget-X."
-- **The Pattern**: During ingestion, for every 300-token chunk, have an LLM write a 50-token context string (e.g., "This chunk is about the pricing for Widget-X in the North American market").
-- **Benefit**: Increases retrieval precision by 30-50% for fragmented data.
+複雜的使用者查詢通常是「複合查詢」。
+- **使用者**：「比較我們第三季與第四季的營收，並解釋下滑的原因。」
+- **分解**：
+  1. 「第三季營收」
+  2. 「第四季營收」
+  3. 「第四季營收變動的原因」
+- **實作方式**：使用 LLM 生成這 3 個子查詢，對資料庫進行全部搜尋，並彙整上下文。
 
 ---
 
-## Iterative Document Enrichment
+## 假設文件嵌入（HyDE）
 
-Instead of just storing the raw document, we store "Enriched" meta-data.
-- **Summary**: Store a 1-paragraph summary of the document.
-- **Q&A Generation**: Generate 5 questions this document answers and embed those *with* the document.
-- **Status**: Most high-end RAG systems now embed **"Questions"** rather than **"Answers"** to match the user's query intent.
-
----
-
-## In-Context Reranking
-
-With 1M-2M context windows now standard (Claude Sonnet 4.6, Gemini 3.1 Pro), **Rank-by-Context** is a viable pattern.
-1. Retrieve Top 100 docs.
-2. Put all 100 in the context window.
-3. Ask the model: "Read these 100 docs and identify the 5 most relevant. Then, use those 5 to answer."
-- **Win**: This utilizes the model's **Long Context Reasoning** to perform reranking without needing a separate Cross-Encoder model.
+查詢很短；文件很長。這種「非對稱性」導致檢索失敗。
+- **模式**：
+  1. 取得使用者查詢。
+  2. 詢問 LLM：「為這個問題寫一段假設性的答案。」
+  3. **嵌入假設性答案**而非查詢。
+- **為什麼有效？**：假設性答案位於與真實文件相同的「向量鄰域」中，能大幅提高召回率。
 
 ---
 
-## Interview Questions
+## 上下文檢索（Anthropic 模式）
 
-### Q: Why is HyDE (Hypothetical Document Embedding) risky for some applications?
+此模式於 2024 年底由 Anthropic 標準化，解決了**上下文稀釋**問題。
 
-**Strong answer:**
-HyDE relies on "Hallucinating" a baseline answer to find real data. If the user's query describes something non-existent or logically impossible, the LLM will still generate a hypothetical answer. This can pull in "Incorrect but Semantically Similar" data from the database, reinforcing the model's initial hallucination. The standard mitigation is a **Hybrid approach**: retrieve once with the real query (Keyword) and once with the HyDE query, then use **RRF** to combine them.
-
-### Q: What is the "Asymmetric Retrieval" problem?
-
-**Strong answer:**
-Asymmetric retrieval refers to the fact that user queries are usually short (3-10 words) while document chunks are long (300-500 words). These inhabit different statistical distributions in the vector space, leading to "Distance Bias." High-performance systems solve this using **Asymmetric Encoders** (one model for queries, one for docs) or **Query Expansion** (HyDE) to "inflate" the query into a document-like distribution.
+- **問題**：一個區塊可能寫「價格為 200 美元」，但沒有標題的情況下，我們不知道「它」是「Widget-X」。
+- **模式**：攝入期間，對每個 300 token 的區塊，讓 LLM 寫一段 50 token 的上下文字串（例如，「此區塊關於北美市場 Widget-X 的定價」）。
+- **效益**：對於碎片化資料，檢索精準度提升 30-50%。
 
 ---
 
-## References
-- Gao et al. "Precise Zero-Shot Dense Retrieval without Relevance Labels" (HyDE, 2023/2024)
-- Anthropic. "The Contextual Retrieval Playbook" (2024)
-- LlamaIndex. "Query Transformation Cookbook" (2025)
+## 迭代文件豐富化
+
+除了儲存原始文件外，我們還儲存「豐富化」的元資料。
+- **摘要**：儲存文件的 1 段摘要。
+- **問答生成**：生成此文檔回答的 5 個問題，並將這些問題與文件一起嵌入。
+- **現況**：大多數高階 RAG 系統現在嵌入的是**「問題」**而非**「答案」**，以匹配使用者的查詢意圖。
 
 ---
 
-*Next: [Agentic Systems](../07-agentic-systems/01-agents-fundamentals.md)*
+## 上下文重排序
+
+隨著 1M-2M 的上下文視窗已成為標準（Claude Sonnet 4.6、Gemini 3.1 Pro），**按上下文排名**是一個可行的模式。
+1. 檢索前 100 份文件。
+2. 將全部 100 份放入上下文視窗中。
+3. 詢問模型：「閱讀這 100 份文件，找出最相關的 5 份。然後，使用這 5 份來回答。」
+- **優勢**：這利用了模型的**長上下文推理**來執行重排序，無需使用獨立的 Cross-Encoder 模型。
+
+---
+
+## 面試問題
+
+### 問：為什麼 HyDE（假設文件嵌入）對某些應用有風險？
+
+**理想答案：**
+HyDE 依賴「幻構」一個基線答案來找到真實資料。如果使用者的查詢描述了不存在或邏輯上不可能的內容，LLM 仍會生成假設性答案。這可能從資料庫中拉取「不正確但語義相似」的資料，強化模型最初的幻構。常見的緩解方式是**混合方法**：用真實查詢（關鍵字）檢索一次，再用 HyDE 查詢檢索一次，然後使用 **RRF** 結合兩者。
+
+### 問：什麼是「非對稱檢索」問題？
+
+**理想答案：**
+非對稱檢索指的是使用者查詢通常很短（3-10 個字），而文件區塊很長（300-500 個字）。這兩者在向量空間中處於不同的統計分布，導致「距離偏差」。高效能系統使用**非對稱編碼器**（一個模型用於查詢，一個用於文件）或**查詢擴展**（HyDE）來將查詢「膨脹」成類似文件的分布，以解決這個問題。
+
+---
+
+## 參考文獻
+- Gao et al.「精準零樣本密集檢索無需相關標籤」（HyDE，2023/2024）
+- Anthropic。「上下文檢索攻略」（2024）
+- LlamaIndex。「查詢轉換cookbook」（2025）
+
+---
+
+*下一篇：[代理人系統](../07-agentic-systems/01-agents-fundamentals.md)*

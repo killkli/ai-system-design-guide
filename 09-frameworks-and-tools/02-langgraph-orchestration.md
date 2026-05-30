@@ -1,89 +1,90 @@
-# LangGraph Orchestration
+# LangGraph 編排
 
-LangGraph is the **de facto standard** for building stateful, multi-agent systems. It reached v1.0 in late 2025 and surpassed CrewAI in GitHub stars in early 2026 thanks to enterprise adoption of its graph-based runtime. Unlike simple chains, LangGraph allows for **Cycles**, **State Persistence**, and **Human-in-the-Loop** interventions.
+LangGraph 是構建有狀態、多代理系統的**實際標準**。它在 2025 年底達到 v1.0，並於 2026 年初在 GitHub 星數上超越 CrewAI，這得益於企業對其基於圖形執行環境的採用。與簡單的鏈不同，LangGraph 允許**迴圈**、**狀態持久性**和**人在迴路中**介入。
 
-## Table of Contents
+## 目錄
 
-- [The Graph Philosophy](#philosophy)
-- [Cyclic vs. Acyclic Workflows](#cyclic)
-- [State Management in LangGraph](#state)
-- [Persistence and Checkpointing](#persistence)
-- [Multi-Agent Orchestration Patterns](#multi-agent)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Graph Philosophy
-
-In 2023, agents were "Black Boxes."
-Today, agents are **Graphs**.
-A graph consists of:
-- **Nodes**: Python functions (The LLM, a tool, or data processing).
-- **Edges**: Paths between nodes.
-- **Conditional Edges**: Logic that determines the path based on the **State**.
+- [圖形哲學](#philosophy)
+- [循環對比非循環工作流程](#cyclic)
+- [LangGraph 中的狀態管理](#state)
+- [持久性和檢查點](#persistence)
+- [多代理編排模式](#multi-agent)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Cyclic vs. Acyclic
+## 圖形哲學
 
-Standard LangChain is **Acyclic** (Sequential).
-LangGraph is **Cyclic**.
-- **The Power of the Loop**: An agent can try a tool, see the error, and **cycle back** to the "Thinking" node to try again. This is the foundation of the **ReAct** pattern.
+2023 年，代理是「黑盒子」。
+今天，代理是**圖形**。
+圖形由以下組成：
+- **節點**：Python 函式（LLM、工具或資料處理）。
+- **邊**：節點之間的路徑。
+- **條件邊**：基於**狀態**決定路徑的邏輯。
 
 ---
 
-## State Management
+## 循環對比非循環
 
-The **State Schema** is the "Mind" of the graph.
+標準 LangChain 是**非循環的**（順序執行）。
+LangGraph 是**循環的**。
+- **迴圈的力量**：代理可以嘗試工具，看到錯誤，然後**循環回**「思考」節點再試一次。這是 **ReAct（Reasoning and Acting，推理與行動）模式**的基礎。
+
+---
+
+## 狀態管理
+
+**狀態 Schema** 是圖形的「心智」。
 ```python
 class GraphState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     plan: list[str]
     is_secure: bool
 ```
-**Nuance**: Using `Annotated` with `add_messages` allows the graph to **Append** to history rather than overwriting it, preserving the full reasoning trajectory.
+**細節**：使用 `Annotated` 搭配 `add_messages` 允許圖形**附加**到歷史而不是覆寫它，保留完整的推理軌跡。
 
 ---
 
-## Persistence and Checkpointing
+## 持久性和檢查點
 
-Current LangGraph uses **Thread-based Persistence**.
-- **The Concept**: Every session has a `thread_id`.
-- **The Win**: If a user comes back after 2 days, the agent remembers the exact point it was at in a multi-step workflow.
-- **Time-Travel**: Developers can "re-run" a specific thread from a previous state to debug a failure.
+目前的 LangGraph 使用**基於執行緒的持久性**。
+- **概念**：每個會話都有一個 `thread_id`。
+- **優勢**：如果使用者在 2 天後回來，代理會記住它在多步驟工作流程中的確切位置。
+- **時間回溯**：開發人員可以「重新執行」特定執行緒從先前的狀態以偵錯失敗。
 
 ---
 
-## Multi-Agent Patterns
+## 多代理模式
 
-| Pattern | Description | Case Study |
+| 模式 | 描述 | 案例研究 |
 |---------|-------------|------------|
-| **Supervisor** | One "Manager" directs specialized workers. | Research Team |
-| **Peer-to-Peer**| Agents hand off tasks to each other directly. | Customer Support |
-| **Hierarchical**| Graphs within Graphs (Nested graphs). | Enterprise Engineering |
+| **Supervisor** | 一個「管理者」指導專業工作者。 | 研究團隊 |
+| **Peer-to-Peer**| 代理直接相互移交任務。 | 客戶支援 |
+| **Hierarchical**| 圖形中的圖形（巢狀圖形）。 | 企業工程 |
 
 ---
 
-## Interview Questions
+## 面試題目
 
-### Q: Why use LangGraph instead of OpenAI's "Assistant API"?
+### Q：為何使用 LangGraph 而非 OpenAI 的「Assistant API」？
 
-**Strong answer:**
-**Control and Portability**. The Assistant API is a black box: you cannot see the exact prompts or control the logic gates. LangGraph is a **White Box framework**. I can use any model (OpenAI, Claude, Llama 3.3), control exactly when a tool is called, and inject my own custom validation logic between steps. More importantly, LangGraph is **Open Source** and can run locally/on-prem, which is critical for many enterprise security requirements.
+**強烈回答：**
+**控制性和可攜性**。Assistant API 是一個黑盒子：你無法看到確切的提示詞，也無法控制邏輯閘道。LangGraph 是一個**白盒子框架**。我可以使用任何模型（OpenAI、Claude、Llama 3.3），精確控制何時呼叫工具，並在步驟之間注入自訂驗證邏輯。更重要的是，LangGraph 是**開源的**，可以本地執行/本地部署，這對許多企業安全需求至關重要。
 
-### Q: How do you handle "State Overload" in a graph with 20+ nodes?
+### Q：如何處理具有 20+ 節點的圖形中的「狀態過載」？
 
-**Strong answer:**
-We use **State Narrowing**. Instead of passing the entire global state to every node, we define specialized sub-states for sub-graphs. We also use **Trim Runnables** to prune the message history before it hits the LLM, ensuring we don't waste tokens while keeping the "Truth" preserved in the persistence layer. 
-
----
-
-## References
-- LangChain Team. "LangGraph: Multi-Agent Workflows at Scale" (2025)
-- Anthropic. "Building Resilient Agents with State Machines" (2025)
-- OpenSource AI. "Cycles and the Future of Agency" (2024 Tech Report)
+**強烈回答：**
+我們使用**狀態窄化**。不是將整個全域狀態傳遞給每個節點，而是為子圖定義專門的子狀態。我們也使用 **Trim Runnables** 來在訊息歷史進入 LLM 之前修剪它，確保我們不會浪費 token，同時將「真實」保存在持久性層中。
 
 ---
 
-*Next: [LangSmith Observability](03-langsmith-observability.md)*
+## 參考文獻
+
+- LangChain 團隊。〈LangGraph：規模化的多代理工作流程〉（2025）
+- Anthropic。〈使用狀態機建立彈性代理〉（2025）
+- OpenSource AI。〈迴圈與代理的未來〉（2024 技術報告）
+
+---
+
+*下一篇：[LangSmith 可觀測性](03-langsmith-observability.md)*

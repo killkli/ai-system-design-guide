@@ -1,185 +1,188 @@
-# Serving Infrastructure
+# 服務基礎設施
 
-Deploying LLMs at scale requires a robust infrastructure layer that handles load balancing, model parallelism, and multi-tenant isolation. The focus has shifted from "serving a model" to "orchestrating an inference fleet."
+大規模部署 LLM 需要強健的基礎設施層，處理負載平衡、模型並行和多租戶隔離。重點已從「提供一個模型」轉向「協調推論叢集」。
 
-## Table of Contents
+## 目錄
 
-- [The Inference Gateway](#inference-gateway)
-- [Model Parallelism (Tensor vs. Pipeline)](#parallelism)
-- [Multi-GPU Orchestration](#multi-gpu)
-- [Streaming and Long-Lived Connections](#streaming)
-- [May 2026 Inference Engine Landscape](#may-2026-inference-engine-landscape)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Inference Gateway
-
-The gateway is the "Traffic Controller" for your AI workload.
-
-| Component | Responsibility |
-|-----------|---------------------------|
-| **Auth & Rate Limiting** | Token-based quotas and tenant isolation. |
-| **Model Router** | Directing requests to specific model versions (Canary/A-B). |
-| **Context Tracker** | Ensuring a user's prompt cache is sent to the same GPU node (Sticky sessions). |
-| **Output Filter** | Real-time safety and PII scrubbing on streaming responses. |
+- [推論閘道](#inference-gateway)
+- [模型並行（張量對比管線）](#parallelism)
+- [多 GPU 協調](#multi-gpu)
+- [串流與長連接](#streaming)
+- [2026 年 5 月推論引擎版圖](#may-2026-inference-engine-landscape)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Model Parallelism
+## 推論閘道
 
-For models that don't fit on a single GPU (e.g., Llama 4 405B requires ~800GB VRAM), we must split them.
+閘道是 AI 工作負載的「交通指揮官」。
 
-### 1. Tensor Parallelism (TP)
-Splits individual layers/tensors across multiple GPUs.
-- **Latency**: Low (Fastest).
-- **Communication**: High (Requires NVLink).
-- **Standard**: Used for 90% of production serving within a single node (8x GPUs).
-
-### 2. Pipeline Parallelism (PP)
-Splits different layers (e.g., layers 1-40 on GPU 1, 41-80 on GPU 2).
-- **Latency**: High (Micro-batching overhead).
-- **Efficiency**: Lower util (Bubble time).
-- **Standard**: Used only for massive models spanning multiple nodes.
+| 元件 | 職責 |
+|------|------|
+| **認證與速率限制** | 基於 Token 的配額和租戶隔離。 |
+| **模型路由器** | 將請求導向特定模型版本（金絲雀/A-B）。 |
+| **上下文追蹤器** | 確保使用者的提示詞快取被發送到同一 GPU 節點（粘性會話）。 |
+| **輸出過濾器** | 對串流回應進行即時安全與 PII 清理。 |
 
 ---
 
-## Multi-GPU Orchestration
+## 模型並行
 
-Kubernetes operators (like **Kube-Ray** or **Gloo**) manage "GPU Pools" in production.
+對於無法容納在單一 GPU 上的模型（如 Llama 4 405B 需要約 800GB VRAM），必須拆分它們。
 
-- **Heterogeneous Clusters**: Mixing H100s for frontier models and L4s for small models in the same cluster.
-- **Autoscaling**: Scaling based on **KV Cache utilization** rather than CPU or standard memory usage.
-- **Cold Booting**: Using **Un-quantized Base Images** and loading weights from a high-speed Lustre/mount to reduce startup time from minutes to 15-20 seconds.
+### 1. 張量並行（TP）
+
+將各層/張量拆分到多個 GPU。
+- **延遲**：低（最快）。
+- **通訊**：高（需要 NVLink）。
+- **標準**：單節點內（8x GPU）90% 生產服務使用。
+
+### 2. 管線並行（PP）
+
+將不同層拆分（例如，GPU 1 上的層 1-40，GPU 2 上的層 41-80）。
+- **延遲**：高（微批次處理開銷）。
+- **效率**：較低閒置時間（泡泡時間）。
+- **標準**：只用於跨多節點的大型模型。
 
 ---
 
-## Streaming and Long-Lived Connections
+## 多 GPU 協調
 
-LLMs are almost always served via **Server-Sent Events (SSE)** or **WebSockets**.
+Kubernetes 操作器（如 **Kube-Ray** 或 **Gloo**）在生產環境中管理「GPU 池」。
 
-**Infrastructure challenge**: Standard load balancers (Layer 4) struggle with long-lived AI connections.
-- **The Fix**: Use **Layer 7 Load Balancers** (Envoy/Istio) that understand the "End of Sequence" token and can re-balance traffic *between* user turns rather than just at the connection level.
+- **異構叢集**：在同一叢集中混合使用 H100（前沿模型）和 L4（小模型）。
+- **自動擴縮**：基於 **KV 快取利用率**而非 CPU 或標準記憶體使用量進行擴縮。
+- **冷啟動**：使用**未量化基礎映像**並從高速 Lustre/掛載載入權重，將啟動時間從分鐘縮短至 15-20 秒。
 
 ---
 
-## May 2026 Inference Engine Landscape
+## 串流與長連接
 
-By May 2026 the engine choice is no longer a question of "which one is fastest." Each leading engine has won a specific workload category, and the right answer is engine-per-workload rather than a single house engine. The map below is the practical one teams actually use.
+LLM 幾乎總是透過 **Server-Sent Events（SSE）** 或 **WebSockets** 提供服務。
 
-### vLLM v0.18+: The Default Open Engine
+**基礎設施挑戰**：標準負載平衡器（第 4 層）在處理長壽命 AI 連接時會遇到困難。
+- **解決方案**：使用**第 7 層負載平衡器**（Envoy/Istio），它們理解「序列結束」Token，能夠在使用者回合*之間*重新平衡流量，而不僅僅是在連接層級。
 
-[vLLM](https://docs.vllm.ai/) reached **v0.18** in Q1 2026, with point releases through May. What landed:
+---
 
-- **Blackwell Ultra (B300) support** in tree, including FP4 and dynamic sparsity ([vLLM v0.18 release notes](https://github.com/vllm-project/vllm/releases)).
-- **PagedAttention v3** with NUMA-aware allocation; meaningful tail-latency wins on multi-socket hosts.
-- **Disaggregated prefill / decode** behind a config flag, primarily for very long context workloads.
-- **MoE schedulers** for Llama 4 Maverick, DeepSeek V4 Pro, Mixtral 8x22B with expert-residency-aware batching.
+## 2026 年 5 月推論引擎版圖
 
-**Important security note**: vLLM patched a high-severity **multimodal RCE** ([GHSA published in February 2026](https://github.com/vllm-project/vllm/security/advisories)) that affected the multimodal preprocessor on versions before v0.18.2. **All multimodal vLLM deployments must run v0.18.2 or later.** The fix is a one-line patch but the CVE is real and exploitable through crafted image inputs. Upgrade.
+到 2026 年 5 月，引擎選擇不再是「哪個最快」的問題。每個領先引擎都贏得了特定工作負載類別，正確答案是每種工作負載用對應引擎，而非單一主力引擎。以下是團隊實際使用的實用版圖。
 
-vLLM remains the default open engine when the workload is "Llama / Mistral / Qwen / DeepSeek under continuous batching." It is not always the fastest, but it is the easiest to operate, the best-tested, and the most likely to receive a same-week patch for new vulnerabilities.
+### vLLM v0.18+：預設開源引擎
 
-### SGLang v0.4.3+: Throughput Leader with Important Caveats
+[vLLM](https://docs.vllm.ai/) 在 2026 年 Q1 達到 **v0.18**，並持續有 5 月的點版本發布。主要功能：
 
-[SGLang](https://github.com/sgl-project/sglang) v0.4.3 (April 2026) is the throughput leader on several workloads:
+- **Blackwell Ultra（B300）支援**在樹中，包括 FP4 和動態稀疏（[vLLM v0.18 發布說明](https://github.com/vllm-project/vllm/releases)）。
+- **PagedAttention v3** 具備 NUMA 感知配置；在多插槽主機上有明顯的尾延遲改善。
+- **分離式前置/解碼**在配置標記後，主要適用於很長的上下文工作負載。
+- **MoE 調度器**適用於 Llama 4 Maverick、DeepSeek V4 Pro、Mixtral 8x22B，具備專家駐留感知批次處理。
 
-- **~29% throughput advantage over vLLM** on structured-output / function-calling workloads in published benchmarks ([SGLang blog, April 2026](https://lmsys.org/blog/2024-12-04-sglang-v0-4/)). The win comes from **async constrained decoding** where the constraint compilation runs in parallel with the LLM forward pass.
-- Best-in-class **RadixAttention** prefix-cache reuse for chat workloads.
-- First-class **MoE serving** with expert-routing-aware batching.
+**重要安全注意**：vLLM 修補了一個高嚴重性的**多模態 RCE**（[2026 年 2 月發布的 GHSA](https://github.com/vllm-project/vllm/security/advisories)），影響 0.18 以前版本的多模態前置處理器。**所有多模態 vLLM 部署必須執行 v0.18.2 或更高版本。** 修復是一行補丁，但 CVE是真實存在的，可通過精心設計的圖像輸入被利用。請升級。
 
-**Critical security caveat as of May 2026**: SGLang has **unpatched RCEs in the multimodal and disaggregated-prefill code paths** ([SGLang security advisory, March 2026](https://github.com/sgl-project/sglang/security/advisories)). The text-only path is safe and is what every public benchmark uses. The multimodal path should be considered **not production-ready** until the patches land. Several large deployments have moved their multimodal traffic off SGLang back to vLLM v0.18.2 and kept SGLang for text-only function-calling workloads.
+vLLM 在工作負載為「連續批次處理下的 Llama / Mistral / Qwen / DeepSeek」時仍是預設開源引擎。它不一定總是最快的，但最容易操作、測試最完整，且最有可能在同一週內收到新漏洞的修補。
 
-The right posture in May 2026: use SGLang for **text-only function-calling and structured-output workloads** where the throughput advantage matters; do not use SGLang for **multimodal or disaggregated-prefill production traffic** until the CVEs are patched.
+### SGLang v0.4.3+：吞吐量領先，但有重要警告
 
-### TensorRT-LLM: Peak NVIDIA Throughput, Operational Cost
+[SGLang](https://github.com/sgl-project/sglang) v0.4.3（2026 年 4 月）在多個工作負載上領先吞吐量：
 
-[TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) remains the throughput leader on pure NVIDIA hardware:
+- 在結構化輸出/函式呼叫工作負載上比 vLLM **高出約 29% 吞吐量**（[SGLang 部落格，2026 年 4 月](https://lmsys.org/blog/2024-12-04-sglang-v0-4/)）。勝利來自**非同步約束解碼**，其中約束編譯與 LLM 前向傳播平行執行。
+- 一流的 **RadixAttention** 前綴快取重用（用於聊天工作負載）。
+- 專家路由感知批次處理的一級 **MoE 服務**。
 
-- **Highest peak tokens/sec/$** on H200, B200, and B300 for hand-tuned models.
-- Tight integration with **NVIDIA Triton** for serving and **NVIDIA NIM** for managed deployment.
-- Custom kernels for **FP4 / FP8 on Blackwell Ultra**, often months ahead of open engines.
+**2026 年 5 月關鍵安全警告**：SGLang 在多模態和分離式前置處理程式碼路徑中有**未修補的 RCE**（[SGLang 安全公告，2026 年 3 月](https://github.com/sgl-project/sglang/security/advisories)）。純文字路徑是安全的，這也是每個公開基準測試所使用的。多模態路徑應被視為**未年生產就緒**，直到 CVE修補完成。多個大型部署已將多模態流量從 SGLang 移回 vLLM v0.18.2，並將 SGLang 用於純文字函式呼叫工作負載。
 
-The cost is operational:
+2026 年 5 月的正確姿勢：在**文字函式呼叫和結構化輸出工作負載**（吞吐量優勢顯著）使用 SGLang；在 CVE修補前，**不要將 SGLang 用於多模態或分離式前置處理的生產流量**。
 
-- Every new model needs an **engine build** (a multi-hour compilation step, model-and-GPU-specific).
-- Pin to specific TensorRT and CUDA versions; upgrades are usually painful.
-- **NVIDIA-only**. No path off CUDA without a full re-platform.
+### TensorRT-LLM：峰值 NVIDIA 吞吐量，營運成本
 
-The decision is binary: if you are committed to NVIDIA for the next two years and have one or two flagship models that need every last token/sec, TensorRT-LLM pays. If you need engine flexibility, vendor-independence, or rapid model iteration, vLLM or SGLang is the better fit.
+[TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) 仍是純 NVIDIA 硬體上吞吐量領先者：
 
-### MoE-Aware Serving (Llama 4 Maverick, DeepSeek V4 Pro)
+- 在 H200、B200 和 B300 上對於經過調校的模型，擁有**最高的峰值 Token/秒/$**。
+- 與 **NVIDIA Triton**（服務）和 **NVIDIA NIM**（託管部署）緊密整合。
+- **Blackwell Ultra FP4 / FP8** 的自訂核心，通常領先開源引擎數月。
 
-MoE models broke the assumption that serving cost scales smoothly with batch size. The properties that matter for an MoE serving engine in May 2026:
+代價是營運層面：
 
-- **Expert weight residency**: a 400B-parameter MoE with 17B active per token wastes most of its VRAM keeping unused experts hot. The engine has to be aware of expert-to-token routing and either pin hot experts or stream cold ones.
-- **Expert routing latency**: the router decision happens **per token** and adds a measurable cost. Engines now batch routing decisions across the batch dimension.
-- **Non-monotonic batching profile**: adding requests to the batch can *decrease* throughput if it forces a colder set of experts to be active. Optimal batch size depends on the **distribution of routing patterns** in the batch, not just batch count.
-- **Pipeline-aware scheduling**: best engines schedule new requests into batches that share expert activations with the in-flight batch.
+- 每個新模型都需要**引擎建置**（多小時編譯步驟，特定於模型和 GPU）。
+- 需綁定特定 TensorRT 和 CUDA 版本；升級通常很痛苦。
+- **僅限 NVIDIA**。沒有脫離 CUDA 的路徑，需要完整的重新平台化。
 
-| Engine | Llama 4 Maverick (May 2026) | DeepSeek V4 Pro (May 2026) |
-|--------|-----------------------------|-----------------------------|
-| vLLM v0.18+ | Stable, MoE scheduler in tree | Stable |
-| SGLang v0.4.3+ | Stable, throughput leader for batch >32 | Stable |
-| TensorRT-LLM | Stable, throughput leader at low concurrency | Stable |
+決定是二元的：若您未來兩年專注 NVIDIA，且有一到兩個旗艦模型需要榨乾每個 Token/秒，TensorRT-LLM 值得。若需要引擎靈活性、廠商獨立性或快速模型迭代，vLLM 或 SGLang 更合適。
 
-The interview-ready insight: **MoE serving is no longer "vLLM with bigger weights."** It is a different scheduling problem and the engines have all developed dedicated MoE paths in the last 12 months.
+### MoE 感知服務（Llama 4 Maverick、DeepSeek V4 Pro）
 
-### Decision Framework: Engine per Workload
+MoE 模型打破了「服務成本隨批次大小平滑擴縮」的假設。2026 年 5 月 MoE 服務引擎的重要屬性：
+
+- **專家權重駐留**：具有每 Token 17B 活躍參數的 400B 參數 MoE，大部門 VRAM 浪費在保持未使用專家熱度。引擎必須感知專家對 Token 路由，並固定熱門專家或串流冷門專家。
+- **專家路由延遲**：路由決策發生在**每 Token**，並增加可測量的成本。引擎現在跨批次維度批次處理路由決策。
+- **非單調批次設定檔**：向批次添加請求可能會*減少*吞吐量（如果它強制更冷的一組專家活躍）。最佳批次大小取決於批次中**路由模式的分布**，而非僅僅是批次計數。
+- **管線感知調度**：最佳引擎將新請求調度到與 in-flight 批次共享專家啟動的批次。
+
+| 引擎 | Llama 4 Maverick（2026 年 5 月） | DeepSeek V4 Pro（2026 年 5 月） |
+|------|----------------------------------|--------------------------------|
+| vLLM v0.18+ | 穩定，MoE 調度器在樹中 | 穩定 |
+| SGLang v0.4.3+ | 穩定，批次>32 時吞吐量領先 | 穩定 |
+| TensorRT-LLM | 穩定，低併發時吞吐量領先 | 穩定 |
+
+面試就緒的洞察：**MoE 服務不再是「vLLM 加大權重」。** 這是一個不同的調度問題，引擎在過去 12 個月都開發了專用 MoE 路徑。
+
+### 決策框架：每種工作負載用對應引擎
 
 ```mermaid
 flowchart TD
-    A[Workload type] --> B{Multimodal?}
-    B -->|Yes| C[vLLM v0.18.2 plus]
-    B -->|No| D{JSON or function-calling heavy?}
-    D -->|Yes| E[SGLang v0.4.3 plus, text-only path]
-    D -->|No| F{Reasoning or MoE model?}
-    F -->|MoE, large batch| G[SGLang or vLLM with MoE scheduler]
-    F -->|Reasoning, low concurrency, NVIDIA-only| H[TensorRT-LLM]
-    F -->|General chat, mixed traffic| I[vLLM v0.18 plus]
-    F -->|Single replica, ultra-low TTFT| J[Cerebras Cloud API or Groq]
+    A[工作負載類型] --> B{是多模態？}
+    B -->|是| C[vLLM v0.18.2+]
+    B -->|否| D{是 JSON 或函式呼叫密集？}
+    D -->|是| E[SGLang v0.4.3+，僅文字路徑]
+    D -->|否| F{是推理或 MoE 模型？}
+    F -->|MoE，大批次| G[SGLang 或具 MoE 調度器的 vLLM]
+    F -->|推理，低併發，僅 NVIDIA| H[TensorRT-LLM]
+    F -->|一般聊天，混合流量| I[vLLM v0.18+]
+    F -->|單一副本，超低 TTFT| J[Cerebras Cloud API 或 Groq]
 ```
 
-A more explicit mapping for the workloads teams actually deploy:
+更明確的團隊實際部署地圖：
 
-| Workload | Engine Choice (May 2026) | Why |
-|----------|---------------------------|-----|
-| Public chatbot (mixed traffic, must be patched fast) | **vLLM v0.18.2+** | Easiest to operate, best security cadence |
-| JSON function-calling backend | **SGLang v0.4.3+** (text-only path) | ~29% throughput win on structured output |
-| Single-model latency-critical (one model, one team) | **TensorRT-LLM** on B300 | Peak NVIDIA throughput, worth the operational cost at one model |
-| Multimodal (image, audio, video in) | **vLLM v0.18.2+** | SGLang multimodal not yet patched |
-| Reasoning model (long CoT, low concurrency) | **TensorRT-LLM** or **vLLM** with disaggregated prefill | Decode-bound, benefits from custom kernels |
-| MoE model (Llama 4 Maverick, DeepSeek V4 Pro) | **vLLM v0.18+** or **SGLang v0.4.3+** with MoE scheduler | Both have first-class MoE paths now |
-| Single-replica, sub-50ms TTFT | **Cerebras Cloud API** or **Groq LPU** | GPUs cannot hit this on a 70B+ model |
+| 工作負載 | 引擎選擇（2026 年 5 月） | 原因 |
+|----------|------------------------|------|
+| 公開聊天機器人（混合流量，需快速修補） | **vLLM v0.18.2+** | 最容易操作，最佳安全節奏 |
+| JSON 函式呼叫後端 | **SGLang v0.4.3+**（僅文字路徑） | 結構化輸出吞吐量勝利約 29% |
+| 單模型低延遲（一個模型，一個團隊） | **B300 上的 TensorRT-LLM** | 峰值 NVIDIA 吞吐量，在單一模型上值得營運成本 |
+| 多模態（圖像、音頻、影片輸入） | **vLLM v0.18.2+** | SGLang 多模態尚未修補 |
+| 推理模型（長 CoT，低併發） | **TensorRT-LLM** 或具分離式前置的 **vLLM** | 解碼邊界，受益於自訂核心 |
+| MoE 模型（Llama 4 Maverick、DeepSeek V4 Pro） | 具 MoE 調度器的 **vLLM v0.18+** 或 **SGLang v0.4.3+** | 兩者現在都有一級 MoE 路徑 |
+| 單一副本，子 50ms TTFT | **Cerebras Cloud API** 或 **Groq LPU** | GPU 無法在 70B+ 模型上達到此目標 |
 
-### Operational Posture in May 2026
+### 2026 年 5 月營運姿勢
 
-- **Always be on a patched version.** Inference engines now have a CVE cadence comparable to web servers. Multimodal RCEs are not theoretical.
-- **Run a canary on a second engine.** Production traffic on vLLM, 1-5% canary on SGLang or TensorRT-LLM, alert on quality or latency divergence. This catches engine-specific bugs and gives you a faster migration path.
-- **Treat the engine as part of the deployment manifest.** A model is not "Llama 4 Maverick"; it is "Llama 4 Maverick on vLLM v0.18.3 with this batch config on this hardware." Pin all four.
-- **Watch the security advisory feeds**, not just the release notes: [vLLM advisories](https://github.com/vllm-project/vllm/security/advisories), [SGLang advisories](https://github.com/sgl-project/sglang/security/advisories), [TensorRT-LLM CVE list](https://nvd.nist.gov/vuln/search/results?form_type=Basic&search_type=all&query=tensorrt-llm).
-
----
-
-## Interview Questions
-
-### Q: Why is Tensor Parallelism preferred over Pipeline Parallelism for low-latency serving?
-
-**Strong answer:**
-Tensor Parallelism (TP) performs the matrix multiplications of a single layer across multiple GPUs simultaneously. This means the latency of that layer is reduced by the number of GPUs. Pipeline Parallelism (PP), conversely, processes different layers sequentially. While GPU 2 is working on layers 40-80, GPU 1 is idle unless you have a deep pipeline of multiple requests (batching). For a single user's request, PP adds the latency of all GPUs, whereas TP divides the latency across all GPUs.
-
-### Q: How do you handle "Noisy Neighbors" in a multi-tenant LLM cluster?
-
-**Strong answer:**
-We handle noisy neighbors through **Tiered Iteration-Level Scheduling**. Each tenant is assigned a "share" of the total GPU cycles. In the continuous batching loop, the scheduler ensures that a single tenant doesn't occupy 100% of the KV cache slots. If Tenant A is overwhelming the system, the scheduler will prioritize "Prefill" steps for Tenant B and C, or only process a subset of Tenant A's decode iterations per cycle. This is enforced at the Gateway via token-bucket rate limiting and at the serving engine via specific scheduling policies.
+- **時刻保持在已修補版本。** 推論引擎現在有與網頁伺服器相當的 CVE 節奏。多模態 RCE 不是理論。
+- **在第二引擎上執行金絲雀。** 生產流量在 vLLM，1-5% 金絲雀在 SGLang 或 TensorRT-LLM，警示質量和延遲差異。這能捕捉引擎特定錯誤，並提供更快的遷移路徑。
+- **將引擎視為部署清單的一部分。** 模型不是「Llama 4 Maverick」；它是「此批次配置在此硬體上的 vLLM v0.18.3 上的 Llama 4 Maverick」。全部四項都要固定。
+- **關注安全公告摘要**，而不僅是發布說明：[vLLM 公告](https://github.com/vllm-project/vllm/security/advisories)、[SGLang 公告](https://github.com/sgl-project/sglang/security/advisories)、[TensorRT-LLM CVE 清單](https://nvd.nist.gov/vuln/search/results?form_type=Basic&search_type=all&query=tensorrt-llm)。
 
 ---
 
-## References
+## 面試題目
+
+### Q：為什麼張量並行比管線並行更適合低延遲服務？
+
+**理想回答：**
+張量並行（TP）在多個 GPU 上同時執行單層的矩陣乘法。這意味著該層的延遲按 GPU 數量減少。相反，管線並行（PP）依序處理不同層。當 GPU 2 处理層 40-80 時，GPU 1 處於閒置狀態，除非您有多個請求的深管道（批次處理）。對於單一使用者的請求，PP 增加了所有 GPU 的延遲，而 TP 將延遲分攤到所有 GPU 上。
+
+### Q：如何在多租戶 LLM 叢集中處理「嘈雜鄰居」問題？
+
+**理想回答：**
+我們透過**分層迭代級調度**處理嘈雜鄰居。每個租戶被分配「總 GPU 週期」的「份額」。在連續批次處理迴圈中，調度器確保單一租戶不佔用 100% 的 KV 快取槽位。如果租戶 A 壓倒系統，調度器將優先為租戶 B 和 C 處理「前置處理」步驟，或每週期只處理租戶 A 的解碼迭代子集。這在閘道層透過 Token 桶速率限制和在服務引擎透過特定調度策略來強制執行。
+
+---
+
+## 參考文獻
+
 - Narayanan et al. "Efficient Large-Scale Language Model Training on GPU Clusters Using Pipedream" (2019/2021)
 - NVIDIA. "Megatron-LM: Training Multi-Billion Parameter Models on GPU Clusters" (2021)
 
 ---
 
-*Next: [Cost Optimization Playbook](07-cost-optimization-playbook.md)*
+*下一篇：[成本優化手冊](07-cost-optimization-playbook.md)*

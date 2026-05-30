@@ -1,45 +1,45 @@
-# Access Control for LLM Systems
+# LLM 系統的存取控制
 
-Secure access control is essential for multi-user and multi-tenant LLM applications. This chapter covers authentication, authorization, and data isolation patterns.
+安全的存取控制對於多使用者和多租戶 LLM 應用程式至關重要。本章涵蓋身份驗證、授權和資料隔離模式。
 
-## Table of Contents
+## 目錄
 
-- [Access Control Requirements](#access-control-requirements)
-- [Authentication Patterns](#authentication-patterns)
-- [Authorization Models](#authorization-models)
-- [Tenant Isolation](#tenant-isolation)
-- [API Key Management](#api-key-management)
-- [Audit and Compliance](#audit-and-compliance)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [存取控制需求](#存取控制需求)
+- [身份驗證模式](#身份驗證模式)
+- [授權模型](#授權模型)
+- [租戶隔離](#租戶隔離)
+- [API 金鑰管理](#api-金鑰管理)
+- [稽核與合規](#稽核與合規)
+- [面試題目](#面試題目)
+- [參考文獻](#參考文獻)
 
 ---
 
-## Access Control Requirements
+## 存取控制需求
 
-### Security Dimensions
+### 安全維度
 
-| Dimension | Description | Controls |
+| 維度 | 描述 | 控制措施 |
 |-----------|-------------|----------|
-| **Authentication** | Who is making the request? | API keys, OAuth, JWT |
-| **Authorization** | What can they do? | RBAC, ABAC, policies |
-| **Isolation** | What data can they see? | Tenant filtering, encryption |
-| **Audit** | What did they do? | Logging, compliance reports |
+| **身份驗證** | 誰在提出請求？ | API 金鑰、OAuth、JWT |
+| **授權** | 他們能做什麼？ | RBAC、ABAC、政策 |
+| **隔離** | 他們能看到什麼資料？ | 租戶篩選、加密 |
+| **稽核** | 他們做了什麼？ | 日誌、合規報告 |
 
-### LLM-Specific Concerns
+### LLM 特定考量
 
-| Concern | Risk | Mitigation |
+| 考量 | 風險 | 緩解措施 |
 |---------|------|------------|
-| Prompt injection | Bypass access controls | Input validation |
-| Data leakage | Cross-tenant exposure | Strict filtering |
-| Model output | Expose protected info | Output filtering |
-| Context pollution | Inject unauthorized data | Context validation |
+| 提示詞注入 | 繞過存取控制 | 輸入驗證 |
+| 資料外洩 | 跨租戶暴露 | 嚴格篩選 |
+| 模型輸出 | 暴露受保護資訊 | 輸出過濾 |
+| 上下文污染 | 注入未授權資料 | 上下文驗證 |
 
 ---
 
-## Authentication Patterns
+## 身份驗證模式
 
-### API Key Authentication
+### API 金鑰身份驗證
 
 ```python
 class APIKeyAuthenticator:
@@ -48,22 +48,22 @@ class APIKeyAuthenticator:
     
     async def authenticate(self, api_key: str) -> AuthResult:
         if not api_key:
-            return AuthResult(authenticated=False, error="Missing API key")
+            return AuthResult(authenticated=False, error="缺少 API 金鑰")
         
-        # Hash the key for lookup
+        # 雜湊金鑰以進行查詢
         key_hash = self.hash_key(api_key)
         
-        # Look up in store
+        # 在儲存區中查詢
         key_record = await self.key_store.get(key_hash)
         
         if not key_record:
-            return AuthResult(authenticated=False, error="Invalid API key")
+            return AuthResult(authenticated=False, error="無效的 API 金鑰")
         
         if key_record.expired:
-            return AuthResult(authenticated=False, error="Expired API key")
+            return AuthResult(authenticated=False, error="API 金鑰已過期")
         
         if key_record.revoked:
-            return AuthResult(authenticated=False, error="Revoked API key")
+            return AuthResult(authenticated=False, error="API 金鑰已撤銷")
         
         return AuthResult(
             authenticated=True,
@@ -76,7 +76,7 @@ class APIKeyAuthenticator:
         return hashlib.sha256(key.encode()).hexdigest()
 ```
 
-### JWT with Scopes
+### JWT 與範圍
 
 ```python
 class JWTAuthenticator:
@@ -100,16 +100,16 @@ class JWTAuthenticator:
                 expires_at=datetime.fromtimestamp(payload["exp"])
             )
         except jwt.ExpiredSignatureError:
-            return AuthResult(authenticated=False, error="Token expired")
+            return AuthResult(authenticated=False, error="權杖已過期")
         except jwt.InvalidTokenError as e:
             return AuthResult(authenticated=False, error=str(e))
 ```
 
 ---
 
-## Authorization Models
+## 授權模型
 
-### Role-Based Access Control (RBAC)
+### 基於角色的存取控制 (RBAC)
 
 ```python
 class RBACAuthorizer:
@@ -129,7 +129,7 @@ class RBACAuthorizer:
         return action in permissions
 ```
 
-### Attribute-Based Access Control (ABAC)
+### 基於屬性的存取控制 (ABAC)
 
 ```python
 class ABACAuthorizer:
@@ -138,12 +138,12 @@ class ABACAuthorizer:
     
     async def authorize(
         self,
-        subject: dict,       # Who (user attributes)
-        action: str,         # What (operation)
-        resource: dict,      # On what (resource attributes)
-        context: dict        # When/where (environmental)
+        subject: dict,       # 誰（使用者屬性）
+        action: str,         # 什麼（操作）
+        resource: dict,      # 在什麼上（資源屬性）
+        context: dict         # 何時/何處（環境）
     ) -> AuthzResult:
-        # Evaluate all applicable policies
+        # 評估所有適用的政策
         policies = await self.policy_engine.get_policies(action)
         
         for policy in policies:
@@ -153,10 +153,10 @@ class ABACAuthorizer:
             if result == PolicyResult.ALLOW:
                 return AuthzResult(allowed=True)
         
-        return AuthzResult(allowed=False, reason="No matching policy")
+        return AuthzResult(allowed=False, reason="沒有符合的政策")
 ```
 
-### Model-Level Permissions
+### 模型層級權限
 
 ```python
 class ModelAccessControl:
@@ -180,9 +180,9 @@ class ModelAccessControl:
 
 ---
 
-## Tenant Isolation
+## 租戶隔離
 
-### Data Isolation Patterns
+### 資料隔離模式
 
 ```python
 class TenantIsolatedVectorStore:
@@ -195,11 +195,11 @@ class TenantIsolatedVectorStore:
         query_embedding: list[float],
         top_k: int = 10
     ) -> list[dict]:
-        # CRITICAL: Always filter by tenant_id at database level
+        # 關鍵：在資料庫層級始终按 tenant_id 篩選
         results = await self.db.search(
             query_vector=query_embedding,
             top_k=top_k,
-            filter={"tenant_id": {"$eq": tenant_id}}  # Mandatory filter
+            filter={"tenant_id": {"$eq": tenant_id}}  # 強制篩選
         )
         
         return results
@@ -209,14 +209,14 @@ class TenantIsolatedVectorStore:
         tenant_id: str,
         documents: list[dict]
     ):
-        # CRITICAL: Always include tenant_id in metadata
+        # 關鍵：始終在元資料中包含 tenant_id
         for doc in documents:
             doc["metadata"]["tenant_id"] = tenant_id
         
         await self.db.insert(documents)
 ```
 
-### Prompt Isolation
+### 提示詞隔離
 
 ```python
 class TenantAwarePromptBuilder:
@@ -226,22 +226,22 @@ class TenantAwarePromptBuilder:
         user_query: str,
         context: list[dict]
     ) -> str:
-        # Verify all context belongs to tenant
+        # 驗證所有上下文屬於該租戶
         for doc in context:
             if doc.get("tenant_id") != tenant_id:
-                raise SecurityError("Cross-tenant context detected")
+                raise SecurityError("偵測到跨租戶上下文")
         
-        # Build isolated prompt
+        # 建立隔離的提示詞
         return f"""
-[Tenant: {tenant_id}]
-Context from tenant documents:
+[租戶：{tenant_id}]
+來自租戶文件的上下文：
 {self.format_context(context)}
 
-User query: {user_query}
+使用者查詢：{user_query}
 """
 ```
 
-### Cache Isolation
+### 快取隔離
 
 ```python
 class TenantIsolatedCache:
@@ -264,9 +264,9 @@ class TenantIsolatedCache:
 
 ---
 
-## API Key Management
+## API 金鑰管理
 
-### Key Lifecycle
+### 金鑰生命週期
 
 ```python
 class APIKeyManager:
@@ -280,11 +280,11 @@ class APIKeyManager:
         scopes: list[str],
         expires_in_days: int = 365
     ) -> APIKey:
-        # Generate secure key
+        # 產生安全金鑰
         raw_key = self.KEY_PREFIX + secrets.token_urlsafe(32)
         key_hash = self.hash_key(raw_key)
         
-        # Store metadata (not the raw key)
+        # 儲存中繼資料（而非原始金鑰）
         key_record = APIKeyRecord(
             id=generate_id(),
             hash=key_hash,
@@ -298,10 +298,10 @@ class APIKeyManager:
         
         await self.store.save(key_record)
         
-        # Return raw key only once (not stored)
+        # 僅在建立時回傳原始金鑰（不儲存）
         return APIKey(
             id=key_record.id,
-            key=raw_key,  # Only returned on creation
+            key=raw_key,  # 僅在建立時回傳
             name=name,
             scopes=scopes,
             expires_at=key_record.expires_at
@@ -320,22 +320,22 @@ class APIKeyManager:
         })
 ```
 
-### Key Rotation
+### 金鑰輪換
 
 ```python
 class KeyRotator:
     async def rotate_key(self, old_key_id: str) -> APIKey:
         old_key = await self.key_store.get(old_key_id)
         
-        # Create new key with same permissions
+        # 使用相同權限建立新金鑰
         new_key = await self.key_manager.create_key(
             user_id=old_key.user_id,
             tenant_id=old_key.tenant_id,
-            name=f"{old_key.name} (rotated)",
+            name=f"{old_key.name}（已輪換）",
             scopes=old_key.scopes
         )
         
-        # Grace period: old key still works temporarily
+        # 寬限期：舊金鑰暫時仍可運作
         await self.key_store.update(old_key_id, {
             "deprecated": True,
             "deprecated_at": datetime.now(),
@@ -349,9 +349,9 @@ class KeyRotator:
 
 ---
 
-## Audit and Compliance
+## 稽核與合規
 
-### Audit Logging
+### 稽核日誌記錄
 
 ```python
 class AuditLogger:
@@ -372,7 +372,7 @@ class AuditLogger:
             "output_tokens": response.usage.output_tokens,
             "cost": response.cost,
             "latency_ms": response.latency_ms,
-            # Hash content for privacy
+            # 出於隱私考量，雜湊內容
             "input_hash": self.hash_content(request.prompt),
             "output_hash": self.hash_content(response.content)
         }
@@ -380,7 +380,7 @@ class AuditLogger:
         await self.audit_store.append(audit_entry)
 ```
 
-### Compliance Reports
+### 合規報告
 
 ```python
 class ComplianceReporter:
@@ -410,77 +410,77 @@ class ComplianceReporter:
 
 ---
 
-## Interview Questions
+## 面試題目
 
-### Q: How do you implement multi-tenant isolation in a RAG system?
+### Q：如何在 RAG 系統中實作多租戶隔離？
 
-**Strong answer:**
+**強烈回答：**
 
-"Multi-tenant isolation requires defense in depth:
+「多租戶隔離需要深度防禦：
 
-**Vector database level:**
-- Every vector includes tenant_id in metadata
-- All queries filter by tenant_id at the database level
-- Never filter after retrieval (data already leaked to memory)
+**向量資料庫層級：**
+- 每個向量在元資料中包含 tenant_id
+- 所有查詢在資料庫層級按 tenant_id 篩選
+- 絕不在檢索後篩選（資料已洩漏到記憶體）
 
-**Cache level:**
-- All cache keys prefixed with tenant_id
-- Semantic cache scoped to tenant
-- No cross-tenant cache hits even for identical queries
+**快取層級：**
+- 所有快取金鑰前綴為 tenant_id
+- 語義快取限定為租戶
+- 即使對於相同的查詢，也不會有跨租戶快取命中
 
-**Prompt level:**
-- Validate context documents belong to requesting tenant before including
-- Never mix context from multiple tenants
+**提示詞層級：**
+- 在包含之前，驗證上下文文件屬於請求租戶
+- 絕不混合來自多個租戶的上下文
 
-**Output level:**
-- Verify response does not contain cross-tenant information
-- Output filtering as additional safeguard
+**輸出層級：**
+- 驗證回應不包含跨租戶資訊
+- 作為額外保障的輸出過濾
 
-**Audit:**
-- Log all access with tenant context
-- Monitor for cross-tenant access attempts
+**稽核：**
+- 記錄所有帶有租戶上下文的存取
+- 監控跨租戶存取嘗試
 
-The key principle: tenant_id is a mandatory filter at every data access point, not an optional parameter."
+關鍵原則：tenant_id 是每個資料存取點的強制篩選條件，而非可選參數。」
 
-### Q: How do you manage API keys for an LLM service?
+### Q：如何管理 LLM 服務的 API 金鑰？
 
-**Strong answer:**
+**強烈回答：**
 
-"Secure API key management:
+「安全的 API 金鑰管理：
 
-**Creation:**
-- Generate cryptographically random keys
-- Store only the hash, return raw key once
-- Associate with user, tenant, scopes, expiration
+**建立：**
+- 產生密碼學安全的隨機金鑰
+- 只儲存雜湊值，一次回傳原始金鑰
+- 關聯使用者、租戶、範圍、過期時間
 
-**Validation:**
-- Hash incoming key, compare to stored hash
-- Check expiration and revocation status
-- Verify scopes match requested action
+**驗證：**
+- 將傳入的金鑰雜湊化，與儲存的雜湊比對
+- 檢查過期和撤銷狀態
+- 驗證範圍符合請求的操作
 
-**Rotation:**
-- Support key rotation with grace period
-- Old key works during transition (7 days)
-- Notify users of impending expiration
+**輪換：**
+- 支援帶有寬限期的金鑰輪換
+- 過渡期間舊金鑰仍可運作（7 天）
+- 通知使用者即將過期
 
-**Security:**
-- Rate limit failed authentication attempts
-- Revoke immediately on suspected compromise
-- Audit all key operations
+**安全：**
+- 對失敗的身份驗證嘗試進行速率限制
+- 疑似入侵時立即撤銷
+- 稽核所有金鑰操作
 
-**Scopes:**
-- Fine-grained: model access, operation type, daily limits
-- Least privilege by default
+**範圍：**
+- 細粒度：模型存取、操作類型、每日限制
+- 預設最小權限
 
-The key principle: never store raw keys, support rotation, implement least privilege."
-
----
-
-## References
-
-- OAuth 2.0: https://oauth.net/2/
-- OWASP API Security: https://owasp.org/API-Security/
+關鍵原則：永不儲存原始金鑰、支援輪換、實施最小權限。」
 
 ---
 
-*Previous: [Security Fundamentals](01-security-fundamentals.md)*
+## 參考文獻
+
+- OAuth 2.0：https://oauth.net/2/
+- OWASP API Security：https://owasp.org/API-Security/
+
+---
+
+*上一篇：[安全性基礎](01-security-fundamentals.md)*

@@ -1,84 +1,85 @@
-# Long-Term Memory
+# 長期記憶
 
-Long-term memory (L2 & L3) provides persistence across sessions. Production stacks have moved from simple "History RAG" to **Multi-Representation Stores** that combine Vector, Graph, and Relational data. Dedicated memory services (Zep, Mem0, Letta, Cognee) now wrap these stores with conversation summarization, entity extraction, and temporal awareness out of the box.
+長期記憶（L2 與 L3）在工作階段之間提供持久性。生產堆疊已從簡單的「歷史 RAG」演進至**多表示存放區**，結合向量、圖形與關聯式資料。專用記憶服務（Zep、Mem0、Letta、Cognee）現在將對話摘要、實體萃取與時間感知開箱即用地包裝在這些存放區之上。
 
-## Table of Contents
+## 目錄
 
-- [Episodic Memory (The Narrative)](#episodic)
-- [Semantic Memory (The Knowledge)](#semantic)
-- [Hybrid Vector-Graph Storage](#hybrid)
-- [Memory Pruning and Decay](#pruning)
-- [Privacy and Multi-Tenancy](#privacy)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## Episodic Memory: The Personal Log
-
-Episodic memory stores **Trajectories**: sequences of events and their outcomes.
-- **Data Structure**: `(Timestamp, Interaction_ID, Trajectory_Summary, Embedding)`.
-- **The Rationale**: If an agent successfully built a React component using a specific tool sequence last month, it should "Recall" that success when asked to build another one today.
-- **Implementation Note**: We store the *Summary* for retrieval and the *Raw Logs* in cold storage (S3/GCS) for forensic analysis.
+- [情節記憶：個人日誌](#episodic)
+- [語義記憶：事實存放區](#semantic)
+- [混合向量-圖形儲存](#hybrid)
+- [記憶修剪與衰減](#pruning)
+- [隱私與多租戶](#privacy)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Semantic Memory: The Fact Store
+## 情節記憶：個人日誌
 
-Semantic memory stores **Discovered Facts** about entities.
-- **Entity Identification**: Using a "Fact Extraction Agent" to parse every user turn.
-- **Example triplets**:
+情節記憶儲存**軌跡**：事件序列及其結果。
+- **資料結構**：`(Timestamp, Interaction_ID, Trajectory_Summary, Embedding)`。
+- **基本原理**：如果代理上個月使用特定工具序列成功構建了一個 React 元件，當今天被要求構建另一個時，它應該「回憶」那個成功。
+- **實作備註**：我們儲存*摘要*用於檢索，*原始日誌*儲存在冷存放區（S3/GCS）中用於取證分析。
+
+---
+
+## 語義記憶：事實存放區
+
+語義記憶儲存關於實體的**已發現事實**。
+- **實體識別**：使用「事實萃取代理」解析每個使用者回合。
+- **三元組範例**：
   - `(User_1, HAS_PREFERENCE, Dark_Mode)`
   - `(Company_X, USES_SDK, Stripe)`
-- **Technology**: Knowledge Graphs (Neo4j, AWS Neptune) combined with relational tagging.
+- **技術**：結合關聯式標籤的知識圖譜（Neo4j、AWS Neptune）。
 
 ---
 
-## Hybrid Vector-Graph Storage
+## 混合向量-圖形儲存
 
-Staff-level engineers use **GraphRAG-style Memory**.
-- **Vector Search** finds "Related" nodes.
-- **Graph Traversal** finds "Connected" nodes.
-- **The Win**: If I search for "Project Alpha," vector search finds the name, but graph traversal finds the 10 developers, the deadline, and the linked code repos.
-
----
-
-## Memory Pruning and Decay
-
-Memory is a liability if it grows unchecked.
-- **Temporal Decay**: Older memories lose their "relevance score" unless frequently accessed.
-- **Consolidation**: Merging 10 separate interactions about "billing" into one high-quality summary node.
-- **Explicit Forgetting**: Honoring GDPR "Right to be Forgotten" by deleting all episodic and semantic clusters associated with a user ID.
+專業級工程師使用**GraphRAG 風格記憶**。
+- **向量搜尋**找到「相關」節點。
+- **圖形周遊**找到「連接」節點。
+- **好處**：如果我搜尋「專案 Alpha」，向量搜尋找到名稱，但圖形周遊找到 10 位開發者、截止日期與連結的程式碼倉儲。
 
 ---
 
-## Privacy and Multi-Tenancy
+## 記憶修剪與衰減
+
+記憶是無限期增長時的負債。
+- **時間衰減**：較舊的記憶會失去其「相關性評分」，除非經常被存取。
+- **濃縮**：將 10 個關於「帳單」的單獨互動合併為一個高品質摘要節點。
+- **明確遺忘**：尊重 GDPR「被遺忘權」，刪除與使用者 ID 相關的所有情節與語義叢集。
+
+---
+
+## 隱私與多租戶
 
 > [!CAUTION]
-> **Cross-Session Leakage** is the #1 security risk in global memory. 
-> Ensure that the `user_id` is a hard partition key in your vector DB metadata. Never rely on the LLM to filter results by user.
+> **跨工作階段洩漏**是全域記憶的頭號安全風險。
+> 確保 `user_id` 是向量資料庫元資料中的硬分割鍵。永遠不要依賴 LLM 按使用者過濾結果。
 
 ---
 
-## Interview Questions
+## 面試問題
 
-### Q: How do you choose between a Vector DB and a Knowledge Graph for long-term memory?
+### Q：如何選擇長期記憶的向量資料庫與知識圖譜？
 
-**Strong answer:**
-I use **Vector DBs** for **Episodic Context** (unstructured logs, past conversations) because I need a "Fuzzy" match on meaning. I use **Knowledge Graphs** for **Structural Semantic Knowledge** (relationships, attributes, hierarchies) because I need "Deterministic" traversal. A production system uses a **Hybrid** approach: the vector index points to graph IDs, allowing the system to find the right "Starting Node" and then traverse for high-precision context.
+**理想回答：**
+我對**非結構化日誌、過去對話**使用**向量資料庫**，因為我需要「模糊」匹配含義。我對**結構性語義知識**（關係、屬性、層級結構）使用**知識圖譜**，因為我需要「確定性」周遊。生產系統使用**混合**方法：向量索引指向圖形 ID，使系統能夠找到正確的「起始節點」，然後周遊以獲取高精確度上下文。
 
-### Q: What is "Catastrophic Forgetting" in the context of learned agentic memory?
+### Q：在學習代理記憶的上下文中，什麼是「災難性遺忘」？
 
-**Strong answer:**
-In fine-tuned agents, catastrophic forgetting happens when new training data wipes out old knowledge. In **Agentic Memory (RAG-based)**, it refers to **Index Overload**. If an agent adds 1,000 low-quality new "facts" to its memory, the retrieval precision drops, effectively making it "forget" the older, higher-quality facts because they are buried in noise. We mitigate this with **Quality-Weighted Retrieval**: memories with high "Verification Scores" from a supervisor are boosted over raw logs.
-
----
-
-## References
-- Neo4j. "Knowledge Graphs for Generative AI" (2025)
-- Pinecone. "The Managed Memory Layer" (2025)
-- GraphRAG. "Reasoning over Relationships" (2024/2025)
+**理想回答：**
+在微調代理中，災難性遺忘發生在新訓練資料抹去舊知識時。在**代理記憶（RAG 型）**中，它指的是**索引過載**。如果代理添加 1,000 個低品質新「事實」到其記憶中，檢索精確度下降，使較舊的、較高品質的事實被埋在噪音中，有效使其「遺忘」。我們透過**品質加權檢索**來緩解：來自監督者的高「驗證評分」記憶比原始日誌獲得提升。
 
 ---
 
-*Next: [Agentic Memory with Mem0](04-agentic-memory-mem0.md)*
+## 參考文獻
+
+- Neo4j. 《知識圖譜用於生成式 AI》（2025）
+- Pinecone. 《托管記憶層》（2025）
+- GraphRAG. 《透過關係推理》（2024/2025）
+
+---
+
+*下一篇：[使用 Mem0 的代理記憶](04-agentic-memory-mem0.md)*

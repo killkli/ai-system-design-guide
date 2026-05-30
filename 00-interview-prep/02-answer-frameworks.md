@@ -1,6 +1,11 @@
-# Answer Frameworks for AI System Design Interviews
+---
+title: "AI 系統設計面試答題框架"
+description: "五個結構化答題框架：SPIDER（設計問題）、ETA（概念解釋）、權衡分析、Debugging、STAR-L（情境任務行動結果學習）。"
+---
 
-Five structured frameworks for AI system design interviews: SPIDER for design questions, ETA for concepts, tradeoff analysis, debugging, and STAR-L for behavioral.
+# AI 系統設計面試答題框架
+
+Five structured frameworks for AI 系統設計 interviews: SPIDER for design questions, ETA for concepts, tradeoff analysis, debugging, and STAR-L（情境、任務、行動、結果、學習） for behavioral.
 
 Strong interview answers follow consistent structures. This chapter provides frameworks for different question types, with examples and anti-patterns. Pair these frameworks with worked examples from the [Question Bank](01-question-bank.md) and rehearse with [Whiteboard Exercises](04-whiteboard-exercises.md).
 
@@ -10,7 +15,7 @@ Strong interview answers follow consistent structures. This chapter provides fra
 - [Concept Explanation Framework (ETA)](#concept-explanation-framework-eta)
 - [Tradeoff Analysis Framework](#tradeoff-analysis-framework)
 - [Debugging and Troubleshooting Framework](#debugging-and-troubleshooting-framework)
-- [Behavioral Questions Framework (STAR-L)](#behavioral-questions-framework-star-l)
+- [Behavioral Questions Framework (STAR-L（情境、任務、行動、結果、學習）)](#behavioral-questions-framework-star-l)
 - [Handling Unknown Topics](#handling-unknown-topics)
 - [Common Mistakes and How to Avoid Them](#common-mistakes-and-how-to-avoid-them)
 
@@ -18,7 +23,7 @@ Strong interview answers follow consistent structures. This chapter provides fra
 
 ## System Design Framework (SPIDER)
 
-Use this framework for any system design question involving AI components. The full motion with rough time budget per phase:
+Use this framework for any 系統設計 question involving AI components. The full motion with rough time budget per phase:
 
 ```mermaid
 flowchart LR
@@ -34,8 +39,8 @@ flowchart LR
 **Purpose:** Narrow the problem space and show you think before you build.
 
 **Questions to ask:**
-- What is the scale? (users, requests, data volume)
-- What are the latency requirements?
+- What is the scale? (users, requests, 資料 volume)
+- What are the 延遲 requirements?
 - What accuracy or quality bar must we meet?
 - Are there compliance or security requirements?
 - What is the existing infrastructure?
@@ -65,10 +70,10 @@ You: Before I dive in, I want to clarify a few things:
 
 | Requirement | Priority | Implication |
 |-------------|----------|-------------|
-| Low latency | High | May limit model size |
-| High accuracy | High | Need good retrieval + eval |
-| Cost efficiency | Medium | Optimize with caching |
-| Multi-language | Medium | Affects embedding choice |
+| Low 延遲 | High | May limit model size |
+| High accuracy | High | Need good 檢索 + 評估 |
+| Cost efficiency | Medium | Optimize with 快取 |
+| Multi-language | Medium | Affects 嵌入 choice |
 
 **State your priorities explicitly:**
 ```
@@ -111,9 +116,9 @@ Cost optimization will be a second-order concern once we have the basic system w
 - Where the biggest risks lie
 
 **Example deep dives:**
-- RAG pipeline: chunking, embedding, retrieval, reranking
-- Agent loop: tool selection, error handling, termination
-- Data pipeline: ingestion, processing, indexing
+- RAG（檢索增強生成） 管線: 分塊, 嵌入, 檢索, 重新排序
+- Agent loop: tool selection, 錯誤處理, termination
+- Data 管線: 攝取, processing, 索引
 - Security: isolation, permissions, audit
 
 **Signal your intent:**
@@ -123,9 +128,9 @@ Cost optimization will be a second-order concern once we have the basic system w
 
 ---
 
-### E - Evaluation and Observability
+### E - Evaluation and 可觀測性
 
-**Purpose:** Show you think about production operations.
+**Purpose:** Show you think about 生產環境 operations.
 
 **Cover:**
 1. **Metrics:** What do you measure?
@@ -133,7 +138,7 @@ Cost optimization will be a second-order concern once we have the basic system w
 3. **Monitoring:** How do you detect problems?
 4. **Alerting:** When do humans get paged?
 
-**Standard metrics for AI systems:**
+**Standard 指標 for AI systems:**
 - Latency (p50, p95, p99)
 - Token usage / cost
 - Quality scores (offline and sampled online)
@@ -144,25 +149,25 @@ Cost optimization will be a second-order concern once we have the basic system w
 
 ### R - Reliability and Scale
 
-**Purpose:** Address failure modes and growth.
+**Purpose:** Address 失敗模式 and growth.
 
 **Failure modes to discuss:**
-- LLM provider outage
+- LLM（大型語言模型） provider outage
 - Rate limiting
 - Bad model outputs
-- Data pipeline failures
+- Data 管線 失敗
 - Cache invalidation
 
 **Scaling considerations:**
 - Where are the bottlenecks?
 - What scales horizontally vs vertically?
-- What costs scale with usage?
+- What 成本 scale with usage?
 
 ---
 
 ## Concept Explanation Framework (ETA)
 
-Use this for conceptual questions like "Explain RAG" or "What is speculative decoding?"
+Use this for conceptual questions like "Explain RAG（檢索增強生成）" or "What is 推測解碼?"
 
 ### E - Explain Simply
 
@@ -232,8 +237,8 @@ Pick criteria that matter for this specific decision:
 | Criteria | Weight | Reasoning |
 |----------|--------|-----------|
 | Quality | High | Search accuracy is key feature |
-| Cost at scale | High | 100M embeddings/month |
-| Latency | Medium | Batch indexing, not real-time |
+| Cost at scale | High | 100M 嵌入/month |
+| Latency | Medium | Batch 索引, not real-time |
 | Ops overhead | Medium | Small team |
 
 ### Step 3: Analyze Each Option
@@ -317,13 +322,13 @@ flowchart TD
 
 ---
 
-## Behavioral Questions Framework (STAR-L)
+## Behavioral Questions Framework (STAR-L（情境、任務、行動、結果、學習）)
 
-For behavioral questions in AI roles, use STAR-L (STAR + Learnings).
+For behavioral questions in AI roles, use STAR-L（情境、任務、行動、結果、學習） (STAR + Learnings).
 
 ### S - Situation
 
-Set the context briefly.
+Set the 上下文 briefly.
 
 ```
 "We had just launched our RAG-powered search feature and were getting 
@@ -494,10 +499,10 @@ deeper into any specific component, or should I move on to evaluation?"
 
 | Signal | Example |
 |--------|---------|
-| Asks clarifying questions | "What is the latency requirement?" |
-| Uses concrete numbers | "This adds ~50ms latency" |
+| Asks clarifying questions | "What is the 延遲 requirement?" |
+| Uses concrete numbers | "This adds ~50ms 延遲" |
 | Discusses tradeoffs | "We gain X but lose Y" |
-| Mentions failure modes | "If this fails, we need to..." |
+| Mentions 失敗模式 | "If this fails, we need to..." |
 | References real systems | "Similar to how Notion does..." |
 | Acknowledges uncertainty | "I would need to benchmark this" |
 | Checks in with interviewer | "Should I go deeper here?" |
@@ -521,10 +526,10 @@ deeper into any specific component, or should I move on to evaluation?"
 ## Key Takeaways
 
 - Frameworks are scaffolding, not scripts; interviewers can tell when a candidate is reciting vs. thinking, so internalize the structure then make it conversational.
-- SPIDER works for any 45-minute system design loop; if the interviewer cuts you off, you have still hit the highest-signal phases.
+- SPIDER works for any 45-minute 系統設計 loop; if the interviewer cuts you off, you have still hit the highest-signal phases.
 - "It depends" is fine ONLY when followed by "it depends on X, Y, Z, and here is how each changes the answer"; otherwise it reads as hedging.
-- Always end deep dives with one sentence on observability and one on failure modes; this is the single biggest gap between senior and staff answers.
-- Behavioral answers without quantified results (STAR-L's R) get scored as anecdotal; bring numbers even if approximate.
+- Always end deep dives with one sentence on 可觀測性 and one on 失敗模式; this is the single biggest gap between senior and staff answers.
+- Behavioral answers without quantified results (STAR-L（情境、任務、行動、結果、學習）'s R) get scored as anecdotal; bring numbers even if approximate.
 
 ---
 

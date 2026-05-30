@@ -1,146 +1,107 @@
-# Pricing and Costs
+# 定價與成本
 
-Understanding the cost structure of LLM systems is essential for production planning. This chapter covers pricing models, cost optimization strategies, and total cost of ownership analysis.
+理解 LLM 定價結構對於構建經濟永續的 AI 系統至關重要。本章提供截至 2026 年 5 月的全面定價概覽、成本計算方法與優化策略。
 
-## Table of Contents
+> **最後更新：2026 年 5 月 29 日。** 模型定價變化頻繁——在做出財務承諾前，請務必查核供應商官方定價頁面。
 
-- [Pricing Models](#pricing-models)
-- [Current API Pricing](#current-api-pricing)
-- [Cost Calculation](#cost-calculation)
-- [Cost Optimization Strategies](#cost-optimization-strategies)
-- [Context Caching Economics](#context-caching-economics)
-- [Self-Hosting & GPU Cloud Arbitrage](#self-hosting-economics)
-- [Total Cost of Ownership](#total-cost-of-ownership)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+## 目錄
 
----
-
-## Pricing Models
-
-### Token-Based Pricing
-
-Most LLM APIs charge per token:
-
-```
-Cost = (input_tokens × input_rate) + (output_tokens × output_rate)
-```
-
-**Key observations:**
-- Output tokens cost 2-5x more than input tokens
-- Pricing varies significantly by model tier
-- Some providers offer batch discounts
-
-### Tiered Pricing
-
-Some providers offer volume discounts:
-
-| Tier | Monthly Spend | Discount |
-|------|---------------|----------|
-| Standard | $0 - $5K | 0% |
-| Growth | $5K - $50K | 10-20% |
-| Enterprise | $50K+ | Custom negotiation |
-
-### Commitment-Based Pricing
-
-Pre-purchase tokens at discounted rates:
-
-```
-Standard: $2.50 / 1M input tokens
-Committed (1-year): $2.00 / 1M input tokens (20% savings)
-```
+- [前沿模型定價](#前沿模型定價)
+- [快速/經濟模型定價](#快速經濟模型定價)
+- [開源模型 API 定價](#開源模型-api-定價)
+- [嵌入模型定價](#嵌入模型定價)
+- [成本計算](#成本計算)
+- [成本優化策略](#成本優化策略)
+- [上下文快取經濟學](#上下文快取經濟學)
+- [自託管與 GPU 雲端套利](#自託管與-gpu-雲端套利)
+- [總持有成本](#總持有成本)
+- [面試問題](#面試問題)
+- [參考資料](#參考資料)
 
 ---
 
-## Current API Pricing
+## 前沿模型定價
 
-### May 2026 Pricing
+### 前沿層級（2026 年 5 月）
 
-> **Last verified: May 29, 2026.** Prices change frequently. Always re-check: [OpenAI](https://developers.openai.com/api/docs/pricing), [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing), [Google](https://ai.google.dev/gemini-api/docs/pricing), [xAI](https://docs.x.ai/developers/models), [DeepSeek](https://api-docs.deepseek.com/quick_start/pricing)
->
-> **Deprecations effective in 2026:** OpenAI retired GPT-4o, GPT-4.1, GPT-4.1-mini, o4-mini from ChatGPT on Feb 13, 2026; gpt-5.2-chat-latest and gpt-5.3-chat-latest deprecated May 8, 2026; Realtime API Beta removed May 12, 2026; Sora app shut down April 26, 2026 (API EOL Sep 24, 2026). Google Vertex retired `gemini-3-pro-preview` Mar 26, 2026; Project Mariner shut down May 4, 2026. Gemini 2.5 Pro/Flash deprecated June 17, 2026.
->
-> **Price moves:** Anthropic released **Claude Opus 4.8** on May 28, 2026 at the same $5 / $25 per 1M as Opus 4.7, with an optional fast mode at $10 / $50 per 1M (about 2.5x faster and 3x cheaper than the Opus 4.7 fast mode, which was $30 / $150). DeepSeek made its 75% V4 Pro discount **permanent** on May 22, 2026: from June 1, 2026 the new list price drops to 25% of the original ($0.435 / $0.87 per 1M input/output), and the cache-hit input price for all DeepSeek models was cut to 1/10 of the launch price on April 26, 2026. DeepSeek V4 Flash ($0.14 / $0.28 per 1M, 1M context) is the cheapest frontier-class API by a wide margin.
+| 模型 | 輸入 / 每百萬 | 輸出 / 每百萬 | 上下文 | 特色 |
+|------|-------------|-------------|--------|------|
+| **Claude Opus 4.8** | $5.00 | $25.00 | 1M | 動態工作流；擴展思維 |
+| **Claude Opus 4.7** | $5.00 | $25.00 | 1M | 較舊版本 |
+| **Claude Sonnet 4.6** | $3.00 | $15.00 | 1M | 性價比最佳 |
+| **GPT-5.5** | $5.00 | $30.00 | 1M | SWE-bench 榜首 |
+| **GPT-5.4** | $2.50 | $15.00 | 272K | 電腦使用 |
+| **Gemini 3.1 Pro** | $2.00 | $12.00 | 1M | 多模態 |
+| **Grok 4** | $3.00 | $15.00 | 256K | 原生工具使用 |
+| **Grok 4.1 Fast** | $0.20 | $0.50 | 2M | 高容量、低成本 |
 
-#### OpenAI (GPT-5.x Generation)
-| Model | Input / 1M | Output / 1M | Notes |
-|-------|------------|-------------|-------|
-| **GPT-5.5** ⭐ NEW | $5.00 | $30.00 | Released April 23, 2026. 1M context. New class of multimodal flagship. |
-| **GPT-5.5 Instant** ⭐ NEW | check latest | check latest | Default in ChatGPT and `chat-latest` since May 5, 2026. 52.5% fewer hallucinations on high-stakes prompts. |
-| **GPT-Realtime-2** ⭐ NEW | $32.00 (audio) | $64.00 (audio) | Released May 7, 2026. GPT-5-class realtime voice. |
-| **GPT-Realtime-Translate** ⭐ NEW | (audio pricing) | (audio pricing) | 70+ input → 13 output languages. |
-| **GPT-5.4 Pro** | $30.00 | $180.00 | Maximum reasoning; long-context doubles to $60/$270 |
-| **GPT-5.4** | $2.50 | $15.00 | Flagship; native computer use; cached input $1.25 |
-| **GPT-5.4-mini** | $0.75 | $4.50 | Best cost/performance in GPT-5 tier |
-| **GPT-5.4-nano** | check latest | check latest | Smallest GPT-5.4 variant; released March 2026 |
-| **GPT-4o** | $2.50 | $10.00 | Retired from ChatGPT Feb 13, 2026; API access varies |
-| **GPT-4o-mini** | $0.15 | $0.60 | Legacy; check API availability |
+### 快取定價（前沿模型）
 
-#### Anthropic (Claude 4.x Generation)
-| Model | Input / 1M | Output / 1M | Context | Notes |
-|-------|------------|-------------|---------|-------|
-| **Claude Opus 4.8** ⭐ NEW | $5.00 | $25.00 | 1M | Released May 28, 2026 on API, Bedrock, Vertex AI. Dynamic Workflows research preview with parallel subagents. Optional fast mode at $10 / $50 per 1M (about 2.5x faster, 3x cheaper than the Opus 4.7 fast mode). SWE-bench Verified 88.6%; SWE-Bench Pro 69.2%; OSWorld-Verified 82.3%. |
-| **Claude Opus 4.7** | $5.00 | $25.00 | 1M | Released April 16, 2026 on API, Bedrock, Vertex, Microsoft Foundry. Higher-resolution vision, improved SWE. Fast mode: $30 / $150 per 1M. |
-| **Claude Opus 4.6** | $5.00 | $25.00 | 1M | 128K max output; adaptive thinking at standard rates. |
-| **Claude Sonnet 4.6** | $3.00 | $15.00 | 1M | Covers most Opus-level tasks at lower cost. **No Sonnet 4.8 released as of May 29, 2026.** |
-| **Claude Haiku 4.5** | $1.00 | $5.00 | 200K | Fastest Anthropic model; cache hit input $0.10 / 1M. |
-| **Claude Mythos Preview** | n/a | n/a | - | Restricted to ~11 Project Glasswing partners; not generally available. |
+Claude 與 OpenAI 提供輸入快取，大幅降低重複上下文場景的成本：
 
-> [!NOTE]
-> **Claude 1M context at standard pricing**: Opus 4.8, Opus 4.7, Opus 4.6, and Sonnet 4.6 include the full 1M token context window at standard rates with no premium tier for long context. Batch API offers a 50% discount. Cache hits cost 10% of the standard input price. Fast mode pricing on Opus 4.8 ($10 / $50 per 1M) and Opus 4.7 / 4.6 ($30 / $150 per 1M) stacks with caching multipliers but is not available on the Batch API or Claude Platform on AWS.
+| 模型 | 快取寫入（每百萬） | 快取命中（每百萬） |
+|------|------------------|------------------|
+| Claude Opus 4.8（5 分鐘） | $6.25 | $0.50 |
+| Claude Opus 4.8（1 小時） | $10.00 | $0.50 |
+| Claude Sonnet 4.6（5 分鐘） | $3.75 | $0.30 |
+| Claude Sonnet 4.6（1 小時） | $6.00 | $0.30 |
+| GPT-5.5（快取命中） | — | $1.25（75% 折扣） |
 
-#### Google (Gemini 3.x Generation)
-| Model | Input / 1M | Output / 1M | Context | Notes |
-|-------|------------|-------------|---------|-------|
-| **Gemini 3.1 Pro** | $2.00 | $12.00 | 1M | 200K+ context: $4.00/$18.00 |
-| **Gemini 3.1 Flash** | $0.10 | $3.00 | 1M | Best price/performance; high-volume |
-| **Gemini 2.5 Flash-Lite** | $0.10 | $0.40 | 1M | Deprecated June 2026 |
+> [!IMPORTANT]
+> **推論時間計算成本：** 對於帶有「擴展思維」或推理模式的模型（GPT-5.4 Pro、Claude Opus 4.6），即使不向使用者顯示，也會對**內部思維 token**收費。這可能使邏輯密集任務的總請求成本增加 2-10 倍。生產環境務必設定 `budget_tokens` 上限。
 
-> [!WARNING]
-> **Gemini 2.5 deprecation**: Gemini 2.5 Pro and 2.5 Flash are scheduled for deprecation on June 17, 2026. Migrate to Gemini 3.x models.
+---
 
-#### xAI (Grok)
-| Model | Input / 1M | Output / 1M | Context | Notes |
-|-------|------------|-------------|---------|-------|
-| **Grok 4** | $3.00 | $15.00 | 256K | Native tool use; real-time search |
-| **Grok 4.1 Fast** | $0.20 | $0.50 | 2M | High-volume, low-cost |
-| **Grok 3 mini** | check latest | check latest | - | Faster, less accurate |
+## 快速/經濟模型定價
 
-#### Open-Weight Models via API (May 2026)
-| Model | Input / 1M | Output / 1M | Context | Provider Examples |
-|-------|------------|-------------|---------|-------------------|
-| **DeepSeek-V3.2** | $0.28 | $0.42 | 128K | DeepSeek API. 98% cache-hit discount. Effective rates can drop 10–30× via routing. |
-| **DeepSeek V4 Pro** ⭐ NEW | $0.435 | $0.87 | 1M | DeepSeek API. 75% promotional discount made **permanent**: from June 1, 2026 the new list price is 25% of the original ($1.74 / $3.48). Cache-hit input: $0.003625/M. ~27% compute / 10% memory of V3.2 at 1M tokens. |
-| **DeepSeek V4 Flash** ⭐ NEW | $0.14 | $0.28 | 1M | DeepSeek API. Cache-hit input: $0.0028/M (98% discount). 13B-active MoE. Currently the cheapest frontier-class 1M-context API. |
-| **Mistral Medium 3.5** ⭐ NEW | $1.50 | check latest | 256K | Mistral API. Unified chat/reasoning/coding/vision; 77.6% SWE-Bench Verified. |
-| **Kimi K2.6** ⭐ NEW | check latest | check latest | - | Moonshot API. 1T MoE / 32B active; agent swarm to 300 sub-agents. |
-| **Qwen 3.6-35B-A3B** ⭐ NEW | check latest | check latest | - | Apache 2.0 weights; self-host or via API providers. |
-| **Llama 4 Scout** | $0.11 | $0.34 | 10M | Together AI, Groq, Fireworks. Note: effective context degrades fast past 32K. |
-| **Llama 4 Maverick** | $0.27 | $0.85 | 1M | Together AI, Groq, Fireworks. MoE-aware serving required. |
-| **DeepSeek-V3** | $0.25 | $1.10 | 128K | DeepSeek API, Together AI |
+| 模型 | 輸入 / 每百萬 | 輸出 / 每百萬 | 上下文 | 最佳用途 |
+|------|-------------|-------------|--------|----------|
+| **Gemini 3.1 Flash** | $0.10 | $3.00 | 1M | 高容量 RAG |
+| **GPT-5.5-mini** | 待查 | 待查 | 272K | 高容量即時 |
+| **Claude Haiku 4.5** | $0.10 | $0.50 | 200K | 低延遲 |
+| **DeepSeek V4 Flash** | $0.14 | $0.28 | 1M | 最便宜前沿級 1M 上下文 |
+| **o4-mini** | $0.10 | $0.40 | 128K | 快速推理 |
+| **Gemini 2.5 Flash** | $0.075 | $0.30 | 1M | 高容量 |
+| **Mistral Small 4** | $0.10 | $0.30 | 256K | 高效率 |
+
+---
+
+## 開源模型 API 定價
+
+#### 開權重模型透過 API（2026 年 5 月）
+
+| 模型 | 輸入 / 每百萬 | 輸出 / 每百萬 | 上下文 | 提供者範例 |
+|-------|-------------|-------------|---------|-------------------|
+| **DeepSeek-V3.2** | $0.28 | $0.42 | 128K | DeepSeek API。98% 快取命中折扣。有效費率可透過路由降低 10-30 倍。 |
+| **DeepSeek V4 Pro** ⭐ 新 | $0.435 | $0.87 | 1M | DeepSeek API。75% 促銷折扣永久化：**自 2026 年 6 月 1 日起，新定價為 $1.74 / $3.48 的 25%**。快取命中輸入：$0.003625/M。~27% 計算資源 / 10% 記憶體相較 V3.2 在 1M token。 |
+| **DeepSeek V4 Flash** ⭐ 新 | $0.14 | $0.28 | 1M | DeepSeek API。快取命中輸入：$0.0028/M（98% 折扣）。13B 活躍專家混合。目前最便宜的前沿級 1M 上下文 API。 |
+| **Mistral Medium 3.5** ⭐ 新 | $1.50 | 待查 | 256K | Mistral API。統一 chat/reasoning/coding/vision；77.6% SWE-bench Verified。 |
+| **Kimi K2.6** ⭐ 新 | 待查 | 待查 | — | Moonshot API。1T MoE / 32B 活躍；代理蜂群達 300 子代理。 |
+| **Qwen 3.6-35B-A3B** ⭐ 新 | 待查 | 待查 | — | Apache 2.0 權重；可自託管或透過 API 提供者。 |
+| **Llama 4 Scout** | $0.11 | $0.34 | 10M | Together AI、Groq、Fireworks。備註：有效上下文在 32K 後快速下降。 |
+| **Llama 4 Maverick** | $0.27 | $0.85 | 1M | Together AI、Groq、Fireworks。需要 MoE 感知服務。 |
+| **DeepSeek-V3** | $0.25 | $1.10 | 128K | DeepSeek API、Together AI |
 | **DeepSeek-R1** | $0.55 | $2.19 | 128K | DeepSeek API |
-| **Mistral Large 3** | $0.50 | $1.50 | 256K | Mistral API, AWS Bedrock |
-| **Llama 3.3 70B** | ~$0.10–0.20 | ~$0.30–0.60 | 128K | Groq, Together AI |
-| **Qwen2.5-Coder-32B** | ~$0.50 | ~$1.00 | 32K | Together AI |
-| **Gemma 4 (31B / 26B-A4B MoE / E4B / E2B)** ⭐ NEW | self-host | self-host | 256K | Apache 2.0. 140+ languages; native vision/audio; function calling. |
+| **Mistral Large 3** | $0.50 | $1.50 | 256K | Mistral API、AWS Bedrock |
+| **Llama 3.3 70B** | 約 $0.10-0.20 | 約 $0.30-0.60 | 128K | Groq、Together AI |
+| **Qwen2.5-Coder-32B** | 約 $0.50 | 約 $1.00 | 32K | Together AI |
+| **Gemma 4（31B / 26B-A4B MoE / E4B / E2B）** ⭐ 新 | 自託管 | 自託管 | 256K | Apache 2.0。140+ 語言；原生活動/音訊；函式呼叫。 |
 
-#### Embedding Models (May 2026)
-| Model | Cost / 1M tokens | Dimension |
-|-------|------------------|-----------|
-| **Cohere Embed 4** ⭐ NEW | $0.10 | 256 / 512 / 1024 / 1536 (Matryoshka) |
+#### 嵌入模型（2026 年 5 月）
+
+| 模型 | 每百萬 token 成本 | 維度 |
+|-------|------------------|------|
+| **Cohere Embed 4** ⭐ 新 | $0.10 | 256 / 512 / 1024 / 1536（Matryoshka） |
 | **text-embedding-3-large** | $0.13 | 3072 |
 | **text-embedding-3-small** | $0.02 | 1536 |
 | **Voyage-3** | $0.06 | 1024 |
 | **Cohere embed-v3** | $0.10 | 1024 |
 
-> [!IMPORTANT]
-> **Inference-time Compute Costs:** For models with "Extended Thinking" or reasoning modes (GPT-5.4 Pro, Claude Opus 4.6), you are charged for **internal thinking tokens** even if not shown to the user. This can increase total request cost by 2x-10x for logic-heavy tasks. Always set a `budget_tokens` cap in production.
-
 ---
 
-## Cost Calculation
+## 成本計算
 
-### Basic Cost Formula
+### 基本成本公式
 
 ```python
 def calculate_request_cost(
@@ -164,38 +125,38 @@ def calculate_request_cost(
     return cost
 ```
 
-### Example Cost Calculations
+### 成本計算範例
 
-**Scenario 1: RAG Chatbot**
+**情境 1：RAG 聊天機器人**
 ```
-Per request:
-- System prompt: 500 tokens
-- Retrieved context: 2,000 tokens
-- User message: 100 tokens
-- Response: 300 tokens
+每次請求：
+- 系統提示：500 tokens
+- 檢索上下文：2,000 tokens
+- 使用者訊息：100 tokens
+- 回應：300 tokens
 
-Input: 2,600 tokens, Output: 300 tokens
+輸入：2,600 tokens、輸出：300 tokens
 
-GPT-5.4 cost: (2600 × $2.50 + 300 × $15) / 1M = $0.0110 per request
+GPT-5.4 成本：(2600 × $2.50 + 300 × $15) / 1M = $0.0110 每次請求
 
-At 10,000 requests/day:
-Daily: $95
-Monthly: $2,850
-```
-
-**Scenario 2: Document Summarization**
-```
-Per document:
-- Document: 8,000 tokens
-- Summary: 500 tokens
-
-GPT-5.4 cost: (8000 × $2.50 + 500 × $15) / 1M = $0.0275
-
-1,000 documents: $27.50
-10,000 documents: $275
+每日 10,000 次請求：
+每日：$95
+每月：$2,850
 ```
 
-### Monthly Cost Projection
+**情境 2：文件摘要**
+```
+每份文件：
+- 文件：8,000 tokens
+- 摘要：500 tokens
+
+GPT-5.4 成本：(8000 × $2.50 + 500 × $15) / 1M = $0.0275
+
+1,000 份文件：$27.50
+10,000 份文件：$275
+```
+
+### 月度成本預估
 
 ```python
 def project_monthly_cost(
@@ -219,23 +180,23 @@ def project_monthly_cost(
         "yearly": yearly
     }
 
-# Example
+# 範例
 costs = project_monthly_cost(
     requests_per_day=50000,
     avg_input_tokens=2000,
     avg_output_tokens=400,
     model="gpt-5.4"
 )
-# Output: ~$18,750/month
+# 輸出：約 $18,750/月
 ```
 
 ---
 
-## Cost Optimization Strategies
+## 成本優化策略
 
-### Strategy 1: Model Routing
+### 策略 1：模型路由
 
-Route requests to appropriate model tiers:
+將請求路由至適當的模型層級：
 
 ```python
 class ModelRouter:
@@ -246,41 +207,41 @@ class ModelRouter:
         complexity = self.classifier.predict(query)
         
         if complexity < 0.3:
-            return "gpt-5.4-mini"  # Simple queries
+            return "gpt-5.4-mini"  # 簡單查詢
         elif complexity < 0.7:
-            return "gpt-5.4-mini"  # Medium, try cheap first
+            return "gpt-5.4-mini"  # 中等，先嘗試便宜的
         else:
-            return "gpt-5.4"  # Complex queries
+            return "gpt-5.4"  # 複雜查詢
 
     def route_with_fallback(self, query: str, context: str) -> str:
-        # Try cheap model first
+        # 先嘗試便宜模型
         response = self.try_model("gpt-5.4-mini", query, context)
 
         if self.is_quality_sufficient(response):
             return response
 
-        # Fallback to expensive model
+        # 失敗回退至昂貴模型
         return self.try_model("gpt-5.4", query, context)
 ```
 
-**Potential savings:** 50-70% with minimal quality impact
+**節省潛力：** 在品質影響最小的情況下節省 50-70%
 
-### Strategy 2: Prompt Optimization
+### 策略 2：提示優化
 
-Reduce token count without losing quality:
+在不改變品質的情況下減少 token 數量：
 
 ```python
-# Before: 2,500 tokens
+# 之前：2,500 tokens
 system_prompt = """
 You are a helpful customer support assistant for Acme Corp. 
 You have access to our product documentation and should answer 
 questions accurately and helpfully. Always be polite and professional.
 If you don't know something, say so rather than making things up.
 Format your responses clearly with bullet points when listing items.
-[... more verbose instructions ...]
+[... 更多冗長指令 ...]
 """
 
-# After: 800 tokens
+# 之後：800 tokens
 system_prompt = """
 You are Acme Corp's support assistant.
 Rules:
@@ -290,13 +251,13 @@ Rules:
 - Be concise
 """
 
-# Savings: 1,700 tokens × $2.50/1M = $0.00425 per request
-# At 10K requests/day: $42.50/day = $1,275/month
+# 節省：1,700 tokens × $2.50/1M = $0.00425 每次請求
+# 每日 10K 請求：$42.50/日 = $1,275/月
 ```
 
-### Strategy 3: Caching
+### 策略 3：快取
 
-Cache responses for repeated or similar queries:
+為重複或相似查詢快取回應：
 
 ```python
 class ResponseCache:
@@ -305,185 +266,185 @@ class ResponseCache:
         self.semantic_cache = SemanticCache(threshold=0.95)
     
     def get_or_generate(self, query: str, context: str) -> tuple[str, bool]:
-        # Check exact cache
+        # 檢查精確快取
         cache_key = self.make_key(query, context)
         if cache_key in self.exact_cache:
-            return self.exact_cache[cache_key], True  # Cache hit
+            return self.exact_cache[cache_key], True  # 快取命中
         
-        # Check semantic cache
+        # 檢查語義快取
         similar = self.semantic_cache.find_similar(query)
         if similar:
-            return similar.response, True  # Semantic hit
+            return similar.response, True  # 語義命中
         
-        # Generate new response
+        # 生成新回應
         response = self.generate(query, context)
         self.exact_cache[cache_key] = response
         self.semantic_cache.add(query, response)
         
-        return response, False  # Cache miss
+        return response, False  # 快取未命中
 
-# With 30% cache hit rate:
-# Baseline: $3,000/month
-# With caching: $2,100/month
-# Savings: $900/month
+# 30% 快取命中率的成本：
+# 基線：$3,000/月
+# 啟用快取：$2,100/月
+# 節省：$900/月
 ```
 
-### Strategy 4: Batch Processing
+### 策略 4：批次處理
 
-Process multiple requests together for efficiency:
+批次處理多個請求以提高效率：
 
 ```python
-# Real-time: pay full price
+# 即時：全額付費
 for query in queries:
     response = model.generate(query)
 
-# Batch API (OpenAI offers 50% discount):
+# 批次 API（OpenAI 提供五折）：
 batch_responses = model.batch_generate(queries)
-# Cost: 50% of real-time pricing
+# 成本：即時定價的 50%
 ```
 
-### Strategy 5: Output Length Control
+### 策略 5：輸出長度控制
 
-Limit response length appropriately:
+適當限制回應長度：
 
 ```python
-# Reduce unnecessary output
+# 減少不必要的輸出
 response = model.generate(
     prompt=prompt,
-    max_tokens=300,  # Limit output
-    stop=["\n\n"]    # Stop at natural break
+    max_tokens=300,  # 限制輸出
+    stop=["\n\n"]    # 在自然斷點停止
 )
 
-# Cost impact:
-# Before: avg 500 output tokens = $0.0075 per request (GPT-5.4)
-# After: avg 250 output tokens = $0.00375 per request
-# Savings: 50% on output costs
+# 成本影響：
+# 之前：平均 500 輸出 tokens = $0.0075 每次請求（GPT-5.4）
+# 之後：平均 250 輸出 tokens = $0.00375 每次請求
+# 節省：輸出成本降低 50%
 ```
 
-### Cost Optimization Summary
+### 成本優化總結
 
-| Strategy | Effort | Potential Savings |
-|----------|--------|-------------------|
-| Model routing | Medium | 50-70% |
-| **Context Caching** | Low | **60-90% (Input)** |
-| Prompt optimization | Low | 20-40% |
-| Response caching | Medium | 20-40% |
-| Batch processing | Low | 50% (OpenAI/Anthropic) |
-
----
-
-## Context Caching Economics
-
-**The "Golden Rule" for RAG (still true in 2026).**
-If you have a fixed system prompt or a shared knowledge base (prefix) larger than 10,000 tokens, **Context Caching** is mandatory.
-
-**Break-even Analysis (Claude Sonnet 4.6):**
-- **Standard Input**: $3.00 / 1M tokens
-- **Cached Input**: $0.30 / 1M tokens (90% discount)
-- **Cache Write Fee**: $3.75 / 1M tokens (5-min TTL at 1.25x); $6.00 (1-hour TTL at 2x)
-
-`Break-even = (Write Fee) / (Standard Rate - Cached Rate) ≈ 1.4 requests (5-min) or 2.2 requests (1-hour)`
-
-If your long prefix is used by **more than 2 users**, caching it is strictly cheaper than sending it raw every time. Both OpenAI and Anthropic now offer batch API discounts (50% off) that stack with caching.
+| 策略 | 難度 | 潛在節省 |
+|----------|--------|-----------------|
+| 模型路由 | 中 | 50-70% |
+| **上下文快取** | 低 | **60-90%（輸入）** |
+| 提示優化 | 低 | 20-40% |
+| 回應快取 | 中 | 20-40% |
+| 批次處理 | 低 | 50%（OpenAI/Anthropic） |
 
 ---
 
-## Self-Hosting & GPU Cloud Arbitrage
+## 上下文快取經濟學
 
-**The Reserved vs. Serverless Tradeoff:**
+**RAG 的「黃金法則」（2026 年仍然成立）。**
 
-| Model Size | Serverless (RunPod/Together) | Reserved (Lambda/AWS) |
+如果你有一個大於 10,000 tokens 的固定系統提示或共享知識庫（前綴），**上下文快取**是必備的。
+
+**損益平衡分析（Claude Sonnet 4.6）：**
+- **標準輸入**：$3.00 / 百萬 tokens
+- **快取輸入**：$0.30 / 百萬 tokens（九折）
+- **快取寫入費用**：$3.75 / 百萬 tokens（5 分鐘 TTL，1.25 倍）；$6.00（1 小時 TTL，2 倍）
+
+`損益平衡 =（寫入費用）/（標準費率 - 快取費率）≈ 1.4 次請求（5 分鐘）或 2.2 次請求（1 小時）`
+
+如果你的長前綴被**超過 2 個使用者**使用，快取絕對比每次直接發送更便宜。OpenAI 和 Anthropic 現在都提供批次 API 折扣（五折），可與快取疊加使用。
+
+---
+
+## 自託管與 GPU 雲端套利
+
+**預留與無伺服器的權衡：**
+
+| 模型大小 | 無伺服器（RunPod/Together） | 預留（Lambda/AWS） |
 |------------|-----------------------------|-----------------------|
-| **Burst Capacity** | Infinite (cold starts) | Fixed |
-| **Utilization** | Pay only for compute time | 24/7 fixed cost |
-| **TCO Break-even**| **Cost-effective < 40% util** | **Cost-effective > 40% util** |
+| **突發容量** | 無限（冷啟動） | 固定 |
+| **利用率** | 僅按計算時間付費 | 24/7 固定成本 |
+| **TCO 損益平衡**| **低於 40% 利用率時具成本效益** | **高於 40% 利用率時具成本效益** |
 
-**Principal-level Nuance:**
-"GPU Cloud Arbitrage" involves moving production workloads between providers based on **spot instance availability**. Tools like **Skypilot** automate this, saving up to 60% on self-hosting costs by following "low-demand" regions globally. The rise of MoE models (Llama 4 Scout fits on a single H100, Maverick on ~2x H100, DeepSeek V4 Flash on 4x H100) has further reduced self-hosting GPU requirements compared to dense models.
+**原則層面細節：**「GPU 雲端套利」涉及根據**spot 執行個體可用性**在供應商之間移動生產工作負載。**Skypilot** 等工具透過全球追蹤「低需求」區域來自動化此操作，可節省高達 60% 的自託管成本。專家混合模型的興起（Llama 4 Scout 可容納於單張 H100、Maverick 約需 2 張 H100、DeepSeek V4 Flash 約需 4 張 H100）相較密集模型進一步降低了自託管的 GPU 需求。
 
-### When Self-Hosting Makes Sense
+### 何時自託管有意義
 
 ```
-Break-even analysis:
+損益平衡分析：
 
-API cost at scale:
-- 1M requests/month
-- 2,500 tokens average
-- GPT-5.4: ~$37,500/month
-- Claude Sonnet 4.6: ~$30,000/month
+API 成本（規模化）：
+- 每月 100 萬次請求
+- 平均 2,500 tokens
+- GPT-5.4：約 $37,500/月
+- Claude Sonnet 4.6：約 $30,000/月
 
-Self-hosted equivalent (Llama 4 Maverick via MoE):
-- 2x H100 80GB: ~$6/hour × 730 = $4,380/month
-- Engineering time: $5,000/month (0.5 FTE)
-- Ops overhead: $2,000/month
-- Total: ~$11,380/month
+自託管等效（Llama 4 Maverick，透過 MoE）：
+- 2x H100 80GB：約 $6/小時 × 730 = $4,380/月
+- 工程人力：$5,000/月（0.5 FTE）
+- 營運間接成本：$2,000/月
+- 總計：約 $11,380/月
 
-Savings vs GPT-5.4: $26,120/month = 70%
-Savings vs Claude Sonnet 4.6: $18,620/month = 62%
+與 GPT-5.4 相比節省：$26,120/月 = 70%
+與 Claude Sonnet 4.6 相比節省：$18,620/月 = 62%
 ```
 
-### Self-Hosting Cost Components
+### 自託管成本組成
 
-| Component | Monthly Cost | Notes |
+| 組成部分 | 月度成本 | 備註 |
 |-----------|--------------|-------|
-| GPU compute | $5K-20K | Depends on model size |
-| Storage | $200-500 | Model weights, logs |
-| Networking | $100-500 | Egress, load balancing |
-| Engineering | $5K-15K | Partial FTE for ops |
-| Monitoring | $100-500 | Observability tools |
+| GPU 計算 | $5K-20K | 取決於模型大小 |
+| 儲存 | $200-500 | 模型權重、日誌 |
+| 網路 | $100-500 | 輸出、負載平衡 |
+| 工程人力 | $5K-15K | 部分 FTE 負責營運 |
+| 監控 | $100-500 | 可觀測性工具 |
 
-### GPU Requirements by Model Size
+### GPU 需求（按模型大小）
 
-| Model Size | GPU Config | Estimated Cost/Month |
-|------------|------------|---------------------|
-| 7B (INT4) | 1x A10G | $500-800 |
-| 7B (FP16) | 1x A100 40GB | $1,500-2,500 |
-| 70B (INT4) | 2x A100 80GB | $5,000-8,000 |
-| 70B (FP16) | 4x A100 80GB | $10,000-15,000 |
-| 405B (INT4) | 8x H100 | $20,000-30,000 |
+| 模型大小 | GPU 配置 | 預估月度成本 |
+|------------|-------------|---------------------|
+| 7B（INT4） | 1x A10G | $500-800 |
+| 7B（FP16） | 1x A100 40GB | $1,500-2,500 |
+| 70B（INT4） | 2x A100 80GB | $5,000-8,000 |
+| 70B（FP16） | 4x A100 80GB | $10,000-15,000 |
+| 405B（INT4） | 8x H100 | $20,000-30,000 |
 
-### Decision Framework
+### 決策框架
 
 ```
-Choose API when:
-- Volume < 100K requests/month
-- No ML ops expertise
-- Need highest quality (frontier models)
-- Fast iteration needed
+選擇 API 的時機：
+- 請求量 < 100K/月
+- 無 ML 營運專業知識
+- 需要最高品質（前沿模型）
+- 需要快速疊代
 
-Choose self-hosting when:
-- Volume > 500K requests/month
-- Have ML infrastructure team
-- Data privacy requirements
-- Predictable, stable workload
-- Custom fine-tuning needed
+選擇自託管的時機：
+- 請求量 > 500K/月
+- 有 ML 基礎設施團隊
+- 有資料隱私要求
+- 工作負載可預測、穩定
+- 需要自訂微調
 ```
 
 ---
 
-## Total Cost of Ownership
+## 總持有成本
 
-### TCO Components
+### TCO 組成部分
 
 ```python
 def calculate_tco(scenario: dict) -> dict:
-    # Direct costs
+    # 直接成本
     api_or_compute = scenario["monthly_api_cost"]
     
-    # Engineering costs
+    # 工程成本
     development = scenario["dev_hours"] * scenario["engineer_rate"]
     maintenance = scenario["maintenance_hours"] * scenario["engineer_rate"]
     
-    # Infrastructure
+    # 基礎設施
     vector_db = scenario["vector_db_cost"]
     monitoring = scenario["monitoring_cost"]
     
-    # Indirect costs
+    # 間接成本
     downtime_risk = scenario["expected_downtime_hours"] * scenario["revenue_per_hour"]
     
     monthly_tco = (
         api_or_compute +
-        development / 12 +  # Amortized over year
+        development / 12 +  # 按年攤銷
         maintenance +
         vector_db +
         monitoring +
@@ -502,106 +463,107 @@ def calculate_tco(scenario: dict) -> dict:
     }
 ```
 
-### Example TCO Comparison
+### TCO 比較範例
 
-**Scenario: Customer Support Bot (50K requests/month)**
+**情境：客服機器人（每月 50K 請求）**
 
-| Cost Component | API-Based | Self-Hosted |
+| 成本組成部分 | API 型 | 自託管 |
 |----------------|-----------|-------------|
-| LLM costs | $5,000 | $3,000 |
-| Vector DB | $70 | $200 |
-| Engineering (monthly) | $500 | $3,000 |
-| Monitoring | $100 | $200 |
-| **Monthly Total** | **$5,670** | **$6,400** |
+| LLM 成本 | $5,000 | $3,000 |
+| 向量資料庫 | $70 | $200 |
+| 工程（每月） | $500 | $3,000 |
+| 監控 | $100 | $200 |
+| **月度總計** | **$5,670** | **$6,400** |
 
-*At this scale, API is cheaper due to engineering overhead.*
+*此規模下，API 因工程間接成本較低而更便宜。*
 
-**Scenario: Large-Scale RAG (2M requests/month)**
+**情境：大規模 RAG（每月 200 萬請求）**
 
-| Cost Component | API-Based | Self-Hosted |
+| 成本組成部分 | API 型 | 自託管 |
 |----------------|-----------|-------------|
-| LLM costs | $50,000 | $15,000 |
-| Vector DB | $500 | $1,000 |
-| Engineering (monthly) | $1,000 | $8,000 |
-| Monitoring | $200 | $500 |
-| **Monthly Total** | **$51,700** | **$24,500** |
+| LLM 成本 | $50,000 | $15,000 |
+| 向量資料庫 | $500 | $1,000 |
+| 工程（每月） | $1,000 | $8,000 |
+| 監控 | $200 | $500 |
+| **月度總計** | **$51,700** | **$24,500** |
 
-*At this scale, self-hosting is significantly cheaper.*
+*此規模下，自託管明顯更便宜。*
 
 ---
 
-## Interview Questions
+## 面試問題
 
-### Q: How would you optimize costs for a high-volume RAG application?
+### Q：如何優化高容量 RAG 應用的成本？
 
-**Strong answer:**
-I would approach cost optimization in layers:
+**最佳答案：**
 
-**1. Architecture optimization:**
-- Model routing: Use cheap model for simple queries
-- Caching: 30-40% of queries may be cacheable
-- Prompt compression: Minimize system prompt tokens
+「我會分層處理成本優化：
 
-**2. Model selection:**
+**1. 架構優化：**
+- 模型路由：對簡單查詢使用便宜模型
+- 快取：30-40% 的查詢可能可快取
+- 提示壓縮：最小化系統提示 tokens
+
+**2. 模型選擇：**
 ```
-Simple queries (60%): GPT-5.4-mini at $0.003/request
-Complex queries (40%): GPT-5.4 at $0.011/request
-Weighted avg: $0.0062/request (vs $0.011 all GPT-5.4)
-Savings: 44%
+簡單查詢（60%）：GPT-5.4-mini，$0.003/請求
+複雜查詢（40%）：GPT-5.4，$0.011/請求
+加權平均：$0.0062/請求（相較全部 GPT-5.4 節省 44%）
 ```
 
-**3. Infrastructure:**
-- Batch embedding updates (50% cheaper)
-- Right-size vector DB
-- Use spot instances where possible
+**3. 基礎設施：**
+- 批次嵌入更新（五折）
+- 正確調整向量資料庫大小
+- 盡可能使用 spot 執行個體
 
-**4. Monitoring:**
-- Track cost per query type
-- Alert on anomalies
-- Regular cost reviews
+**4. 監控：**
+- 按查詢類型追蹤成本
+- 異常警報
+- 定期成本審查
 
-### Q: When would you recommend self-hosting vs using APIs?
+### Q：何時建議自託管而非使用 API？
 
-**Strong answer:**
-Decision depends on multiple factors:
+**最佳答案：**
 
-**Volume threshold:**
-- Below 100K/month: Almost always API
-- 100K-500K: Evaluate case by case
-- Above 500K: Often self-hosting wins
+「決策取決於多個因素：
 
-**Team capabilities:**
-- No ML ops: API regardless of scale
-- Strong infra team: Consider self-hosting earlier
+**數量閾值：**
+- 低於 100K/月：幾乎總是 API
+- 100K-500K：個案評估
+- 高於 500K：通常自託管勝出
 
-**Quality requirements:**
-- Need absolute best: APIs (frontier models)
-- Good enough works: Self-hosted open models
+**團隊能力：**
+- 無 ML 營運：無論規模一律 API
+- 強大基礎設施團隊：考慮較早自託管
 
-**Other factors:**
-- Data privacy: May force self-hosting
-- Latency control: Self-hosting gives more control
-- Fine-tuning needs: Self-hosting enables more customization
+**品質要求：**
+- 需要絕對最佳：API（前沿模型）
+- 足夠好即可：自託管開源模型
 
-**My recommendation process:**
-1. Start with APIs for fastest iteration
-2. Build abstraction layer for model switching
-3. Evaluate self-hosting when spend exceeds $10K/month
-4. Pilot with shadow deployment before committing
+**其他因素：**
+- 資料隱私：可能強制自託管
+- 延遲控制：自託管提供更多控制
+- 微調需求：自託管啟用更多自訂
 
----
-
-## References
-
-- OpenAI Pricing: https://developers.openai.com/api/docs/pricing
-- Anthropic Pricing: https://platform.claude.com/docs/en/about-claude/pricing
-- Google AI Pricing: https://ai.google.dev/gemini-api/docs/pricing
-- xAI Pricing: https://docs.x.ai/developers/models
-- Mistral Pricing: https://docs.mistral.ai/getting-started/changelog
-- Lambda Labs GPU Pricing: https://lambdalabs.com/service/gpu-cloud
-- RunPod Pricing: https://www.runpod.io/pricing
-- LLM Pricing Comparison: https://pricepertoken.com/
+**我的推薦流程：**
+1. 先用 API 最快速疊代
+2. 建立抽象層以便切換模型
+3. 當支出超過 $10K/月 時評估自託管
+4. 在承諾前先以影子部署試點」
 
 ---
 
-*Previous: [Capability Assessment](02-capability-assessment.md) | Next: [Model Selection Guide](04-model-selection-guide.md)*
+## 參考資料
+
+- OpenAI 定價：https://developers.openai.com/api/docs/pricing
+- Anthropic 定價：https://platform.claude.com/docs/en/about-claude/pricing
+- Google AI 定價：https://ai.google.dev/gemini-api/docs/pricing
+- xAI 定價：https://docs.x.ai/developers/models
+- Mistral 定價：https://docs.mistral.ai/getting-started/changelog
+- Lambda Labs GPU 定價：https://lambdalabs.com/service/gpu-cloud
+- RunPod 定價：https://www.runpod.io/pricing
+- LLM 定價比較：https://pricepertoken.com/
+
+---
+
+*前一篇：[能力評估](02-capability-assessment.md) | 下一篇：[模型選擇指南](04-model-selection-guide.md)*

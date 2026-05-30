@@ -1,91 +1,91 @@
-# Agentic RAG
+# 代理式 RAG
 
-Agentic RAG moves from a "Linear Pipeline" to a **"Reasoning Loop."** Instead of retrieving once, an agent decides *when* and *what* to retrieve to resolve a query. The dominant production patterns are Self-RAG (model emits reflection tokens), Corrective RAG (retrieval evaluator with corrective routing), Adaptive RAG (classifier picks pipeline depth), ReAct over documents, and multi-hop query decomposition. LangGraph is the most common control-flow runtime for stateful loops; LlamaIndex Workflows is common for single-pipeline retrieval-heavy variants.
+代理式 RAG 從「線性管線」轉向**「推理循環」**。不同於僅檢索一次，代理會判斷何時檢索以及檢索什麼來解決查詢。主要的生產模式包括：Self-RAG（模型發出反思標記）、Corrective RAG（檢索評估器搭配修正路由）、Adaptive RAG（分類器選擇管線深度）、ReAct 文件處理，以及多跳查詢分解。LangGraph 是有狀態循環最常用的控制流執行期；LlamaIndex Workflows 則適用於單管線檢索密集型變體。
 
-## Table of Contents
+## 目錄
 
-- [Linear vs. Agentic RAG](#comparison)
-- [Self-RAG (Self-Reflection)](#self-rag)
-- [Corrective RAG (CRAG)](#crag)
-- [Multi-Hop Reasoning Loops](#multi-hop)
-- [Agentic Filtering and Plan Revision](#planning)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [線性 vs. 代理式 RAG](#comparison)
+- [Self-RAG（自我反思）](#self-rag)
+- [Corrective RAG（CRAG）](#crag)
+- [多跳推理循環](#multi-hop)
+- [代理式過濾與計劃修訂](#planning)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Linear vs. Agentic RAG
+## 線性 vs. 代理式 RAG
 
-| Model | Linear RAG | Agentic RAG |
+| 模型 | 線性 RAG | 代理式 RAG |
 |-------|------------|-------------|
-| **Structure** | Predetermined sequence | Dynamic loop |
-| **Self-Correction** | None | High (Can re-retrieve) |
-| **Query Complexity**| Simple (1-step) | Hard (Multi-step) |
-| **Latency** | Low (Fixed) | Variable (Multiple turns) |
+| **結構** | 預定順序 | 動態循環 |
+| **自我修正** | 無 | 高（可重新檢索） |
+| **查詢複雜度**| 簡單（單步） | 困難（多步） |
+| **延遲** | 低（固定） | 可變（多輪） |
 
-**Principle**: Use Agentic RAG when the query requires "Synthesized Proof" rather than just a "Document Match." Budget for it: a 3-4 iteration loop typically takes 8-12s end-to-end, so route easy queries to a fast path (Adaptive RAG) if your UX needs sub-3s response.
-
----
-
-## Self-RAG (Self-Reflection)
-
- popularized in 2024/2025, **Self-RAG** uses "Critic Tokens" to evaluate its own work.
-
-1. **Retrieve**: Model pulls Top-K chunks.
-2. **Evaluate**: Is the info relevant? (CRITIC: `Relevant`)
-3. **Generate**: Is the answer supported? (CRITIC: `Supported`)
-4. **Iterate**: If the answer isn't supported, the model *automatically* triggers a broader search.
+**原則**：當查詢需要「綜合論證」而非僅僅「文件匹配」時，使用代理式 RAG。要有預算意識：3-4 次迭代的循環通常需要 8-12 秒的端對端時間，因此如果你的 UX 需要低於 3 秒的回應時間，請將簡單查詢導向快速路徑（Adaptive RAG）。
 
 ---
 
-## Corrective RAG (CRAG)
+## Self-RAG（自我反思）
 
-CRAG adds a "Reliability Layer" between retrieval and generation.
+在 2024/2025 年流行，**Self-RAG** 使用「批評論標記」來評估自己的工作。
 
-- **The Logic**: 
-  - If retrieval is **Correct**: Direct generation.
-  - If retrieval is **Ambiguous**: Use a Web-Search tool to supplement.
-  - If retrieval is **Incorrect**: Discard context and use external search or fallback logic.
-
----
-
-## Multi-Hop Reasoning Loops
-
-For questions like "Who is the CEO of the company that acquired Figma?", the system must:
-1. **Hop 1**: Search for "Who acquired Figma?" (Result: Adobe).
-2. **Hop 2**: Search for "CEO of Adobe" (Result: Shantanu Narayen).
-
-**Agentic Pattern**: The agent maintains a "State Object" and updates its "Sub-goal" after every retrieval until the chain is complete.
+1. **檢索**：模型拉取 Top-K 區塊。
+2. **評估**：資訊是否相關？（CRITIC：`Relevant`）
+3. **生成**：答案是否有根據？（CRITIC：`Supported`）
+4. **迭代**：如果答案沒有根據，模型*自動*觸發更廣泛的搜尋。
 
 ---
 
-## Agentic Filtering and Plan Revision
+## Corrective RAG（CRAG）
 
-Modern agents use **Sub-Step Plans**.
-- Instead of one big retrieval, the agent writes a plan: "First I will check our internal database for X, then I will look at the public API for Y."
-- **Revised planning**: If Step 1 fails, the agent *rewrites* Step 2.
+CRAG 在檢索與生成之間加入「可靠性層」。
 
----
-
-## Interview Questions
-
-### Q: What is the "Reasoning-Retrieval Balance" in Agentic RAG?
-
-**Strong answer:**
-Every "Reasoning turn" in an agentic loop adds token cost and user latency. The goal of a production engineer is to find the "Retrieval Threshold." We use **Token-Budgeting** where we allow the agent only 3-5 "turns" before forcing a final answer. We also use **Speculative Retrieval**—where the agent predicts the next 2 steps it will take and retrieves for both simultaneously to reduce round-trip latency.
-
-### Q: Why does Agentic RAG often lead to higher quality but lower "Reliability" (Determinism)?
-
-**Strong answer:**
-Agentic RAG is non-deterministic because the model is "Deciding" its path at every step. A small change in the user query might cause the agent to pick a different tool or search strategy, leading to a different answer format. The standard mitigation is **Constrained Agent Frameworks** (like LangGraph or DSPy) where the "Graph of possible paths" is strictly defined, even if the choice *between* those paths is stochastic.
+- **邏輯**： 
+  - 如果檢索**正確**：直接生成。
+  - 如果檢索**模糊**：使用網頁搜尋工具來補充。
+  - 如果檢索**錯誤**：丟棄上下文，使用外部搜尋或後備邏輯。
 
 ---
 
-## References
+## 多跳推理循環
+
+對於「誰是收購 Figma 之公司的執行長？」這類問題，系統必須：
+1. **跳 1**：搜尋「誰收購了 Figma？」（結果：Adobe）。
+2. **跳 2**：搜尋「Adobe 的執行長是誰？」（結果：Shantanu Narayen）。
+
+**代理模式**：代理維護一個「狀態物件」，並在每次檢索後更新其「子目標」，直到鏈完成。
+
+---
+
+## 代理式過濾與計劃修訂
+
+現代代理使用**子步驟計劃**。
+- 不做一次大檢索，代理會制定計劃：「首先我會檢查我們的內部資料庫找 X，然後我會查看公共 API 找 Y。」
+- **修訂計劃**：如果步驟 1 失敗，代理*重寫*步驟 2。
+
+---
+
+## 面試問題
+
+### Q：代理式 RAG 中的「推理—檢索平衡」是什麼？
+
+**強而有力的答案：**
+代理循環中的每個「推理回合」都會增加標記成本和使用者延遲。生產工程師的目標是找到「檢索閾值」。我們使用**標記預算**，允許代理只有 3-5 個「回合」後強迫給出最終答案。我們也使用**推測性檢索**——讓代理預測接下來 2 步驟會做什麼，並同時為兩者進行檢索，以減少往返延遲。
+
+### Q：為什麼代理式 RAG 通常導致更高品質但較低的「可靠性」（確定性）？
+
+**強而有力的答案：**
+代理式 RAG 具有非確定性，因為模型在每一步都在「決定」其路徑。使用者查詢的微小變化可能導致代理選擇不同的工具或搜尋策略，進而產生不同格式的答案。標準緩解方法是**約束代理框架**（如 LangGraph 或 DSPy），其中「可能路徑的圖」是嚴格定義的，即使這些路徑之間的*選擇*是隨機的。
+
+---
+
+## 參考文獻
 - Asai et al. "Self-RAG: Learning to Retrieve, Generate, and Critique" (2024/2025)
 - Yan et al. "Corrective Retrieval Augmented Generation (CRAG)" (2024)
 - LangChain. "Agentic RAG with LangGraph" (2025)
 
 ---
 
-*Next: [Advanced Retrieval Patterns](09-advanced-retrieval-patterns.md)*
+*下一篇：[進階檢索模式](09-advanced-retrieval-patterns.md)*

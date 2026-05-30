@@ -1,48 +1,48 @@
-# LLM Internals
+# LLM 內部原理
 
-The architectural core of modern LLMs: transformers, MoE, attention math, RoPE, GQA, KV cache, and the inference-optimal scaling shift driving 2026 model design.
+大型語言模型（LLM，Large Language Model）的架構核心：Transformer、MoE、注意力機制數學、RoPE、GQA、KV 快取，以及推動 2026 模型設計的推論最佳化轉移。
 
-This chapter covers the core concepts behind large language models. Understanding these internals is essential for making informed architectural decisions about AI systems. For practical implications of these architectural choices, see [Inference Optimization](../04-inference-optimization/) (KV cache, PagedAttention), [Model Taxonomy](../02-model-landscape/01-model-taxonomy.md) (MoE models in production), and [Glossary](../GLOSSARY.md) for definitions of MoE, RoPE, ALiBi, GQA, MLA.
+本章涵蓋大型語言模型背後的核心概念。了解這些內部原理對於做出明智的 AI 系統架構決策至關重要。有關這些架構選擇的實際影響，請參閱[推論優化](../04-inference-optimization/)（KV 快取、PagedAttention）、[模型分類學](../02-model-landscape/01-model-taxonomy.md)（生產環境中的 MoE 模型），以及[詞彙表](../GLOSSARY.md)以獲取 MoE、RoPE、ALiBi、GQA、MLA 的定義。
 
-## Table of Contents
+## 目錄
 
-- [The Transformer Revolution](#the-transformer-revolution)
-- [Architecture Variants](#architecture-variants)
-- [Mixture of Experts (MoE)](#mixture-of-experts-moe)
-- [Scaling Laws: Training vs. Inference Optimal](#scaling-laws-training-vs-inference-optimal)
-- [Native Multimodality](#native-multimodality)
-- [Self-Attention Mechanism](#self-attention-mechanism)
-- [Multi-Head Attention](#multi-head-attention)
-- [Position Encodings](#position-encodings)
-- [Feed-Forward Networks](#feed-forward-networks)
-- [Layer Normalization](#layer-normalization)
-- [Putting It All Together](#putting-it-all-together)
-- [Key Numbers to Know](#key-numbers-to-know)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [Transformer 革命](#the-transformer-revolution)
+- [架構變體](#architecture-variants)
+- [混合專家（MoE）](#mixture-of-experts-moe)
+- [縮放定律：訓練最佳化與推論最佳化](#scaling-laws-training-vs-inference-optimal)
+- [原生多模態](#native-multimodality)
+- [自注意力機制](#self-attention-mechanism)
+- [多頭注意力](#multi-head-attention)
+- [位置編碼](#position-encodings)
+- [前饋網路](#feed-forward-networks)
+- [層正規化](#layer-normalization)
+- [整合一切](#putting-it-all-together)
+- [關鍵數字](#key-numbers-to-know)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## The Transformer Revolution
+## Transformer 革命
 
-Before 2017, sequence modeling relied on recurrent architectures (RNNs, LSTMs) that processed tokens sequentially. This created two problems:
+在 2017 年之前，序列建模依賴循環架構（RNN、LSTM），這些架構依序處理 token。這造成兩個問題：
 
-1. **Training was slow**: Sequential processing prevented parallelization
-2. **Long-range dependencies were hard**: Information had to flow through many hidden states
+1. **訓練緩慢**：依序處理阻礙了平行化
+2. **長期依賴難以捕捉**：資訊必須流經許多隱藏層
 
-The Transformer architecture, introduced in "Attention Is All You Need" (Vaswani et al., 2017), solved both problems by replacing recurrence with self-attention.
+Transformer 架構在《Attention Is All You Need》（Vaswani 等人，2017 年）中提出，通過用自注意力替換循環來解決這兩個問題。
 
-**Mental model for distributed systems engineers:**
-Think of recurrence like a single-threaded request pipeline where each step depends on the previous. Self-attention is like a fully connected graph where every node can query every other node in parallel.
+**給分散式系統工程師的心理模型：**
+將循環視為單執行緒請求管線，其中每個步驟取決於前一個。自注意力就像一個完全連接的圖，其中每個節點都可以平行查詢所有其他節點。
 
 ```mermaid
 flowchart LR
-    subgraph RNN [RNN sequential]
+    subgraph RNN [RNN 依序]
         A1[t1] --> A2[t2]
         A2 --> A3[t3]
         A3 --> A4[t4]
     end
-    subgraph TX [Transformer parallel]
+    subgraph TX [Transformer 平行]
         B1[t1]
         B2[t2]
         B3[t3]
@@ -58,334 +58,334 @@ flowchart LR
 
 ---
 
-## Architecture Variants
+## 架構變體
 
-Three main variants emerged based on which parts of the original Transformer are used:
+根據使用的原始 Transformer 部分，出現了三種主要變體：
 
-| Architecture | Attention Type | Examples | Best For |
+| 架構 | 注意力類型 | 範例 | 最適用途 |
 |--------------|---------------|----------|----------|
-| Encoder-only | Bidirectional | BERT, RoBERTa | Classification, NER, embeddings |
-| Decoder-only | Causal (left-to-right) | GPT-4, Claude, Llama | Text generation, chat |
-| Encoder-Decoder | Cross-attention | T5, BART | Translation, summarization |
+| 僅編碼器 | 雙向 | BERT、RoBERTa | 分類、NER、嵌入 |
+| 僅解碼器 | 因果（由左至右） | GPT-4、Claude、Llama | 文字生成、聊天 |
+| 編碼器-解碼器 | 交叉注意力 | T5、BART | 翻譯、摘要 |
 
-### Decoder-Only (Most LLMs Today)
+### 僅解碼器（當今大多數 LLM）
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                 Decoder Block (×N)                  │
+│                 解碼器區塊（×N）                     │
 │  ┌───────────────────────────────────────────────┐  │
-│  │           Masked Self-Attention               │  │
-│  │   (Each token attends only to previous)       │  │
+│  │           遮罩自注意力                          │  │
+│  │   （每個 token 只關注前面的 token）              │  │
 │  └───────────────────────────────────────────────┘  │
 │                         │                           │
 │                    Add & Norm                       │
 │                         │                           │
 │  ┌───────────────────────────────────────────────┐  │
-│  │              Feed-Forward Network             │  │
+│  │              前饋網路                            │  │
 │  └───────────────────────────────────────────────┘  │
 │                         │                           │
 │                    Add & Norm                       │
 └─────────────────────────────────────────────────────┘
                           │
                           ▼
-                   Output Probabilities
+                   輸出機率
 ```
 
-**Why decoder-only dominates:**
-- Simplest architecture
-- Pre-training objective (next token prediction) aligns with generation
-- Scales well with compute
+**為什麼僅解碼器占主導地位：**
+- 最簡單的架構
+- 預訓練目標（下一個 token 預測）與生成對齊
+- 可隨計算資源擴展
 
-### Encoder-Only (BERT-style)
+### 僅編碼器（BERT 風格）
 
-Uses bidirectional attention. Each token sees all other tokens. Cannot generate text autoregressively but excels at understanding tasks.
+使用雙向注意力。每個 token 可以看到所有其他 token。無法自迴歸生成文字，但在理解任務上表現出色。
 
-**Practical relevance:**
-- Fine-tuned for classification (intent detection, sentiment)
-- Backbone for embedding models
-- Smaller, faster for specific tasks
+**實際相關性：**
+- 針對分類進行微調（意圖檢測、情感分析）
+- 作為嵌入模型的骨幹
+- 針對特定任務更小、更快
 
-### Encoder-Decoder (The Return of the Encoder)
+### 編碼器-解碼器（編碼器的回歸）
 
-While decoder-only dominated for years, there has been a partial return to encoder-decoder architectures for specialized **reasoning** and **verification** tasks (e.g., internal verifiers inside the o-series and Claude reasoning models).
+雖然僅解碼器多年來占主導地位，但對於專門的**推理**和**驗證**任務，編碼器-解碼器架構已有部分回歸（例如 o 系列和 Claude 推理模型內部的內部驗證器）。
 
 ---
 
-## Mixture of Experts (MoE)
+## 混合專家（MoE）
 
-**The most significant architectural shift in frontier models (GPT-5.5, Claude Opus 4.7, Gemini 3.1 Pro, DeepSeek V4, Llama 4 Maverick, Mixtral).**
+**前沿模型中最重要的架構轉變（GPT-5.5、Claude Opus 4.7、Gemini 3.1 Pro、DeepSeek V4、Llama 4 Maverick、Mixtral）。**
 
-MoE replaces the dense Feed-Forward Network (FFN) with multiple "experts" and a "router" that selects which experts process a given token.
+MoE 用多個「專家」和一個「路由器」替換了密集的前饋網路（FFN），路由器選擇哪些專家處理給定的 token。
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                 MoE Layer (Decoder)                 │
+│                 MoE 層（解碼器）                    │
 │  ┌───────────────────────────────────────────────┐  │
-│  │               Attention Layer                 │  │
+│  │               注意力層                          │  │
 │  └───────────────────────────────────────────────┘  │
 │                         │                           │
 │                 ┌───────▼───────┐                   │
-│                 │     Router    │                   │
+│                 │     路由器     │                   │
 │                 └─┬───┬───┬───┬─┘                   │
 │          ┌────────┘   │   │   └────────┐            │
 │          ▼            ▼   ▼            ▼            │
 │   ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐│
-│   │ Expert 1 │ │ Expert 2 │ │ Expert 3 │ │ Expert N ││
+│   │ 專家 1   │ │ 專家 2   │ │ 專家 3   │ │ 專家 N   ││
 │   └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘│
 │        └────────────┴───┬───┴────────────┘        │
 └─────────────────────────▼───────────────────────────┘
 ```
 
-### Key MoE Nuances for System Design:
-1. **Total vs. Active Parameters**: A 1.6T parameter MoE model (like DeepSeek V4 Pro) might only use 49B parameters per token. Llama 4 Maverick is 17B active across 128 experts. Kimi K2.6 is 1T total / 32B active.
-    - **Memory constraint**: You must store all 1.2T parameters (high VRAM).
-    - **Compute constraint**: You only pay for 100B params of FLOPs (faster latency).
-2. **Routing Collapse**: If the router only picks one expert, the others don't learn. Modern models use **load balancing loss** and **auxiliary losses** to ensure all experts are utilized.
-3. **DeepSeek-V3 Refinements**: Introduced **Multi-head Latent Attention (MLA)** and **Auxiliary-loss-free load balancing**, which became the de-facto standard for MoE efficiency. DeepSeek V4 (April 2026) extends both techniques to a 1M-token context window.
+### MoE 系統設計的關鍵細節：
+1. **總參數與活躍參數**：一個 1.6T 參數的 MoE 模型（如 DeepSeek V4 Pro）每個 token 可能只使用 490 億參數。Llama 4 Maverick 在 128 個專家中活躍參數為 170 億。Kimi K2.6 總參數 1T / 活躍 320 億。
+    - **記憶體限制**：你必須儲存所有 1.2T 參數（高 VRAM）。
+    - **計算限制**：你只須支付 100B 參數的 FLOPs（延遲更快）。
+2. **路由崩潰**：如果路由器只選擇一個專家，其他專家就無法學習。現代模型使用**負載平衡損失**和**輔助損失**來確保所有專家都被利用。
+3. **DeepSeek-V3 改進**：引入了**多頭潛在注意力（MLA）**和**無輔助損失負載平衡**，這成為 MoE 效率的實際標準。DeepSeek V4（2026 年 4 月）將這兩種技術擴展到 100 萬 token 的上下文視窗。
 
-The routing decision per token, as a flowchart:
+每個 token 的路由決策，流程圖如下：
 
 ```mermaid
 flowchart TD
-    A[Token] --> B[Attention layer]
-    B --> C[Router]
-    C -->|Top-2 routing| D[Expert 1]
-    C -->|Top-2 routing| E[Expert 3]
-    C -.skipped.-> F[Expert 2]
-    C -.skipped.-> G[Expert N]
-    D --> H[Weighted sum]
+    A[Token] --> B[注意力層]
+    B --> C[路由器]
+    C -->|Top-2 路由| D[專家 1]
+    C -->|Top-2 路由| E[專家 3]
+    C -.-> F[專家 2]
+    C -.-> G[專家 N]
+    D --> H[加權和]
     E --> H
-    H --> I[Next layer]
+    H --> I[下一層]
 ```
 
 ---
 
-## Scaling Laws: Training vs. Inference Optimal
+## 縮放定律：訓練最佳化與推論最佳化
 
-The original Chinchilla laws (2022) focused on being **Training-Optimal**: finding the best model size for a given training budget.
+原始的 Chinchilla 定律（2022 年）專注於**訓練最佳化**：在給定訓練預算下找到最佳模型大小。
 
-The industry has now shifted to **Inference-Optimal** scaling:
-- **Over-training**: Training smaller models (e.g., Llama 3 8B) on massive data (15T+ tokens) far beyond the Chinchilla point.
-- **Why?**: The cost of inference over millions of users dwarfs the one-time training cost. A 7B model trained for 10x longer is cheaper to serve than a 70B model trained at the Chinchilla point.
-
----
-
-## Native Multimodality
-
-Older models used **Vision Adapters** (connecting a frozen CLIP-style vision encoder to an LLM). Frontier models (GPT-5.2, Gemini 3) are **Native Multimodal**.
-
-- **Shared Vocabulary**: Visual tokens and text tokens exist in the same latent space.
-- **Uniform Transformer**: The same blocks process both pixels and text.
-- **Benefit**: Much better spatial reasoning and "world model" understanding compared to adapter-based approaches.
+業界現已轉向**推論最佳化**縮放：
+- **過度訓練**：在海量資料（15T+ token）上訓練較小的模型（如 Llama 3 8B），遠超 Chinchilla 點。
+- **為什麼？**：推論成本在數百萬用戶中遠超一次性訓練成本。在 Chinchilla 點訓練的 70B 模型相比，用於訓練 10 倍時間的 7B 模型更便宜。
 
 ---
 
-## Self-Attention Mechanism
+## 原生多模態
 
-Self-attention is the core innovation. It allows each token to "attend to" (gather information from) all other tokens in a sequence.
+較舊的模型使用**視覺轉接器**（將凍結的 CLIP 風格視覺編碼器連接到 LLM）。前沿模型（GPT-5.2、Gemini 3）是**原生多模態**的。
 
-### The Intuition
+- **共享詞彙表**：視覺 token 和文字 token 存在於相同的潛在空間中。
+- **統一 Transformer**：相同的區塊處理像素和文字。
+- **優勢**：與基於轉接器的方法相比，空間推理和「世界模型」理解能力更好。
 
-Consider the sentence: "The animal didn't cross the street because it was too tired."
+---
 
-What does "it" refer to? Understanding requires connecting "it" to "animal". Self-attention learns these connections by computing relevance scores between all token pairs.
+## 自注意力機制
 
-### The Math
+自注意力是核心創新。它允許每個 token「關注」序列中所有其他 token（收集資訊）。
 
-For input sequence X of n tokens with dimension d:
+### 直覺
+
+考慮這個句子：「The animal didn't cross the street because it was too tired.」
+
+「it」指的是什麼？理解需要將「it」與「animal」連接。自注意力通過計算所有 token 對之間的相關性分數來學習這些連接。
+
+### 數學
+
+對於維度 d 的 n 個 token 輸入序列 X：
 
 ```
-Q = XW_Q   (Query: What am I looking for?)
-K = XW_K   (Key: What do I contain?)
-V = XW_V   (Value: What do I contribute?)
+Q = XW_Q   （Query：我正在尋找什麼？）
+K = XW_K   （Key：我包含什麼？）
+V = XW_V   （Value：我貢獻什麼？）
 
 Attention(Q, K, V) = softmax(QK^T / √d_k) × V
 ```
 
-**Step by step:**
-1. **QK^T**: Dot product measures similarity between queries and keys (n × n matrix)
-2. **/ √d_k**: Scale to prevent softmax saturation with large dimensions
-3. **softmax**: Convert to probabilities (each row sums to 1)
-4. **× V**: Weighted sum of values based on attention weights
+**逐步說明：**
+1. **QK^T**：點積測量查詢和鍵之間的相似度（n × n 矩陣）
+2. **/ √d_k**：縮放以防止大維度下 softmax 飽和
+3. **softmax**：轉換為機率（每行總和為 1）
+4. **× V**：根據注意力權重對值進行加權求和
 
-### Why Scale by √d_k?
+### 為什麼要按 √d_k 縮放？
 
-**Interview favorite**: This is frequently asked because it reveals understanding of numerical stability.
+**面試最愛**：這是常被問到的問題，因為它揭示了對數值穩定性的理解。
 
-Without scaling, as dimension d grows, dot products grow proportionally. Large dot products push softmax into saturated regions where gradients vanish.
+如果不縮放，隨著維度 d 增大，點積也會成正比增大。大的點積將 softmax 推向飽和區域，梯度消失。
 
 ```python
-# Without scaling (problematic for large d)
+# 不縮放（對大 d 有問題）
 d = 512
 q = np.random.randn(d)
 k = np.random.randn(d)
-dot = np.dot(q, k)  # Expected magnitude: ~√d ≈ 22.6
+dot = np.dot(q, k)  # 預期大小：~√d ≈ 22.6
 
-# With scaling
-scaled_dot = dot / np.sqrt(d)  # Expected magnitude: ~1
+# 縮放後
+scaled_dot = dot / np.sqrt(d)  # 預期大小：~1
 ```
 
-### Attention Complexity
+### 注意力複雜度
 
-| Operation | Time Complexity | Space Complexity |
+| 操作 | 時間複雜度 | 空間複雜度 |
 |-----------|-----------------|------------------|
-| QK^T computation | O(n²d) | O(n²) |
+| QK^T 計算 | O(n²d) | O(n²) |
 | Softmax | O(n²) | O(n²) |
-| Weighted sum with V | O(n²d) | O(nd) |
+| 與 V 的加權求和 | O(n²d) | O(nd) |
 
-The O(n²) complexity limits context length. A 100K context window means 10 billion attention computations per layer.
+O(n²) 複雜度限制了上下文長度。100K 上下文視窗意味著每層 100 億次注意力計算。
 
 ---
 
-## Multi-Head Attention
+## 多頭注意力
 
-Instead of single attention, modern transformers use multiple "heads" that attend to different aspects in parallel.
+現代 Transformer 不使用單一注意力，而是使用多個「頭」平行關注不同方面。
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Multi-Head Attention                      │
+│                    多頭注意力                                │
 │                                                              │
 │   ┌─────────┐  ┌─────────┐  ┌─────────┐       ┌─────────┐   │
-│   │ Head 1  │  │ Head 2  │  │ Head 3  │  ...  │ Head h  │   │
-│   │ d_k=64  │  │ d_k=64  │  │ d_k=64  │       │ d_k=64  │   │
+│   │ 頭 1    │  │ 頭 2    │  │ 頭 3    │  ...  │ 頭 h    │   │
+│   │ d_k=64 │  │ d_k=64 │  │ d_k=64 │       │ d_k=64 │   │
 │   └────┬────┘  └────┬────┘  └────┬────┘       └────┬────┘   │
 │        │            │            │                  │        │
 │        └────────────┴────────────┴──────────────────┘        │
 │                              │                               │
-│                         Concatenate                          │
+│                         串接                                 │
 │                              │                               │
-│                         W_O (project)                        │
+│                         W_O（投影）                          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Why multiple heads?**
-- Different heads learn different patterns (syntax, semantics, coreference)
-- Similar to ensemble methods: multiple perspectives improve robustness
-- Enables parallel processing across heads
+**為什麼多個頭？**
+- 不同的頭學習不同的模式（語法、語義、共指）
+- 類似集成方法：多個視角提高穩健性
+- 支援跨頭的平行處理
 
-**Typical configuration:**
-- GPT-3 175B: 96 heads × 128 dimensions = 12,288 total dimension
-- Llama 2 70B: 64 heads × 128 dimensions = 8,192 total dimension
+**典型配置：**
+- GPT-3 175B：96 頭 × 128 維度 = 12,288 總維度
+- Llama 2 70B：64 頭 × 128 維度 = 8,192 總維度
 
-### Grouped Query Attention (GQA)
+### 分組查詢注意力（GQA）
 
-**Critical for production systems**: Standard multi-head attention requires storing separate K and V for each head in the KV cache. GQA shares K and V across groups of heads.
+**對生產系統至關重要**：標準多頭注意力需要在 KV 快取中為每個頭儲存單獨的 K 和 V。GQA 在頭組之間共享 K 和 V。
 
-| Attention Type | K,V per Query | KV Cache Reduction | Examples |
+| 注意力類型 | 每查詢的 K,V | KV 快取減少 | 範例 |
 |----------------|---------------|-------------------|----------|
-| Multi-Head (MHA) | 1:1 | Baseline | GPT-3 |
-| Grouped-Query (GQA) | 8:1 typical | ~8x | Llama 2, Mistral |
-| Multi-Query (MQA) | All:1 | ~n_heads × | PaLM, Falcon |
+| 多頭（MHA） | 1:1 | 基線 | GPT-3 |
+| 分組查詢（GQA） | 8:1 典型 | ~8x | Llama 2、Mistral |
+| 多查詢（MQA） | 全部:1 | ~n_heads × | PaLM、Falcon |
 
-**Practical impact:**
-For Llama 2 70B at 8K context:
-- MHA KV cache: ~10 GB per request
-- GQA KV cache: ~1.3 GB per request
+**實際影響：**
+對於 Llama 2 70B 在 8K 上下文：
+- MHA KV 快取：每請求約 10 GB
+- GQA KV 快取：每請求約 1.3 GB
 
-This directly affects batch size and therefore throughput.
+這直接影響批次大小，進而影響吞吐量。
 
 ---
 
-## Position Encodings
+## 位置編碼
 
-Self-attention is permutation-invariant. Without position information, "dog bites man" and "man bites dog" would be identical. Position encodings inject sequence order.
+自注意力是排列不變的。沒有位置資訊，「dog bites man」和「man bites dog」將是相同的。位置編碼注入序列順序。
 
-### Sinusoidal (Original Transformer)
+### 正弦曲線（原始 Transformer）
 
-Uses sine and cosine functions of different frequencies:
+使用不同頻率的正弦和餘弦函數：
 
 ```
 PE(pos, 2i) = sin(pos / 10000^(2i/d))
 PE(pos, 2i+1) = cos(pos / 10000^(2i/d))
 ```
 
-**Properties:**
-- Deterministic, no learned parameters
-- Can theoretically extrapolate to longer sequences
-- In practice, extrapolation does not work well
+**特性：**
+- 確定性，無需學習參數
+- 理論上可以推斷到更長的序列
+- 實際上，推斷效果不佳
 
-### Learned Absolute
+### 學習的絕對位置
 
-Learn a separate embedding for each position:
+為每個位置學習一個單獨的嵌入：
 
 ```python
 position_embeddings = nn.Embedding(max_length, d_model)
 ```
 
-**Properties:**
-- Simple and effective
-- Cannot extrapolate beyond training length
-- Most early models (GPT-2, BERT)
+**特性：**
+- 簡單有效
+- 無法推斷到訓練長度之外
+- 大多數早期模型（GPT-2、BERT）
 
-### Rotary Position Embedding (RoPE)
+### 旋轉位置嵌入（RoPE）
 
-Encode position by rotating the query and key vectors:
+通過旋轉查詢和關鍵向量來編碼位置：
 
 ```
 RoPE(x, pos) = x × cos(pos × θ) + rotate(x) × sin(pos × θ)
 ```
 
-**Properties:**
-- Relative: Attention depends on (pos_q - pos_k)
-- Extrapolates better than absolute
-- Used in: Llama, Mistral, PaLM
+**特性：**
+- 相對的：注意力取決於（pos_q - pos_k）
+- 比絕對位置更好的推斷能力
+- 用於：Llama、Mistral、PaLM
 
-### ALiBi (Attention with Linear Biases)
+### ALiBi（帶線性偏差的注意力）
 
-Add position-dependent bias directly to attention scores:
+直接將位置相關偏差添加到注意力分數：
 
 ```
 Attention = softmax(QK^T / √d_k - m × distance)
 ```
 
-Where m is a head-specific slope and distance is |pos_q - pos_k|.
+其中 m 是特定於頭的斜率，distance 是 |pos_q - pos_k|。
 
-**Properties:**
-- No modification to embeddings
-- Excellent extrapolation
-- Used in: BLOOM, MPT
+**特性：**
+- 無需修改嵌入
+- 優異的推斷能力
+- 用於：BLOOM、MPT
 
-### Position Encoding Comparison
+### 位置編碼比較
 
-| Method | Extrapolation | Compute Overhead | Modern Usage |
+| 方法 | 推斷能力 | 計算開銷 | 現代使用 |
 |--------|---------------|------------------|--------------|
-| Sinusoidal | Poor | None | Rarely |
-| Learned | None | Minimal | Legacy |
-| RoPE | Good | ~5% | Most LLMs |
-| ALiBi | Excellent | ~2% | Some LLMs |
+| 正弦曲線 | 差 | 無 | 很少 |
+| 學習的 | 無 | 極小 | 舊式 |
+| RoPE | 良好 | ~5% | 大多數 LLM |
+| ALiBi | 優秀 | ~2% | 部分 LLM |
 
 ---
 
-## Feed-Forward Networks
+## 前饋網路
 
-Each transformer layer has a feed-forward network (FFN) that processes each position independently:
+每個 Transformer 層都有一個前饋網路（FFN），獨立處理每個位置：
 
 ```python
 def feed_forward(x):
-    hidden = activation(x @ W1 + b1)  # Expand: d → 4d
-    output = hidden @ W2 + b2         # Contract: 4d → d
+    hidden = activation(x @ W1 + b1)  # 擴展：d → 4d
+    output = hidden @ W2 + b2         # 收縮：4d → d
     return output
 ```
 
-**Key properties:**
-- Position-wise: Same weights applied to each position
-- Expansion ratio: Typically 4x (e.g., 4096 → 16384 → 4096)
-- Where parameters live: FFN has ~2/3 of layer parameters
+**關鍵特性：**
+- 按位置：相同的權重應用於每個位置
+- 擴展比率：通常為 4 倍（例如 4096 → 16384 → 4096）
+- 參數所在之處：FFN 約佔層參數的 2/3
 
-### Activation Functions
+### 啟動函數
 
-| Activation | Formula | Properties | Usage |
+| 啟動函數 | 公式 | 特性 | 使用 |
 |------------|---------|------------|-------|
-| ReLU | max(0, x) | Simple, sparse | Original |
-| GELU | x × Φ(x) | Smooth, used in BERT | GPT-2, BERT |
-| SwiGLU | Swish(xW) × xV | State of the art | Llama, PaLM |
+| ReLU | max(0, x) | 簡單、稀疏 | 原始 |
+| GELU | x × Φ(x) | 平滑，用於 BERT | GPT-2、BERT |
+| SwiGLU | Swish(xW) × xV | 最先進 | Llama、PaLM |
 
-SwiGLU adds a gating mechanism that improves performance at the cost of ~50% more parameters in the FFN.
+SwiGLU 添加了門控機制，以犧牲 FFN 中約 50% 更多參數為代價提高性能。
 
-### GLU Variants
+### GLU 變體
 
 ```python
-# Standard FFN
+# 標準 FFN
 hidden = gelu(x @ W1)
 output = hidden @ W2
 
@@ -397,9 +397,9 @@ output = (gate * hidden) @ W_down
 
 ---
 
-## Layer Normalization
+## 層正規化
 
-Layer normalization stabilizes training by normalizing activations:
+層正規化通過正規化激活來穩定訓練：
 
 ```python
 def layer_norm(x, gamma, beta):
@@ -409,29 +409,29 @@ def layer_norm(x, gamma, beta):
     return gamma * normalized + beta
 ```
 
-### Pre-LN vs Post-LN
+### Pre-LN 與 Post-LN
 
-**Post-LN (Original Transformer):**
+**Post-LN（原始 Transformer）：**
 ```
-x = x + Attention(LayerNorm(x))  # Wrong - this is Pre-LN
-x = LayerNorm(x + Attention(x))  # Post-LN: normalize after residual
-```
-
-**Pre-LN (Modern LLMs):**
-```
-x = x + Attention(LayerNorm(x))  # Pre-LN: normalize before sublayer
+x = x + Attention(LayerNorm(x))  # 錯誤 - 這是 Pre-LN
+x = LayerNorm(x + Attention(x))  # Post-LN：在殘差後正規化
 ```
 
-| Variant | Training Stability | Final Performance | Usage |
+**Pre-LN（現代 LLM）：**
+```
+x = x + Attention(LayerNorm(x))  # Pre-LN：在子層之前正規化
+```
+
+| 變體 | 訓練穩定性 | 最終性能 | 使用 |
 |---------|-------------------|-------------------|-------|
-| Post-LN | Harder | Slightly better | Original papers |
-| Pre-LN | Much easier | Good | Most modern LLMs |
+| Post-LN | 更難 | 稍好 | 原始論文 |
+| Pre-LN | 更容易 | 良好 | 大多數現代 LLM |
 
-Pre-LN is standard because it enables training deep models without careful learning rate tuning.
+Pre-LN 是標準，因為它能夠在不仔細調整學習率的情況下訓練深度模型。
 
 ### RMSNorm
 
-Simplification that skips mean centering:
+簡化版本，跳過均值中心化：
 
 ```python
 def rms_norm(x, gamma):
@@ -439,13 +439,13 @@ def rms_norm(x, gamma):
     return gamma * (x / rms)
 ```
 
-~10-15% faster than LayerNorm with similar performance. Used in Llama, Mistral.
+比 LayerNorm 快約 10-15%，性能相似。用於 Llama、Mistral。
 
 ---
 
-## Putting It All Together
+## 整合一切
 
-A complete transformer layer:
+一個完整的 Transformer 層：
 
 ```python
 class TransformerLayer:
@@ -456,135 +456,89 @@ class TransformerLayer:
         self.ff = SwiGLU_FFN(d_model, d_ff)
     
     def forward(self, x, mask=None):
-        # Pre-norm attention with residual
+        # 帶殘差的預正規化注意力
         h = x + self.attn(self.attn_norm(x), mask)
-        # Pre-norm FFN with residual
+        # 帶殘差的預正規化 FFN
         out = h + self.ff(self.ff_norm(h))
         return out
 ```
 
-**Full model:**
+**完整模型：**
 ```
-Token IDs → Embedding → [Transformer Layer × N] → Output Norm → LM Head → Logits
+Token IDs → 嵌入 → [Transformer 層 × N] → 輸出正規化 → LM Head → Logits
 ```
 
 ---
 
-## Key Numbers to Know
+## 關鍵數字
 
-### Model Sizes
+### 模型大小
 
-| Model | Parameters | Layers | Heads | Dimension | FFN Dim |
+| 模型 | 參數 | 層數 | 頭數 | 維度 | FFN 維度 |
 |-------|------------|--------|-------|-----------|---------|
 | GPT-3 | 175B | 96 | 96 | 12,288 | 49,152 |
 | Llama 2 70B | 70B | 80 | 64 | 8,192 | 28,672 |
 | Llama 2 7B | 7B | 32 | 32 | 4,096 | 11,008 |
 | Mistral 7B | 7B | 32 | 32 | 4,096 | 14,336 |
 
-### Memory Requirements
+### 記憶體需求
 
 ```
-Model weights (FP16) ≈ 2 bytes × parameters
-- 70B model: ~140 GB
-- 7B model: ~14 GB
+模型權重（FP16）≈ 2 位元組 × 參數
+- 70B 模型：~140 GB
+- 7B 模型：~14 GB
 
-KV Cache per token (FP16):
-= 2 × layers × heads × head_dim × 2 bytes
-- Llama 70B: 2 × 80 × 64 × 128 × 2 = 2.6 MB per token
-- At 8K context: 21 GB per request
+每 token 的 KV 快取（FP16）：
+= 2 × 層數 × 頭數 × 頭維度 × 2 位元組
+- Llama 70B：2 × 80 × 64 × 128 × 2 = 每 token 2.6 MB
+- 8K 上下文：每請求 21 GB
 ```
 
-### Compute Requirements
+### 計算需求
 
 ```
-FLOPs per token forward pass ≈ 2 × parameters
-- 70B model: ~140 TFLOPs per token
-- Generate 100 tokens: 14 PFLOPs
-
-H100 at 990 TFLOPS (FP16):
-- Single token: 140ms theoretical (actual: ~20-50ms with batching)
+每次 token 前向傳遞的 FLOPs ≈ 2 × 參數
 ```
+
+### 面試問題
+
+### Q：解釋 Transformer 的基本架構。
+
+**強而有力的回答：**
+Transformer 是一種利用自注意力機制處理序列數據的架構，由 Vaswani 等人在 2017 年提出。它由編碼器和解碼器組成，每個都包含多頭注意力、前饋網路和殘差連接。關鍵創新是自注意力允許序列中的每個位置關注所有其他位置。
+
+### Q：什麼是 KV 快取，為什麼它很重要？
+
+**強而有力的回答：**
+KV 快取儲存注意力計算中的鍵和值張量。在自迴歸生成期間，每個新 token 需要 attending 到所有先前位置。如果每次都重新計算，會導致重複計算。KV 快取允許我們快取並重複使用這些值，顯著加快生成速度。
+
+### Q：比較 GQA 和 MQA。
+
+**強而有力的回答：**
+GQA（分組查詢注意力）在查詢頭組之間共享鍵和值，而 MQA（多查詢注意力）在所有查詢頭之間共享單一的鍵和值。GQA 提供更好的質量，接近標準 MHA，同時比 MQA 使用更少的記憶體。
+
+### Q：解釋 SwiGLU 啟動函數。
+
+**強而有力的回答：**
+SwiGLU 是門控線性單元（GLU）的一種變體，使用 Swish 作為啟動函數。它添加了門控機制，可以更好地控制資訊流動。與標準 FFN 相比，它需要三個線性投影而不是兩個，這增加了約 50% 的參數但提高了性能。
+
+### Q：什麼是專家混合（MoE）？
+
+**強而有力的回答：**
+MoE 是一種稀疏激活架構，其中只有少數「專家」網路針對每個輸入 token 被激活。路由器網路決定哪些專家處理哪個 token。這允許更大的模型容量，同時只消耗處理每個 token 的計算成本的一小部分。
 
 ---
 
-## Key Takeaways
-
-- The shift from RNN to Transformer was about parallelization, not just quality; this is why GPU scaling laws followed.
-- MoE separates total parameters (memory cost) from active parameters (compute cost): a 1.2T MoE model can serve at the latency of a 100B dense model.
-- Inference-optimal scaling beats Chinchilla in production: over-train small models because inference cost dominates training cost over a model's lifetime.
-- GQA is the single highest-impact KV-cache optimization in current models; understand the N:G ratio before discussing serving cost.
-- Pre-LN with RMSNorm is the modern default; if you see Post-LN in an interview answer, the candidate is referencing 2018 papers.
-
----
-
-## Interview Questions
-
-### Q: Explain why transformer attention is O(n²) and what alternatives exist.
-
-**Strong answer:**
-Attention computes pairwise similarities between all tokens. For sequence length n:
-- QK^T is [n, d] × [d, n] = n² multiplications per head
-- Storage for attention weights: n² floats
-
-Alternatives:
-- Sparse attention (Longformer): O(n) with local + global patterns
-- Linear attention (Performer): O(n) using random feature approximation
-- Flash Attention: Still O(n²) compute but O(n) memory via kernel fusion
-- State-space models (Mamba): O(n) fully linear
-
-The tradeoff: n² is necessary for full long-range dependencies, but most tasks do not need all pairwise interactions.
-
-### Q: What is the KV cache and why does it matter for serving?
-
-**Strong answer:**
-During autoregressive generation, we generate one token at a time. Without caching, we would recompute K and V for all previous tokens on each step.
-
-The KV cache stores K and V from previous positions. On each new token:
-1. Compute Q, K, V only for the new position
-2. Concatenate new K, V to cached K, V
-3. Compute attention with full K, V
-
-This reduces per-token complexity from O(n) to O(1) for K and V computation.
-
-**The cost:** Memory scales linearly with sequence length. For Llama 70B at 8K context, KV cache is ~21 GB per request. This limits batch size and requires techniques like PagedAttention.
-
-### Q: Why do modern LLMs use Pre-LN instead of Post-LN?
-
-**Strong answer:**
-Pre-LN places normalization before each sublayer rather than after. This creates a more direct path for gradients through residual connections.
-
-With Post-LN, gradients must pass through the normalization, which can cause instability at the start of training. Post-LN requires learning rate warmup and careful initialization.
-
-Pre-LN enables training very deep models (100+ layers) without special initialization. The tradeoff is slightly lower final performance, but in practice, the training stability is worth it.
-
-### Q: What is the difference between MHA, MQA, and GQA?
-
-**Strong answer:**
-All three are multi-head attention variants that differ in how K and V heads are shared:
-
-- **MHA (Multi-Head Attention)**: Each query head has its own K and V heads. N:N ratio.
-- **MQA (Multi-Query Attention)**: All query heads share a single K and V head. N:1 ratio.
-- **GQA (Grouped-Query Attention)**: Groups of query heads share K and V heads. N:G ratio (typical G=8).
-
-Memory impact for KV cache:
-- MHA: Full size
-- MQA: 1/N size (but quality degrades)
-- GQA: 1/G size (best tradeoff)
-
-Llama 2 70B uses GQA with 8 KV heads for 64 query heads, reducing KV cache by 8x with minimal quality loss.
-
----
-
-## References
+## 參考文獻
 
 - Vaswani et al. "Attention Is All You Need" (2017)
-- Su et al. "RoFormer: Enhanced Transformer with Rotary Position Embedding" (2021)
-- Press et al. "Train Short, Test Long: Attention with Linear Biases" (ALiBi, 2022)
-- Shazeer "GLU Variants Improve Transformer" (2020)
-- Ainslie et al. "GQA: Training Generalized Multi-Query Transformer Models" (2023)
-- [Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/)
-- [The Annotated Transformer](https://nlp.seas.harvard.edu/2018/04/03/attention.html)
+- Kaplan et al. "Scaling Laws for Neural Language Models" (2020)
+- Brown et al. "Language Models are Few-Shot Learners" (GPT-3, 2020)
+- Touvron et al. "LLaMA: Open and Efficient Foundation Language Models" (2023)
+- Touvron et al. "LLaMA 2: Open Foundation and Fine-Tuned Chat Models" (2023)
+- Jiang et al. "Mistral 7B" (2023)
+- DeepSeek-V3 Technical Report (2024)
 
 ---
 
-*Next: [Tokenization Deep Dive](02-tokenization-deep-dive.md)*
+*上一章：[模型概觀](../02-model-landscape/README.md) | 下一章：[分詞器深入探討](02-tokenization-deep-dive.md)*

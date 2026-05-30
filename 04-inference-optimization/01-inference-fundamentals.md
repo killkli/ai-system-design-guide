@@ -1,92 +1,97 @@
-# Inference Fundamentals
+# 推論基礎
 
-Inference is the process of generating predictions from a trained model. Inference optimization has shifted from "simple speedups" to "architectural efficiency" to handle reasoning-heavy workloads on Hopper (H100) and Blackwell (B200) class hardware.
+推論（Inference）是指從已訓練模型生成預測結果的過程。推論優化已從「簡單加速」轉向「架構效率」，以因應 Hopper（H100）和 Blackwell（B200）等級硬體上需要大量推理的工作負載。
 
-## Table of Contents
+## 目錄
 
-- [The Two Phases of Inference](#two-phases)
-- [Bottlenecks: Compute-Bound vs. Memory-Bound](#bottlenecks)
-- [Performance Metrics: TTFT and TPOT](#metrics)
-- [Hardware-Enabled Optimizations (FP8)](#hardware-optimizations)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Two Phases of Inference
-
-LLM inference is not a single operation; it consists of two distinct computational phases.
-
-### 1. The Prefill Phase (Prompt Processing)
-The model processes the entire input prompt in a single pass.
-- **Computation**: High-parallelism matrix multiplications.
-- **Bottleneck**: **Compute-bound** (limited by GPU TFLOPS).
-- **Time Complexity**: $O(N)$ where $N$ is input length (but parallelized).
-
-### 2. The Decode Phase (Token Generation)
-The model generates tokens one by one, where each token depends on the previous ones.
-- **Computation**: Sequential processing, one row of the weight matrix at a time.
-- **Bottleneck**: **Memory-bound** (limited by memory bandwidth).
-- **Time Complexity**: $O(M)$ where $M$ is output length (sequential).
+- [推論的兩個階段](#two-phases)
+- [瓶頸：計算邊界與記憶體邊界](#bottlenecks)
+- [效能指標：TTFT 與 TPOT](#metrics)
+- [硬體優化（FP8）](#hardware-optimizations)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Bottlenecks: Compute-Bound vs. Memory-Bound
+## 推論的兩個階段
 
-Understanding where your system is bottlenecked is critical for choosing the right optimization.
+LLM 推論並非單一操作，而是由兩個不同的計算階段組成。
 
-| Phase | Bottleneck | Why? | Primary Optimization |
-|-------|------------|------|----------------------|
-| **Prefill** | Compute (FLOPs) | Parallel processing saturates the GPU's arithmetic units. | FlashAttention, FP8/FP16 precision. |
-| **Decode** | Memory Bandwidth | Weights must be loaded from VRAM for *every single token*. | Quantization (4-bit), GQA, Batching. |
+### 1. 前置處理階段（Prefill Phase，提示詞處理）
 
-**The Memory Wall insight**
-As models grow larger, memory bandwidth (HBM3/HBM3e) has not scaled as fast as compute (TFLOPS). This makes the Decode phase the primary target for production optimization.
+模型在單次運算中處理整個輸入提示詞。
+- **計算方式**：高度平行化的矩陣乘法。
+- **瓶頸**：**計算邊界**（受限於 GPU TFLOPS）。
+- **時間複雜度**：$O(N)$，其中 $N$ 為輸入長度（但以平行化方式處理）。
 
----
+### 2. 解碼階段（Decode Phase，Token 生成）
 
-## Performance Metrics
-
-| Metric | Full Form | Goal | Importance |
-|--------|-----------|------|------------|
-| **TTFT** | Time To First Token | < 200ms | User-perceived responsiveness. |
-| **TPOT** | Time Per Output Token | < 30ms | Reading speed and conversational flow. |
-| **Throughput** | Tokens/Second (Agg) | Maximize | Determining cost per query. |
-| **Latency** | End-to-End Time | < 2.0s | Total turn-around for the agent. |
+模型逐個生成 Token，每個 Token 都依賴於前一個 Token。
+- **計算方式**：依序處理，每次處理權重矩陣的一列。
+- **瓶頸**：**記憶體邊界**（受限於記憶體頻寬）。
+- **時間複雜度**：$O(M)$，其中 $M$ 為輸出長度（依序執行）。
 
 ---
 
-## Hardware-Enabled Optimizations (FP8)
+## 瓶頸：計算邊界與記憶體邊界
 
-**FP8 (8-bit Floating Point)** is the native precision for inference on H100 and B200 GPUs.
+了解系統的瓶頸所在，是選擇正確優化策略的關鍵。
 
-- **Benefit**: 2x faster than FP16/BF16 with negligible (<0.1%) accuracy loss.
-- **How it works**: Uses a smaller mantissa and larger exponent than Int8, allowing it to represent the dynamic range of LLM activations more accurately without complex calibration.
+| 階段 | 瓶頸類型 | 原因 | 主要優化方向 |
+|------|----------|------|-------------|
+| **前置處理** | 計算（FLOPs） | 平行處理使 GPU 運算單元飽和。 | FlashAttention、FP8/FP16 精度。 |
+| **解碼** | 記憶體頻寬 | 每生成一個 Token 都必須從 VRAM 載入權重。 | 量化（4 位元）、GQA、批次處理。 |
 
-**Principal-level Nuance**: Serving frameworks now use **Dynamic FP8 Scaling**, which adjust the quantization scales per-layer to prevent outliers from degrading the entire model's logic.
+**「記憶體牆」觀點**
 
----
-
-## Interview Questions
-
-### Q: Why is LLM generation slower than classification?
-
-**Strong answer:**
-Classification is a "Prefill-only" task; it processes the entire input and produces a single output in one parallel pass, making it compute-optimal. LLM generation, however, is **auto-regressive**. Each token depends on the previous one, forcing a sequential "Decode" loop. Because each step in this loop is memory-bound (loading Gigabytes of weights to produce Milligrams of data), the system spends most of its time waiting for memory transfers rather than doing math.
-
-### Q: How do you optimize TTFT vs. TPOT?
-
-**Strong answer:**
-To optimize **TTFT**, you must optimize the Prefill phase: use FlashAttention-3, increase compute parallelism (Tensor Parallelism), or use Prefix Caching to skip the prefill entirely for common prompts. 
-To optimize **TPOT**, you must optimize the Memory Bandwidth during Decode: use quantization (4-bit weights) to reduce the data moved from VRAM, use Grouped Query Attention (GQA) to reduce KV cache size, or use Speculative Decoding to generate multiple tokens per memory load.
+隨著模型規模擴大，記憶體頻寬（HBM3/HBM3e）的成長速度落後於算力（TFLOPS）。這使得解碼階段成為生產環境優化的首要目標。
 
 ---
 
-## References
+## 效能指標
+
+| 指標 | 全稱 | 目標 | 重要性 |
+|------|------|------|--------|
+| **TTFT** | Time To First Token（首次生成 Token 時間） | < 200ms | 使用者可感知回應速度。 |
+| **TPOT** | Time Per Output Token（每輸出 Token 時間） | < 30ms | 閱讀速度與對話流暢度。 |
+| **吞吐量** | Tokens/Second（總計） | 最大化 | 決定每次查詢的成本。 |
+| **延遲** | End-to-End Time（端對端時間） | < 2.0s | 代理的整體周轉時間。 |
+
+---
+
+## 硬體優化（FP8）
+
+**FP8（8 位元浮點）** 是 H100 和 B200 GPU 推論的原生精度。
+
+- **優勢**：比 FP16/BF16 快 2 倍，準確度損失可忽略（<0.1%）。
+- **運作原理**：與 Int8 相比，使用較小的尾數和較大的指數，能更準確地表示 LLM  activations 的動態範圍，無需複雜的校正程序。
+
+**專業級細節**：服務框架現已採用**動態 FP8 縮放**，逐層調整量化比例，防止異常值（outliers）影響整個模型的邏輯。
+
+---
+
+## 面試題目
+
+### Q：為什麼 LLM 生成比分類任務慢？
+
+**理想回答：**
+分類是「僅前置處理」任務；它處理整個輸入並在一次平行運算中產生單一輸出，在計算上是最優的。然而 LLM 生成是**自迴歸**的。每個 Token 都依賴前一個 Token，強制執行依序的「解碼」迴圈。由於此迴圈中的每個步驟都是記憶體邊界（載入 GB 等級的權重來產生 mg 等級的資料），系統大部分時間都在等待記憶體傳輸，而非進行數學運算。
+
+### Q：如何優化 TTFT 與 TPOT？
+
+**理想回答：**
+要優化 **TTFT**，就必須優化前置處理階段：使用 FlashAttention-3、增加計算平行度（張量並行），或使用前綴快取（Prefix Caching）來完全跳過常見提示詞的前置處理。
+
+要優化 **TPOT**，就必須優化解碼期間的記憶體頻寬：使用量化（4 位元權重）來減少從 VRAM 移動的資料量、使用分組查詢注意力（GQA）來減少 KV 快取大小，或使用推測解碼（Speculative Decoding）在每次記憶體載入時生成多個 Token。
+
+---
+
+## 參考文獻
+
 - Pope et al. "Efficiently Scaling Transformer Inference" (2022)
 - NVIDIA. "Transformer Engine Documentation" (2024)
 - vLLM Blog. "Understanding LLM Inference Latency" (2023)
 
 ---
 
-*Next: [KV Cache and Context Caching](02-kv-cache-and-context-caching.md)*
+*下一篇：[KV 快取與上下文快取](02-kv-cache-and-context-caching.md)*
