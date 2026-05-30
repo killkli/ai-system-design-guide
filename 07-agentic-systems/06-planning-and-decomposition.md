@@ -1,4 +1,4 @@
-# 規劃與分解
+# 規劃與分解（Planning and Decomposition）
 
 規劃是「系統二（System 2）」元件，讓代理能夠解決多階段問題而不會「遊蕩」。生產代理已從簡單的「思維鏈（Chain-of-Thought, CoT）」演進至**遞迴分解（Recursive Decomposition）**與**樹狀搜尋（Tree Search）**，推理原生模型（Claude Opus 4.7、GPT-5.5 延伸思考（Extended Thinking）、DeepSeek-R2）在內部執行重型規劃。
 
