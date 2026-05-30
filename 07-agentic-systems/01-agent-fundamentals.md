@@ -1,98 +1,99 @@
-# Agent Fundamentals
+# 智慧代理基礎
 
-Agents are LLM-powered systems that move beyond "chat" into "autonomous problem solving." The definition has shifted from simple ReAct loops to **Closed-Loop Reasoning Systems** that use built-in "System 2" thinking (Claude Opus 4.7 extended thinking, GPT-5.5 reasoning, DeepSeek-R2, Gemini 3.1 Pro Deep Think).
+代理（Agent）是指由大型語言模型驅動、超越「聊天」進入「自主問題解決」的系統。其定義已從簡單的 ReAct 迴圈演進為**封閉迴圈推理系統**，採用內建的「系統二」思維（Claude Opus 4.7 延伸思考、GPT-5.5 推理、DeepSeek-R2、Gemini 3.1 Pro Deep Think）。
 
-## Table of Contents
+## 目錄
 
-- [The Agent Formula](#formula)
-- [System 1 (LLM) vs. System 2 (Reasoning Model)](#systems)
-- [Agency Levels (Autonomous Spectrum)](#levels)
-- [Core Components](#components)
-- [The Agent Lifecycle](#lifecycle)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The Agent Formula
-
-Modern agency is often described as:
-`Agent = Reasoning Model + Tool Use + Persistent Memory + Environment Feedback`
-
-**Nuance**: In 2023, agents were "wrappers" around chat models. Today, agents are increasingly **Integrated**. Frontier models (Claude Opus 4.7, GPT-5.5 with reasoning, DeepSeek-R2) have the "Thinking" process baked into pre-training, making the agent loop more stable and less prone to "stalling."
+- [代理公式](#formula)
+- [系統一（LLM）vs. 系統二（推理模型）](#systems)
+- [代理等級（自主光譜）](#levels)
+- [核心元件](#components)
+- [代理生命週期](#lifecycle)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## System 1 vs. System 2 Thinking
+## 代理公式
 
-Architecting an agent requires choosing the right "Thinking Mode":
+現代代理常以下列公式描述：
+`代理 = 推理模型 + 工具使用 + 持久記憶 + 環境回饋`
 
-| Mode | Cognitive Type | Analogy | Current stack |
-|------|----------------|---------|---------------|
-| **System 1** | Fast, intuitive, reactive | Reflexes | Claude Haiku 4.5 / Sonnet 4.6 / GPT-5.5-mini / Gemini 3.1 Flash |
-| **System 2** | Slow, logical, planning | Deliberation | Claude Opus 4.7 / GPT-5.5 reasoning / DeepSeek-R2 / Gemini 3.1 Pro Deep Think |
-
-**The Design Pattern**: Use System 1 models for "Fast UI" and "Routing." Use System 2 models for "Decision Gates" and "Complex Planning."
+**細微差別**：2023 年，代理是聊天模型的「包裝層」。今日，代理日益**整合化**。前沿模型（Claude Opus 4.7、GPT-5.5 推理版、DeepSeek-R2）的「思考」過程已內建於預訓練中，使代理迴圈更加穩定，不易「停滯」。
 
 ---
 
-## Agency Levels
+## 系統一 vs. 系統二思維
 
-Not every autonomous system is an "Agent." We categorize them by the **Level of Agency**:
+建構代理時，需選擇合適的「思維模式」：
 
-1. **L0: Scripted Chains**: Fixed sequence (e.g., standard LangChain).
-2. **L1: Tool-Enabled**: Model picks a tool but doesn't plan.
-3. **L2: ReAct Agent**: Simple loop of "Thought -> Action -> Observation."
-4. **L3: Autonomous Planner**: Decomposes a goal into a graph of sub-tasks.
-5. **L4: Ambient Agent**: Runs in the background, intervenes only when necessary.
+| 模式 | 認知類型 | 類比 | 目前技術堆疊 |
+|------|----------|------|-------------|
+| **系統一** | 快速、直覺、反應 | 反射動作 | Claude Haiku 4.5 / Sonnet 4.6 / GPT-5.5-mini / Gemini 3.1 Flash |
+| **系統二** | 緩慢、邏輯、規劃 | 深思熟慮 | Claude Opus 4.7 / GPT-5.5 推理 / DeepSeek-R2 / Gemini 3.1 Pro Deep Think |
+
+**設計模式**：使用系統一模型處理「快速 UI」與「路由」。使用系統二模型處理「決策關卡」與「複雜規劃」。
 
 ---
 
-## Core Components
+## 代理等級
 
-### 1. The Reasoning Model (The Executive)
-The CPU of the agent. It determines the "Path to Success."
+並非每個自主系統都是「代理」。我們依**代理等級**來分類：
 
-### 2. Tools (The Limbs)
-Interfaces (APIs, Browsers, DBs) that allow the agent to affect the world.
+1. **L0：腳本鏈**：固定序列（例如標準 LangChain）。
+2. **L1：工具增強**：模型可選擇工具但不做規劃。
+3. **L2：ReAct 代理**：簡單的「思考→行動→觀察」迴圈。
+4. **L3：自主規劃代理**：將目標分解為子任務圖。
+5. **L4：環境代理**：在背景執行，只在必要時介入。
+
+---
+
+## 核心元件
+
+### 1. 推理模型（執行者）
+代理的大腦，相當於 CPU，負責決定「成功路徑」。
+
+### 2. 工具（四肢）
+介面（API、瀏覽器、資料庫），讓代理能影響外部世界。
 > [!Note]
-> The **Model Context Protocol (MCP)** is now the industry standard for tool interoperability, with adoption from Anthropic, OpenAI, Google, Microsoft, and AWS. Governance moved to the Linux Foundation's Agentic AI Foundation in December 2025.
+> **模型上下文協定（Model Context Protocol, MCP）**，目前已成為工具互操作性的產業標準，獲得 Anthropic、OpenAI、Google、Microsoft 與 AWS 的採用。治理權於 2025 年 12 月移轉至 Linux 基金會的 Agentic AI Foundation。
 
-### 3. Memory (The Experience)
-- **Short-term**: Context window (KV Cache).
-- **Long-term**: Vector DBs or persistent state (e.g., Mem0).
-
----
-
-## The Agent Lifecycle
-
-1. **Intake**: Receive user goal.
-2. **Decomposition**: Break goal into sub-steps.
-3. **Execution**: Call tools and handle results.
-4. **Reflection**: Evaluate if the observation got the agent closer to the goal.
-5. **Completion**: Synthesize final proof for the user.
+### 3. 記憶（經驗）
+- **短期記憶**：上下文視窗（KV Cache）。
+- **長期記憶**：向量資料庫或持久狀態（例如 Mem0）。
 
 ---
 
-## Interview Questions
+## 代理生命週期
 
-### Q: Why is a "Reasoning Model" (like Claude Opus 4.7 or GPT-5.5 with extended thinking) better for agency than a standard LLM?
-
-**Strong answer:**
-Standard LLMs (System 1) predict the *very next token* based on pattern matching. When they encounter an error in a tool call, they often hallucinate a fix instead of admitting the failure. Reasoning Models use **Chain-of-Thought (CoT)** during inference. They "think" through multiple hidden turns before outputting a response. For an agent, this means higher **Path Reliability**—the model is significantly less likely to enter an infinite loop or try the same failing action twice because it has already simulated the failure internally.
-
-### Q: How do you prevent "Agentic Drift" in long-running tasks?
-
-**Strong answer:**
-Agentic Drift occurs when the sub-steps take the agent so far from the original goal that it loses context. The standard solution is **Goal Anchoring**: include the "Original Objective" as a pinned system message and use a **Secondary Observer Model** (a smaller, cheaper model) to score every agent action against the original objective. If the score drops below a threshold, the agent is forced to "re-plan" from the root.
+1. **攝入**：接收使用者目標。
+2. **分解**：將目標拆解為子步驟。
+3. **執行**：呼叫工具並處理結果。
+4. **反思**：評估觀察結果是否使代理更接近目標。
+5. **完成**：為使用者綜合最終證明。
 
 ---
 
-## References
-- Kahneman, D. "Thinking, Fast and Slow" (applied to AI, 2025)
-- OpenAI. "Learning to Reason with LLMs" (2024)
-- DeepSeek. "R1: Cold-Start Data for Reasoning" (2025)
+## 面試問題
+
+### Q：為什麼「推理模型」（如 Claude Opus 4.7 或 GPT-5.5 延伸思考版）比標準 LLM 更適合代理？
+
+**理想回答：**
+標準 LLM（系統一）根據模式匹配預測*下一個 token*。當工具呼叫發生錯誤時，它們常會幻想出一個修復方案而非承認失敗。推理模型在推理過程中使用**思維鏈（Chain-of-Thought, CoT）**。它們在輸出回應前，會在多個隱藏步驟中「思考」。對代理而言，這意味著更高的**路徑可靠性**——模型不太可能陷入無限迴圈或對同一個失敗動作重試兩次，因為它已在內部模擬過該失敗。
+
+### Q：如何防止長期任務中的「代理漂移」（Agentic Drift）？
+
+**理想回答：**
+代理漂移發生在子步驟將代理帶離原始目標太遠、以致失去上下文時。標準解決方案是**目標錨定**：將「原始目標」作為釘選系統訊息包含在內，並使用**次級觀察模型**（一個較小、較便宜模型）為每個代理動作評分，對照原始目標。若分數低於閾值，代理會被迫「從根部重新規劃」。
 
 ---
 
-*Next: [Reasoning Loops: ReAct and Beyond](02-reasoning-loops-react-and-beyond.md)*
+## 參考文獻
+
+- Kahneman, D. 《思考，快與慢》（應用於 AI，2025）
+- OpenAI. 《學習使用 LLM 推理》（2024）
+- DeepSeek. 《R1：推理的冷啟動資料》（2025）
+
+---
+
+*下一篇：[推理迴圈：ReAct 及其超越](02-reasoning-loops-react-and-beyond.md)*
