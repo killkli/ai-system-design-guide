@@ -1,104 +1,124 @@
-# Fine-Tuning Strategies
+# 微調策略
 
-Fine-tuning adapts a pretrained model to specific tasks, domains, or styles. Today, fine-tuning is less about "teaching facts" and more about "teaching format and behavior."
+微調將預訓練模型適應至特定任務、領域或風格。如今，微調與其說是「教授事實」，不如說是「教授格式與行為」。
 
-## Table of Contents
+## 目錄
 
-- [When to Fine-Tune](#when-to-fine-tune)
-- [Supervised Fine-Tuning (SFT)](#supervised-fine-tuning)
-- [Continued Pretraining (Domain Adaptation)](#continued-pretraining)
-- [Instruction Tuning](#instruction-tuning)
-- [PEFT vs. Full-Parameter](#peft-vs-full-parameter)
-- [Hyperparameter Tuning](#hyperparameter-tuning)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## When to Fine-Tune
-
-Before fine-tuning, ask: **Can this be solved with Prompt Engineering or RAG?**
-
-| Requirement | Better Solution | Why |
-|-------------|-----------------|-----|
-| New Facts / Knowledge | **RAG** | LLMs are bad at memorizing facts from FT; RAG is easier to update. |
-| Specific Output Format | **Fine-Tuning** | Teaches the model to reliably output JSON/XML without complex prompting. |
-| Tone / Persona | **Fine-Tuning** | Much more consistent than system prompts. |
-| Latency Reduction | **Fine-Tuning** | Reduces the need for long few-shot prompts. |
-| Private Domain Language| **Continued Pretraining** | Teaches specialized vocabulary (medical, legal, custom code). |
+- [何時微調](#何時微調)
+- [監督微調（SFT）](#監督微調)
+- [持續預訓練（領域適應）](#持續預訓練)
+- [指令微調](#指令微調)
+- [PEFT 與全參數對比](#peft-與全參數對比)
+- [超參數調校](#超參數調校)
+- [面試問題](#面試問題)
+- [參考資料](#參考資料)
 
 ---
 
-## Supervised Fine-Tuning (SFT)
+## 何時微調
 
-The first step after pretraining. The model is trained on `(Prompt, Response)` pairs.
+微調前，先問自己：**這能用提示工程或 RAG 解決嗎？**
 
-### The Quality Hierarchy
-**1,000 "Perfect" examples beat 1,000,000 noisy examples.**
-- **Golden Sets:** Hand-curated by domain experts (PhD level for technical tasks).
-- **Negative Constraint Training:** Including examples of what the model **should not** do (e.g., "Don't apologize," "Don't mention you are an AI").
-
----
-
-## Continued Pretraining (Domain Adaptation)
-
-Also known as "Second-stage Pretraining."
-- **How**: Train on raw text from a specific domain (e.g., all SEC filings for a finance model).
-- **Objective**: Learn the statistical distribution of the domain language.
-- **Nuance**: Requires a much lower learning rate (~1/10th of original) to prevent "catastrophic forgetting."
+| 需求 | 更好方案 | 原因 |
+|-------------|-----------------|------|
+| 新事實 / 知識 | **RAG** | LLM 不善於從微調中記憶事實；RAG 更易於更新。 |
+| 特定輸出格式 | **微調** | 教會模型可靠地輸出 JSON/XML，而無需複雜提示。 |
+| 語氣 / 人物設定 | **微調** | 比系統提示更一致。 |
+| 延遲降低 | **微調** | 減少對冗長少樣本提示的需求。 |
+| 私有領域語言| **持續預訓練** | 教授專業詞彙（醫學、法律、自訂程式碼）。 |
 
 ---
 
-## PEFT vs. Full-Parameter
+## 監督微調（SFT）
 
-| Feature | Full-Parameter FT | PEFT (LoRA, QLoRA) |
-|---------|-------------------|--------------------|
-| GPU VRAM | Very High (Model Size * 4-12) | Low (Model Size * 1.5) |
-| Speed | Base | 2x-3x Faster |
-| Risk | High (Catastrophic Forgetting) | Low |
-| Deployment | One model per task | One base model + multiple adapters |
-| **Verdict**| Reserved for foundation training | **The Production Standard** |
+預訓練後的第一步。模型在`(提示、回應)`配對上訓練。
 
----
+### 品質層級
 
-## Hyperparameter Tuning
-
-### 1. Learning Rate (LR)
-- **SFT**: `1e-5` to `5e-5` is standard.
-- **Too high**: Model "collapses" and starts repeating or speaking gibberish.
-
-### 2. Rank (r) for LoRA
-- Higher ranks (`r=64` to `r=256`) for complex reasoning tasks.
-- Lower ranks (`r=8`) for simple style/tone changes.
-
-### 3. Packaged Training (Packing)
-To maximize throughput, we "pack" multiple short examples into a single 4k or 8k sequence, separated by EOS tokens.
-- **Challenge**: Self-attention might leak across examples.
-- **Solution**: **FlashAttention with block-masking** to prevent cross-example attention.
+**1,000 個「完美」範例勝過 1,000,000 個雜訊範例。**
+- **黃金集：** 由領域專家（技術任務為 PhD 等級）手工策展。
+- **負約束訓練：** 包含模型**不應該做什麼**的範例（如「不要道歉」、「不要提及我是 AI」）。
 
 ---
 
-## Interview Questions
+## 持續預訓練（領域適應）
 
-### Q: Why use Continued Pretraining instead of just putting domain data in the SFT set?
-
-**Strong answer:**
-SFT is "expensive" in terms of data creation—you need prompt/answer pairs. Continued Pretraining allows you to leverage massive amounts of raw, unlabeled domain text to teach the model's inner representations the specialized vocabulary and style. Once the model "speaks the language," you use a small SFT set to teach it the "tasks" (e.g., classification, summarization) in that language.
-
-### Q: How do you prevent a model from "unlearning" general capabilities during fine-tuning?
-
-**Strong answer:**
-This is "Catastrophic Forgetting." Two main mitigations:
-1. **Rehearsal:** Mix in 5-10% of the original pretraining data into your fine-tuning set.
-2. **PEFT (LoRA):** Since we only train a small percentage of weights, the original "knowledge" remains frozen in the base model weights, significantly reducing the risk of forgetting.
+也稱為「第二階段預訓練」。
+- **方法**：在特定領域的原始文字上訓練（如，為金融模型訓練所有 SEC 文件）。
+- **目標**：學習領域語言的統計分布。
+- **細節**：需要比原始學習率低得多（約 1/10）的學習率，以防止「災難性遺忘」。
 
 ---
 
-## References
+## 指令微調
+
+### 核心概念
+
+指令微調教會模型遵循人類指令。關鍵區分：
+
+| 類型 | 方法 | 資料需求 |
+|------|------|----------|
+| **全監督微調（SFT）** | 下一個 token 預測 | 高品質 (提示, 回應) 配對 |
+| **強化學習（RLHF/DPO）** | 偏好學習 | 偏好排名資料 |
+
+---
+
+## PEFT 與全參數對比
+
+| 特徵 | 全參數微調 | PEFT（LoRA、QLoRA） |
+|---------|-------------------|----------------------|
+| GPU VRAM | 極高（模型大小 * 4-12） | 低（模型大小 * 1.5） |
+| 速度 | 基準 | 快 2-3 倍 |
+| 風險 | 高（災難性遺忘） | 低 |
+| 部署 | 每任務一個模型 | 一個基底模型 + 多個轉接器 |
+| **結論**| 僅限基礎訓練 | **生產標準** |
+
+---
+
+## 超參數調校
+
+### 1. 學習率（LR）
+
+- **SFT**：`1e-5` 至 `5e-5` 是標準。
+- **過高**：模型「崩潰」並開始重複或說胡話。
+
+### 2. LoRA 的 Rank（r）
+
+- 複雜推理任務：高 rank（`r=64` 至 `r=256`）。
+- 簡單風格/語氣變換：低 rank（`r=8`）。
+
+### 3. 封裝訓練（Packing）
+
+為最大化吞吐量，我們將多個短範例「封裝」進單一 4K 或 8K 序列，以 EOS token 分隔。
+- **挑戰**：自注意力可能跨範例洩漏。
+- **解決方案**：**FlashAttention 與 block-masking** 防止跨範例注意力。
+
+---
+
+## 面試問題
+
+### Q：為什麼使用持續預訓練而不是將領域資料放進 SFT 集？
+
+**最佳答案：**
+
+SFT 在資料創建方面「昂貴」——你需要提示/回應配對。持續預訓練讓你利用大規模、未標記的領域原始文字來教授模型內部表示法專業詞彙與風格。一旦模型「會說這種語言」，你用小型 SFT 集來教授其中的「任務」（如分類、摘要）。
+
+### Q：如何在微調期間防止模型「遺忘」通用能力？
+
+**最佳答案：**
+
+這就是「災難性遺忘」。兩種主要緩解：
+1. **演練（Rehearsal）：** 將 5-10% 的原始預訓練資料混合進微調集。
+2. **PEFT（LoRA）：** 由於我們只訓練一小部分權重，原始「知識」保留在基底模型權重中，顯著降低遺忘風險。
+
+---
+
+## 參考資料
+
 - Hu et al. "LoRA: Low-Rank Adaptation of Large Language Models" (2021)
 - Ouyang et al. "Training language models to follow instructions" (InstructGPT, 2022)
 - Dettmers et al. "QLoRA: Efficient Finetuning of Quantized LLMs" (2023)
 
 ---
 
-*Next: [LoRA, QLoRA, and PEFT](03-lora-qlora-peft.md)*
+*下一篇：[LoRA、QLoRA 與 PEFT](03-lora-qlora-peft.md)*
