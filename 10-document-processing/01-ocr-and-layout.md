@@ -1,6 +1,6 @@
 # OCR 和版面分析
 
-傳統 OCR（Tesseract、專業引擎）在很大程度上已被**原生多模態 LLM**（Gemini 3.1 Pro、GPT-5.5、Claude Sonnet 4.6、Claude Opus 4.7）取代。我們不再「讀取字元」；我們「理解版面」。
+傳統 OCR（Tesseract、專業引擎）在很大程度上已被**原生多模態 LLM**（Gemini 3.1 Pro、GPT-4o、Claude Sonnet 4、Claude Opus 4）取代。我們不再「讀取字元」；我們「理解版面」。
 
 ## 目錄
 
@@ -16,7 +16,7 @@
 
 ## 轉變：傳統 OCR 對比 Vision-LLM
 
-| 功能 | 傳統 OCR（Tesseract/AWS Textract） | Vision-LLM（Gemini 3.1 Pro、GPT-5.5、Claude Opus 4.7） |
+| 功能 | 傳統 OCR（Tesseract/AWS Textract） | Vision-LLM（Gemini 3.1 Pro、GPT-4o、Claude Opus 4） |
 |---------|-------------------------------------------|--------------------------------------------------------|
 | **主要機制** | 字元辨識 | 視覺 token 理解 |
 | **邏輯** | 點和線分析 | 語意上下文 |
@@ -57,7 +57,7 @@
 | 模型層級 | 使用案例 | 延遲 | 成本（1K 頁面） |
 |------------|----------|---------|-----------------|
 | **Gemini 3.1 Flash** | 高容量批次 | 1-2秒/頁 | $1-3 |
-| **GPT-5.5 / Claude Sonnet 4.6** | 高精度 / 法律 | 3-5秒/頁 | $8-18 |
+| **GPT-4o / Claude Sonnet 4** | 高精度 / 法律 | 3-5秒/頁 | $8-18 |
 | **本地（Llama 4 Vision）** | PII 敏感 / 內部部署 | <1秒/頁 | 僅基礎設施 |
 
 ---
