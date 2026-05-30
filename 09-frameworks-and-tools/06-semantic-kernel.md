@@ -1,70 +1,71 @@
 # Semantic Kernel
 
-**Semantic Kernel (SK)** is Microsoft's engine for enterprise-grade AI orchestration. It remains the primary bridge for organizations committed to the **Azure/Microsoft ecosystem** and **C#/.NET** architectures, though much of its forward momentum now ships inside the **Microsoft Agent Framework** (the consolidated successor to AutoGen + SK, RC 1.0 February 2026, GA Q2 2026).
+**Semantic Kernel（SK）** 是 Microsoft 的企業級 AI 編排引擎。它仍然是致力於 **Azure/Microsoft 生態系統**和 **C#/.NET** 架構的組織的主要橋樑，儘管其大部分前進動力現在在 **Microsoft Agent Framework** 內發布（這是 AutoGen + SK 的統一後續版本，2026 年 2 月 RC 1.0，2026 年 Q2 GA）。
 
-## Table of Contents
+## 目錄
 
-- [Enterprise DNA](#dna)
-- [Plugins and Planners](#plugins)
-- [Memory and Connectors](#memory)
-- [Multi-Language Support (C# vs. Python)](#multi-language)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## Enterprise DNA
-
-While LangChain is favored by startups, Semantic Kernel is favored by **Banks and Fortune 500s**.
-- **Dependency Injection**: SK follows standard enterprise design patterns.
-- **Strong Typing**: First-class support for C# types makes it highly reliable in large-scale mission-critical systems.
-- **Security**: Deep integration with Azure Active Directory (Microsoft Entra ID) and Managed Identities.
+- [企業 DNA](#dna)
+- [外掛和規劃器](#plugins)
+- [記憶體和連接器](#memory)
+- [多語言支援（C# 對比 Python）](#multi-language)
+- [面試題目](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Plugins and Planners
+## 企業 DNA
 
-1. **Kernel Functions**: The basic unit of logic (Native code or LLM prompts).
-2. **Plugins**: A collection of functions (e.g., a "GitHub Plugin" or an "SQL Plugin").
-3. **Planners**: SK's planners have evolved from simple ReAct to **Hierarchical Planners** that can coordinate long-running business processes across multiple days.
-
----
-
-## Memory and Connectors
-
-Semantic Kernel uses **Connectors** to abstract away the underlying infrastructure.
-- **Universal Connectors**: One interface for OpenAI, Mistral, and local Onyx models.
-- **Vector Store Abstraction**: Seamlessly switch between Azure AI Search, Pinecone, and Qdrant without changing the core business logic.
+當 LangChain 被新創公司偏好時，Semantic Kernel 被**銀行和財富 500 強**偏好。
+- **依賴注入**：SK 遵循標準企業設計模式。
+- **強型別**：C# 型別的一級支援使其在大型任務關鍵系統中具有高可靠性。
+- **安全性**：與 Azure Active Directory（Microsoft Entra ID）和受控識別的深度整合。
 
 ---
 
-## Multi-Language Support
+## 外掛和規劃器
 
-SK is one of the few major frameworks that treats C# and Python as equals.
-- **The Pattern**: Develop and prototype in Python; deploy the core orchestration in C# for performance and type-safety.
-- **Logic Sharing**: Shared prompt templates (.yaml) that work across both languages.
-
----
-
-## Interview Questions
-
-### Q: Why would a Staff Engineer choose Semantic Kernel over LangChain?
-
-**Strong answer:**
-**Architectural Alignment**. If an organization is already built on the .NET/Azure stack, Semantic Kernel fits into their existing CI/CD, monitoring (App Insights), and security (Entra ID) pipelines. LangChain often feels like an "external" piece of tech. Furthermore, SK's **Strong Typing** and **Dependency Injection** patterns prevent the "spaghetti code" that often plagues large LangChain projects. For an enterprise handling sensitive financial data, the **Native Azure integration** for security and auditing is the deciding factor.
-
-### Q: What is the "Function Calling" abstraction in Semantic Kernel?
-
-**Strong answer:**
-SK uses a **Plugin-based model**. Every function (native C# or LLM-based) is registered with the Kernel. When the LLM decides it needs a tool, the Kernel looks up the function in the Plugin registry, validates the parameters, and executes it. SK now supports **Automatic Intent Detection**: the Kernel can proactively suggest which Plugin a user might need before they even ask, based on the current context window.
+1. **Kernel 函式**：基本邏輯單位（原生程式碼或 LLM 提示詞）。
+2. **外掛**：函式集合（例如「GitHub 外掛」或「SQL 外掛」）。
+3. **規劃器**：SK 的規劃器已從簡單的 ReAct 演變為**階層規劃器**，可以協調跨越多天的長期業務流程。
 
 ---
 
-## References
-- Microsoft Learn. "Semantic Kernel Documentation" (2025)
-- Azure Architecture Center. "AI Design Patterns with Semantic Kernel" (2025)
-- Build 2025. "The Future of Copilots with SK" (2025 Conference Recap)
+## 記憶體和連接器
+
+Semantic Kernel 使用**連接器**來抽象底層基礎設施。
+- **通用連接器**：一個介面適用於 OpenAI、Mistral 和本地 Onyx 模型。
+- **向量儲存抽象**：無需更改核心業務邏輯，即可無縫切換 Azure AI Search、Pinecone 和 Qdrant。
 
 ---
 
-*Next: [AutoGen and CrewAI](07-autogen-crewai.md)*
+## 多語言支援
+
+SK 是少數主要框架中將 C# 和 Python 視為平等的框架之一。
+- **模式**：在 Python 中開發和原型設計；在 C# 中部署核心編排以提高效能和型別安全。
+- **邏輯共享**：跨兩種語言工作的共享提示範本（.yaml）。
+
+---
+
+## 面試題目
+
+### Q：為何 Staff 工程師會選擇 Semantic Kernel 而非 LangChain？
+
+**強烈回答：**
+**架構對齊**。如果一個組織已經建立在 .NET/Azure 堆疊上，Semantic Kernel 適合其現有的 CI/CD、監控（App Insights）和安全（Entra ID）管線。LangChain 通常感覺像是一個「外部」技術片段。此外，SK 的**強型別**和**依賴注入**模式防止了大型 LangChain 專案中常見的「義大利麵程式碼」。對於處理敏感財務資料的企業，**原生 Azure 整合**（安全和審計）是決定性因素。
+
+### Q：Semantic Kernel 中的「函式呼叫」抽象是什麼？
+
+**強烈回答：**
+SK 使用**基於外掛的模型**。每個函式（原生 C# 或基於 LLM）都向 Kernel 註冊。當 LLM 決定需要工具時，Kernel 在外掛登錄中查詢函式、驗證參數並執行它。SK 現在支援**自動意圖檢測**：基於當前上下文視窗，Kernel 可以主動建議使用者可能需要的外掛，而無需他們提出要求。
+
+---
+
+## 參考文獻
+
+- Microsoft Learn。〈Semantic Kernel 文件〉（2025）
+- Azure Architecture Center。〈使用 Semantic Kernel 的 AI 設計模式〉（2025）
+- Build 2025。〈SK 輔助的未來〉（2025 會議回顧）
+
+---
+
+*下一篇：[AutoGen 和 CrewAI](07-autogen-crewai.md)*
