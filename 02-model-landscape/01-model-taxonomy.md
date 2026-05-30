@@ -4,7 +4,7 @@
 
 > **最後驗證日期：2026 年 5 月 29 日。** 模型全景變化迅速，請務必交叉查核供應商定價頁面與版本說明。
 >
-> **2026 年 5 月——自四月更新以來的新動態：** Anthropic Claude Opus 4.8（5 月 28 日，與 Opus 4.7 定價相同 $5/$25；Dynamic Workflows 研究預覽，支援數百個平行子代理；fast mode $10/$50，比 Opus 4.7 fast mode 便宜 3 倍）；OpenAI GPT-5.5（4 月 23 日）與 GPT-5.5 Instant（5 月 5 日，ChatGPT 預設）；Claude Opus 4.7（4 月 16 日，GA 版本於 Bedrock/Vertex/Foundry）；Claude Mythos Preview（受限，僅限 Project Glasswing 合作夥伴）；Google Gemma 4（4 月 2 日，Apache 2.0）與 Gemini 3.2 Flash（5 月 5 日低調推出）；DeepSeek V4 Pro 與 V4 Flash（4 月 24 日；75% V4 Pro 折扣於 5 月 22 日永久化，新定價 $0.435/$0.87/百萬 token，6 月 1 日起生效）；Moonshot Kimi K2.6（4 月 20 日，1T MoE / 32B 活躍參數）；Alibaba Qwen 3.6 Plus / 3.6-35B-A3B / 3.6 Max-Preview；Mistral Medium 3.5（4 月 29 日，統一 chat/reasoning/coding/vision）；Meta Muse Spark（4 月 8 日，首個封閉權重的 Meta 模型）；Llama 4 Behemoth 因能力疑慮暂停發布至 2026 年秋季。SWE-bench Verified 排行榜：Claude Mythos Preview 93.9%、GPT-5.5 88.7%、Claude Opus 4.8 88.6%、Claude Opus 4.7 87.6%；ARC-AGI-2 榜首：GPT-5.5 達 85.0%。
+> **2026 年 5 月——自四月更新以來的新動態：** Anthropic Claude Opus 4.8（5 月 28 日，與 Opus 4.7 定價相同 $5/$25；Dynamic Workflows 研究預覽，支援數百個平行子代理；fast mode $10/$50，比 Opus 4.7 fast mode 便宜 3 倍）；OpenAI GPT-5.5（4 月 23 日）與 GPT-5.5 Instant（5 月 5 日，ChatGPT 預設）；Claude Opus 4.7（4 月 16 日，GA 版本於 Bedrock/Vertex/Foundry）；Claude Mythos Preview（受限，僅限 Project Glasswing 合作夥伴）；Google Gemma 4（4 月 2 日，Apache 2.0）與 Gemini 3.2 Flash（5 月 5 日低調推出）；DeepSeek V4 Pro 與 V4 Flash（4 月 24 日；75% V4 Pro 折扣於 5 月 22 日永久化，新定價 $0.435/$0.87/百萬 token，6 月 1 日起生效）；Moonshot Kimi K2.6（4 月 20 日，1T MoE / 32B 活躍參數）；Alibaba Qwen 3.6 Plus / 3.6-35B-A3B / 3.6 Max-Preview；Mistral Medium 3.5（4 月 29 日，統一 chat/reasoning/coding/vision）；Meta Muse Spark（4 月 8 日，首個封閉權重的 Meta 模型）；Llama 4 Behemoth 因能力疑慮暫停發布至 2026 年秋季。SWE-bench Verified 排行榜：Claude Mythos Preview 93.9%、GPT-5.5 88.7%、Claude Opus 4.8 88.6%、Claude Opus 4.7 87.6%；ARC-AGI-2 榜首：GPT-5.5 達 85.0%。
 
 ## 目錄
 
@@ -280,7 +280,7 @@
 | 特點 | 原生工具使用與即時搜尋；具競爭力的推理 |
 | 發布日期 | 2025 年 7 月（Grok 4.20 beta：2026 年 2 月） |
 
-**最佳用途：** 即時網路研究、推理密集任務、即时 X/網路整合。
+**最佳用途：** 即時網路研究、推理密集任務、即時 X/網路整合。
 **注意事項：** Grok 4.1 Fast 以 $0.20/$0.50 供高流量使用。
 
 ### 前沿層級模型比較（2026 年 5 月）
