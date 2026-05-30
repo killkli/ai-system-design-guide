@@ -1,101 +1,110 @@
-# Knowledge Distillation
+# 知識蒸餾
 
-Knowledge distillation is the process of transferring the intelligence from a large, complex model ("Teacher") to a smaller, more efficient one ("Student"). This is the secret to the high performance of today's small open-weight models that punch well above their parameter count.
+知識蒸餾是將大型複雜模型（「教師」）的智慧轉移至較小、更高效的模型（「學生」）的過程。這是當今小型開權重模型的出色效能的秘密，它們以遠低於參數計數的方式發揮實力。
 
-## Table of Contents
+## 目錄
 
-- [The Teacher-Student Paradigm](#teacher-student-paradigm)
-- [How Distillation Works](#how-distillation-works)
-- [Feature vs. Output Distillation](#feature-vs-output)
-- [Self-Distillation from Proof (SDP)](#self-distillation-proof)
-- [Quantization-Aware Distillation](#quantization-aware-distillation)
-- [Interview Questions](#interview-questions)
-- [References](#references)
+- [師生範式](#師生範式)
+- [蒸餾如何運作](#蒸餾如何運作)
+- [特徵蒸餾 vs. 輸出蒸餾](#特徵蒸餾-vs-輸出蒸餾)
+- [來自證明的自蒸餾（SDP）](#來自證明的自蒸餾sdp)
+- [量化感知蒸餾](#量化感知蒸餾)
+- [面試問題](#面試問題)
+- [參考資料](#參考資料)
 
 ---
 
-## The Teacher-Student Paradigm
+## 師生範式
 
-Small models (e.g., Llama 4 8B, Gemini 3.1 Flash, Claude Haiku 4.5) are not trained on raw web data alone. They are trained on **Synthetic Data** generated or curated by a much larger model (e.g., GPT-5.5, Claude Opus 4.7, or Llama 4 405B).
+小型模型（如 Llama 4 8B、Gemini 3.1 Flash、Claude Haiku 4.5）並非僅從原始網頁資料訓練。它們由大得多的模型（如 GPT-5.5、Claude Opus 4.7、Llama 4 405B）生成或策劃的**合成資料**訓練。
 
-| Model | Role | Intelligence Source |
+| 模型 | 角色 | 智慧來源 |
 |-------|------|---------------------|
-| **Teacher** | Large (100B+ Params) | Pretraining on 50T+ tokens |
-| **Student** | Small (1B - 8B Params) | Teacher's filtered logic/output |
+| **教師** | 大型（100B+ 參數） | 50T+ tokens 上預訓練 |
+| **學生** | 小型（1B - 8B 參數） | 教師的過濾邏輯/輸出 |
 
 ---
 
-## How Distillation Works
+## 蒸餾如何運作
 
-### 1. Hard Label Distillation
-The student learns from the teacher's final predictions (e.g., the answer to a question).
+### 1. 硬標籤蒸餾
 
-### 2. Soft Label Distillation (Temperature Scaling)
-The student learns from the teacher's **probability distribution** (Logits). This is much richer because it tells the student not just the right answer, but which wrong answers were "almost" right.
+學生從教師的最終預測（如問題的答案）學習。
+
+### 2. 軟標籤蒸餾（溫度縮放）
+
+學生從教師的**機率分布（Logits）**學習。這豐富得多，因為它告訴學生不僅是正確答案，還有哪個錯誤答案「幾乎」是正確的。
 
 ```python
-# Distillation Loss (KL Divergence):
+# 蒸餾損失（KL 散度）：
 Loss = KL_Div(Teacher_Logits / T, Student_Logits / T)
 ```
-*Where T is the Temperature (typically 2.0 - 5.0).*
+
+*其中 T 是溫度（通常為 2.0 - 5.0）。*
 
 ---
 
-## Feature vs. Output Distillation
+## 特徵蒸餾 vs. 輸出蒸餾
 
-### Output Distillation (Standard)
-Student matches the teacher's text responses.
-- **Pros**: Easy to implement via API.
-- **Cons**: Only learns behavioral surface patterns.
+### 輸出蒸餾（標準）
 
-### Feature/Hidden State Distillation
-Student matches the inner **Hidden States** (vector representations) of the teacher.
-- **Requirement**: You need access to the teacher's weights (Open Weights).
-- **Pro**: The student learns the teacher's "internal conceptual map," leading to much higher reasoning depth.
+學生匹配教師的文字回應。
+- **優點**：易於透過 API 實現。
+- **缺點**：僅學習行為表面模式。
 
----
+### 特徵/隱藏狀態蒸餾
 
-## Self-Distillation from Proof (SDP)
-
-**The reasoning breakthrough.**
-Models like o1, DeepSeek-R1, and Claude Opus 4.7 use SDP to improve without new human data.
-
-1. **Generation**: The model generates 100 possible solutions to a hard math/code problem.
-2. **Verification**: A rule-based system (compiler/calculator) identifies the 1 correct solution.
-3. **Distillation**: The model is fine-tuned on the "Chain of Thought" (CoT) that led to that correct solution.
-
-**Result**: The model "distills itself" by keeping only the high-quality reasoning paths.
+學生匹配教師的內部**隱藏狀態**（向量表示）。
+- **需求**：你需要存取教師的權重（開權重）。
+- **優點**：學生學習教師的「內部概念圖」，導致推理深度高得多。
 
 ---
 
-## Quantization-Aware Distillation
+## 來自證明的自蒸餾（SDP）
 
-Standard quantization (e.g., 16-bit to 4-bit) causes a small drop in accuracy.
-**The Fix**: Use Knowledge Distillation *during* the quantization process. The 16-bit model acts as the teacher, guiding the 4-bit model to minimize its error. This is how modern 4-bit models match 16-bit performance.
+**推理突破。**
 
----
+o1、DeepSeek-R1 與 Claude Opus 4.7 等模型使用 SDP 在沒有新人類資料的情況下改進。
 
-## Interview Questions
+1. **生成**：模型為難題/代碼問題生成 100 種可能解法。
+2. **驗證**：基於規則的系統（編譯器/計算器）識別 1 個正確解法。
+3. **蒸餾**：模型在導向該正確解法的「思維鏈（CoT）」上微調。
 
-### Q: Why is a distilled 8B model better than an 8B model trained from scratch on the same tokens?
-
-**Strong answer:**
-Training from scratch (Pretraining) on raw web data is noisy; the model spends a lot of capacity learning to navigate that noise. A distilled model, however, is trained on a "purified" curriculum. The teacher model acts as a high-quality filter, providing structured logic, clear explanations, and a cleaner distribution of language. Essentially, the teacher provides "hints" through its logit distribution that tell the student exactly which features of the language are most important to learn.
-
-### Q: What are the risks of using GPT-4o as a teacher to distill a Llama student?
-
-**Strong answer:**
-1. **Model Collapse**: If the student only sees the teacher's output, it may lose the "long tail" of creative or diverse knowledge and only learn the teacher's narrow biases.
-2. **License Violations**: Most proprietary models (OpenAI, Anthropic) have clauses forbidding the use of their outputs to train "competing" models. This is a major legal risk for enterprises distilling their own models from API outputs.
-3. **Linguistic Mimicry**: The student might learn to *sound* confident (like the teacher) without actually having the same level of logical depth, leading to confident but incorrect hallucinations.
+**結果**：模型透過僅保留高質量推理路徑來「蒸餾自身」。
 
 ---
 
-## References
+## 量化感知蒸餾
+
+標準量化（如 16-bit 至 4-bit）導致準確度輕微下降。
+**修復方法**：在量化*過程中*使用知識蒸餾。16-bit 模型作為教師，引導 4-bit 模型最小化其誤差。這是現代 4-bit 模型匹配 16-bit 效能的方式。
+
+---
+
+## 面試問題
+
+### Q：為什麼蒸餾的 8B 模型比從頭訓練的 8B 模型在同一 tokens 上更好？
+
+**最佳答案：**
+
+從頭訓練（預訓練）於原始網頁資料是嘈雜的；模型花費大量容量學習導航該噪音。然而，蒸餾模型在「淨化」課程上訓練。教師模型作為高品質過濾器，提供結構化邏輯、清晰解釋與更乾淨的語言分布。 essentially，教師透過其 logit 分布提供「提示」，告訴學生語言的哪些特徵最重要學習。
+
+### Q：使用 GPT-4o 作為教師蒸餾 Llama 學生的風險是什麼？
+
+**最佳答案：**
+
+1. **模型崩潰**：如果學生只看教師輸出，它可能失去「長尾」創意或多樣知識，只學習教師的狹窄偏見。
+2. **授權違規**：大多數專有模型（OpenAI、Anthropic）有條款禁止使用其輸出訓練「競爭」模型。這對企業從 API 輸出蒸餾自己的模型是重大法律風險。
+3. **語言模仿**：學生可能學會像教師一樣「自信」（不正確的幻覺），而實際上沒有相同層次的邏輯深度。
+
+---
+
+## 參考資料
+
 - Hinton et al. "Distilling the Knowledge in a Neural Network" (2015)
 - Gou et al. "Knowledge Distillation: A Survey" (2021)
 - DeepSeek. "DeepSeek-R1: Incentivizing Reasoning Capability" (2025)
 
 ---
 
-*Next: [Synthetic Data Generation](06-synthetic-data-generation.md)*
+*下一篇：[合成資料生成](06-synthetic-data-generation.md)*
