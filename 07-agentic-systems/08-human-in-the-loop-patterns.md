@@ -1,85 +1,86 @@
-# Human-in-the-Loop Patterns
+# 人類在迴圈中模式
 
-No agent is 100% reliable. **Human-in-the-Loop (HITL)** is the bridge that ensures safety and accuracy in high-stakes environments. Production stacks have moved beyond "Approval Buttons" to **Co-Reasoning** and **Interrupt-Based Steering**, exposed natively in frameworks like LangGraph (interrupt+resume) and Microsoft Agent Framework.
+沒有代理是 100% 可靠的。**人類在迴圈中（Human-in-the-Loop, HITL）** 是確保高風險環境中安全與準確的橋樑。生產堆疊已從「審批按鈕」演進至**共同推理**與**中斷式轉向**，在 LangGraph（interrupt+resume）與 Microsoft Agent Framework 等框架中原生暴露。
 
-## Table of Contents
+## 目錄
 
-- [The HITL Spectrum](#spectrum)
-- [Interrupts and Breakpoints](#interrupts)
-- [Time-Travel Debugging (State Editing)](#time-travel)
-- [Co-Reasoning (Shared Scratchpads)](#co-reasoning)
-- [Confidence-Based Escalation](#escalation)
-- [Interview Questions](#interview-questions)
-- [References](#references)
-
----
-
-## The HITL Spectrum
-
-| Pattern | Agent Autonomy | Human Role | Best For |
-|---------|---------------|------------|----------|
-| **Human-in-command** | Low | Drives every step | High-risk Legal/Medical |
-| **Human-as-filter** | Medium | Approves/Edits final output | Content Generation |
-| **Human-as-backup** | High | Only intervenes on error | Customer Support |
-| **Human-on-the-loop** | Max | Audits logs after completion | High-volume analysis |
+- [HITL 光譜](#spectrum)
+- [中斷與檢查點](#interrupts)
+- [時間旅行除錯（狀態編輯）](#time-travel)
+- [共同推理（共享演算本）](#co-reasoning)
+- [信心 기반 升級](#escalation)
+- [面試問題](#interview-questions)
+- [參考文獻](#references)
 
 ---
 
-## Interrupts and Breakpoints
+## HITL 光譜
 
-Modern architectures (LangGraph, Microsoft Agent Framework) use **Deterministic Breakpoints**.
-
-- **The Pattern**: The system is hardcoded to "Pause" before a specific sensitive tool is called (e.g., `execute_purchase` or `delete_user`).
-- **The Decision**: The environment waits for a user to send an `approve` or `reject` signal.
-- **State Preservation**: The agent's reasoning state is "Frozen" in the DB until the human acts.
-
----
-
-## Time-Travel Debugging (State Editing)
-
-Standard agents are "One-way." If they make a mistake in Step 3, the session is usually ruined.
-- **Innovation**: **State Injection**. A human reviewer can "Go back" to the state at Step 3, edit the agent's observation or thought, and then "Resume" execution.
-- **Impact**: It allows humans to "Steer" the agent off a bad path without starting from zero.
+| 模式 | 代理自主性 | 人類角色 | 最適合 |
+|------|-----------|---------|--------|
+| **人類指揮** | 低 | 驅動每一步 | 高風險法律/醫療 |
+| **人類作為過濾器** | 中 | 審批/編輯最終輸出 | 內容生成 |
+| **人類作為備份** | 高 | 僅在錯誤時介入 | 客戶服務 |
+| **人類在迴圈上** | 最高 | 完成後審計日誌 | 大容量分析 |
 
 ---
 
-## Co-Reasoning (Shared Scratchpads)
+## 中斷與檢查點
 
-Instead of the human being a "Judge," they become a **"Partner."**
-- The agent shows its **Scratchpad** (Internal Thinking) to the human.
-- Characterized as: *"I am planning to use Tool A because of Fact B. Does that seem right to you?"*
-- **Benefit**: Catching reasoning errors *before* they translate into actions.
+現代架構（LangGraph、Microsoft Agent Framework）使用**确定性檢查點**。
 
----
-
-## Confidence-Based Escalation
-
-Using models that support "Logprobs" or built-in reasoning steps, we calculate an **Uncertainty Score**.
-
-- If the score exceeds a threshold, the agent **Automatically Pauses** and sends a notification to a human operator.
-- **Example**: An agent trying to resolve a complex billing dispute realizes the user's intent is ambiguous. It stops and says: *"I'm not 100% sure how to handle this specific refund case. One moment while I get a human expert to look at this."*
+- **模式**：系統被硬編碼為在呼叫特定敏感工具前「暫停」（例如 `execute_purchase` 或 `delete_user`）。
+- **決策**：環境等待使用者發送 `approve` 或 `reject` 訊號。
+- **狀態保存**：代理的推理狀態在人類行動前「凍結」在資料庫中。
 
 ---
 
-## Interview Questions
+## 時間旅行除錯（狀態編輯）
 
-### Q: How do you design an HITL system that doesn't "Fatigue" the human operator?
-
-**Strong answer:**
-We use **Threshold Tuning**. We don't ask for approval on every action. We only trigger HITL for: 1) High-risk "Writing" tools, 2) Low-confidence reasoning steps, or 3) Actions that violate a "Policy" set by the business. Additionally, we provide the human with a **Contextual Summary**—instead of the whole log, we show them a 1-sentence "Diff" of what the agent wants to do. This reduces the "Review cognitive load" from minutes to seconds.
-
-### Q: What is the "Over-Reliance" risk in HITL, and how do you mitigate it?
-
-**Strong answer:**
-Over-reliance happens when humans start clicking "Approve" without reading the logs. We mitigate this with **Forced Review Checkpoints** (e.g., the human MUST edit at least one word in the proposed plan) or **Synthetic Error Injections** (intentionally showing the human a "wrong" plan 1% of the time to see if they catch it). If they pass the "Trap," they continue; if they fail, they are flagged for additional training.
+標準代理是「單向的」。如果它在步驟 3 犯錯，工作階段通常就毀了。
+- **創新**：**狀態注入**。人類審查者可以「返回」步驟 3 的狀態，編輯代理的觀察或思考，然後「恢復」執行。
+- **影響**：它允許人類在不從零開始的情況下將代理「轉向」脫離錯誤路徑。
 
 ---
 
-## References
-- Wu et al. "Co-reasoning: Human-AI Collaboration Patterns" (2025)
-- LangChain. "Human-in-the-loop in LangGraph" (2024/2025)
-- Anthropic. "Designing for Safety and Human Oversight" (2024)
+## 共同推理（共享演算本）
+
+人類不是「法官」，而成為**「夥伴」**。
+- 代理向人類展示它的**演算本**（內部思考）。
+- 特徵是：*「我計畫使用工具 A，因為事實 B。這對你來說看起來正確嗎？」*
+- **效益**：在翻譯成動作之前捕獲推理錯誤。
 
 ---
 
-*Next: [Agentic Security and Sandboxing](09-agentic-security-and-sandboxing.md)*
+## 信心 기반 升級
+
+使用支援「對數概率」或內建推理步驟的模型，我們計算**不確定性分數**。
+
+- 如果分數超過閾值，代理**自動暫停**並向人類操作者發送通知。
+- **範例**：代理嘗試解決複雜帳單糾紛時，意識到使用者意圖不明確。它停止並說：*「我不太確定如何處理這個特定的退款情況。請稍候，我請人類專家看一下。」*
+
+---
+
+## 面試問題
+
+### Q：如何設計一個不會「疲勞」人類操作員的 HITL 系統？
+
+**理想回答：**
+我們使用**閾值調整**。我們不要求對每個動作進行審批。我們僅在以下情況觸發 HITL：1）高風險「寫入」工具，2）低信心推理步驟，或 3）違反企業設定「政策」的動作。此外，我們為人類提供**上下文摘要**——而非整個日誌，我們向他們展示代理想要做什麼的 1 句話「diff」。這將「審查認知負載」從分鐘減少到秒。
+
+### Q：HITL 中的「過度依賴」風險是什麼，如何緩解？
+
+**理想回答：**
+過度依賴發生在人們開始不閱讀日誌就點擊「審批」時。我們透過**強制審查檢查點**（例如，人類*必須*在提議的計畫中編輯至少一個單詞）或**合成錯誤注入**（故意 1% 的時間向人類展示「錯誤」計畫，看他們是否 catch 得到）來緩解。如果他們通過「陷阱」，他們繼續；如果失敗，他們被標記為需要額外培訓。
+
+---
+
+## 參考文獻
+
+- Wu et al. 《共同推理：人 AI 協作模式》（2025）
+- LangChain. 《LangGraph 中的人類在迴圈》（2024/2025）
+- Anthropic. 《為安全與人類監督設計》（2024）
+
+---
+
+*下一篇：[代理安全與沙箱](09-agentic-security-and-sandboxing.md)*
